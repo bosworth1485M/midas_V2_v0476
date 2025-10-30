@@ -1,0 +1,126 @@
+and in future versions should we implement support and resistance zone tracking?
+ChatGPT said:
+Thought for 5s
+
+Short answer: yes—add S/R tracking, but do it after adaptive sizing. It reliably boosts expectancy by improving entry quality, stop placement, and target selection without exploding complexity.
+
+Here’s a lean, safe plan that fits your current tree and avoids breaking runs.
+
+What to add (phased)
+
+v0.4.1 – S/R “Lite” (lowest effort, biggest gain)
+
+Zones to compute (frozen once per day):
+
+PMH/PML (pre-market high/low)
+
+PDH/PDL (prior day high/low)
+
+IBH/IBL (initial balance high/low = first 15 min)
+
+VWAP + VWAP slope (intraday; slope gate already familiar)
+
+EMA9 / EMA20
+
+Signals (opt-in flags):
+
+reclaim_ref: ["VWAP","EMA9","PMH"] (enter only on reclaim of any allowed ref)
+
+avoid_into_resistance: true (block new longs if entry is within X bps of nearest resistance above)
+
+Risk/targets:
+
+sl_mode="under_support" with sl_offset_bps
+
+tp_mode="next_resistance_band" with tp_buffer_bps
+
+Safeguards:
+
+Freeze PMH/IBH at the moment gate opens; no repaint.
+
+If multiple refs reclaim same bar, prefer VWAP → EMA9 → PMH (stable precedence).
+
+Expected impact: smaller average loss, higher quality entries; clean logs.
+
+v0.4.2 – S/R “Plus”
+
+Pivot highs/lows (swing-based) with a tiny lookback (e.g., 2-2 pivots).
+
+Anchored VWAP options (anchor at open or PMH breakout).
+
+Volume-by-price shelves (simple): detect price bands with high traded volume (1-min approximation).
+
+v0.4.3 – S/R “Pro”
+
+Multi-band resistance laddering for auto-partials (e.g., partial at first band, BE stop, runner to second band).
+
+Optional second-chance reclaim (after a clean retest).
+
+Config sketch (drop-in JSON, no new scripts)
+{
+  "sr": {
+    "enabled": true,
+    "reclaim_ref": ["VWAP", "EMA9", "PMH"],
+    "gate_minutes": 15,
+    "avoid_into_resistance": true,
+    "min_clearance_bps": 15,
+    "sl_mode": "under_support",
+    "sl_offset_bps": 8,
+    "tp_mode": "next_resistance_band",
+    "tp_buffer_bps": 10
+  }
+}
+
+Minimal engine wiring (what to change)
+
+Feature calc (once/day & incremental):
+
+Precompute PMH/PML, PDH/PDL, IBH/IBL before the gate.
+
+Stream VWAP, EMA9, EMA20 each bar; store vwap_slope_bps.
+
+Entry filter:
+
+If sr.enabled and reclaim_ref contains a ref, require close > ref and prior bar close <= ref (true reclaim).
+
+If avoid_into_resistance, find nearest resistance above; require resistance - entry_price >= min_clearance_bps.
+
+Stops/targets:
+
+SL = min(selected_support) - sl_offset_bps.
+
+TP = nearest_resistance_above - tp_buffer_bps. Keep your existing fixed TP/SL as fallback if no bands found.
+
+Logging (critical for trust):
+
+Record sr.entry_ref, sr.nearest_resistance, sr.stop_support, sr.tp_band, sr_clearance_bps.
+
+Test plan (quick & decisive)
+
+Dates: reuse Aug-05/06/07 (your standard set).
+
+Scenario: B (unchanged signals), run A/B test:
+
+Baseline: v0.3.47 profile (no S/R).
+
+Variant: enable sr.enabled=true with config above.
+
+KPIs to compare: win rate, avg loss size, expectancy (R/trade), and % trades blocked by “into resistance”.
+
+Pass criteria: avg loss ↓ ≥10–20%, expectancy ↑ ≥0.1 R, trade count not reduced by >30%.
+
+Why this works for your “high-WR / low-PnL” symptom
+
+Tighter, structure-based SL → smaller losers.
+
+Band-aware targets → fatter winners / smarter partials.
+
+Reclaim entries → reduce chasing into ceilings.
+
+Priority call
+
+Do adaptive sizing in v0.4.0 first (it directly fixes low expectancy).
+
+Then ship v0.4.1 S/R Lite exactly as above—small, surgical, reversible, and it plays perfectly with sizing, catalysts, and RVOL.
+
+If you want, I can generate the exact Python diffs (functions/stubs for compute_sr_levels, find_nearest_band, and the entry/exit hooks) tailored to src/midas_v2/* so you can paste them in without touching runners.

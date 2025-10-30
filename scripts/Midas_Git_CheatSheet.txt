@@ -1,0 +1,16 @@
+==============================
+   Midas_V2 Git Cheat Sheet
+==============================
+
+🟢 Save your changes to GitHub:
+   Double-click scripts\save_and_push.cmd
+   (or save_and_push.ps1 in PowerShell)
+
+🟡 Update from GitHub:
+   Double-click scripts\update_from_github.cmd
+   (or update_from_github.ps1 in PowerShell)
+
+📌 Notes:
+- Enter a short message each time you save (e.g., "tuned risk manager").
+- Update before working if you've used GitHub on another PC.
+- Results, logs, and .env are ignored (not pushed).

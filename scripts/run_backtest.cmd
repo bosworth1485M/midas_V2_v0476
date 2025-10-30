@@ -1,0 +1,13 @@
+@echo off
+REM Run from project root and expose src/ to Python
+cd /d %~dp0..
+set "PYTHONPATH=%cd%\src"
+
+set DATE=2025-08-05
+set UNIVERSE=data\samples\universe_sample.txt
+set SCENARIO=B
+set OUT=out\smoketest
+
+python -m midas_v2.cli backtest --date %DATE% --universe %UNIVERSE% --scenario %SCENARIO% --out %OUT%
+
+pause

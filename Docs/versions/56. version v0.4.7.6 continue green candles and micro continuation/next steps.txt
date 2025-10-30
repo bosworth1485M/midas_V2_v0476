@@ -1,0 +1,95 @@
+Great question. You don’t need to eyeball candles to know the feature is working. The goal is to prove—quantitatively—that the micro plug-in is being called and is influencing entries/outcomes, all while keeping changes tiny and reversible.
+
+Below are three progressively stronger ways to verify, keeping your “add a bit → run existing logic” discipline.
+
+0) Quick sanity: is micro enabled for this scenario?
+
+(Zero code changes.)
+
+python -c "from pathlib import Path; import sys; sys.path.insert(0,'src'); from midas_v2.features.registry import FeatureRegistry as R; R.load(Path('.').resolve()); print('micro enabled for B?', R.is_enabled('micro','B'))"
+
+
+Expected: True (you turned it on for B).
+
+1) A/B without any code edits (quantifies effect)
+
+Run B (micro ON) and B_safe (micro OFF) on the same date/range and compare:
+
+Single day (Aug-05):
+
+python scripts\run_day_simple.py --date 2025-08-05 --scenario B
+python scripts\run_day_simple.py --date 2025-08-05 --scenario B_safe
+
+
+Count entries and outcomes (one-liners):
+
+python -c "import csv; p='out/20250805/B/results_2025-08-05.csv'; print('B trades:', sum(1 for _ in open(p))) if __import__('os').path.exists(p) else print('B trades: 0')"
+python -c "import csv; p='out/20250805/B_safe/results_2025-08-05.csv'; print('B_safe trades:', sum(1 for _ in open(p))) if __import__('os').path.exists(p) else print('B_safe trades: 0')"
+
+
+Range (Aug-05→Aug-31):
+
+python scripts\run_catalyst_range_and_summarize.py --start 2025-08-05 --end 2025-08-31 --scenario B --news-first --require-news --news-min-score 2 --top 3 --enforce-band --band-min 10 --band-max 40 --min-rvol-open 2.0 --gate-minutes 15 --deny-negative --exclude-china --compare --compare-label B_microON
+python scripts\run_catalyst_range_and_summarize.py --start 2025-08-05 --end 2025-08-31 --scenario B_safe --news-first --require-news --news-min-score 2 --top 3 --enforce-band --band-min 10 --band-max 40 --min-rvol-open 2.0 --gate-minutes 15 --deny-negative --exclude-china --compare --compare-label Bsafe_microOFF
+python scripts\scan_run_bundles.py --scenario B --ignore-labels --dedupe-latest --per-day
+
+
+What you should see:
+
+If the feature is active, B will usually have equal or fewer trades than B_safe (blocked entries).
+
+PnL/WR differences tell you if filters help.
+
+No candle inspection needed.
+
+2) Lightweight “proof of call” (add-a-bit, reversible)
+
+If you’d like an affirmative signal the plug-in actually ran and what it decided—add a tiny audit print inside the plug-in, not in strategy. This keeps strategy clean.
+
+Insert one debug print before the return not ok in src\midas_v2\features\micro_feature.py:
+
+python - << "PY"
+import io,re
+p=r"src\\midas_v2\\features\\micro_feature.py"
+s=io.open(p,"r",encoding="utf-8").read()
+s=re.sub(r"(return not ok\s*#.*v0\.4\.8)", r"print(f\"[MICRO] scen={scenario_id} sym={symbol} ts={ts} ok={ok}\")\n    \g<1>", s, count=1)
+io.open(p,"w",encoding="utf-8").write(s); print("[OK] micro debug print inserted")
+PY
+
+
+Run one day for B:
+
+python scripts\run_day_simple.py --date 2025-08-05 --scenario B
+
+
+You’ll see lines like:
+
+[MICRO] scen=B sym=STTK ts=1754401260 ok=True
+
+
+ok=True → continuation confirmed (no block).
+
+ok=False → continuation failed (block).
+
+Revert debug (quiet again):
+
+git checkout -- src\midas_v2\features\micro_feature.py
+
+
+(or restore from your backup if this folder isn’t under git.)
+
+3) Minimal audit file (optional, still outside strategy)
+
+If you prefer a machine-readable record, we can add a 2-line append in the plug-in to write decisions into out/<DATE>/micro_audit.csv using strategy.session_date. This is also strictly outside strategy and is easy to remove. If you want this, say the word and I’ll give you a tiny patch and a one-liner to undo it.
+
+Why this is how the successful teams did it
+
+Features OFF by default via sidecars → no accidental behavior change.
+
+One generic hook (you already have it) → strategy never fills up with chunks.
+
+A/B runs quantify value quickly.
+
+Tiny, reversible audit prints prove the feature edges decisions, without cluttering core code.
+
+Pick (1) A/B only, or add (2) the temporary debug print for undeniable proof. Happy to generate a quick “decision count” one-liner once you choose.

@@ -1,0 +1,34 @@
+At he moment I am using the catalyst logic script only for one day.
+
+Can you do the following.
+
+1. I need a catalyst version python script that works over a date range.
+2. The key handling needs to emulate exactly the logic of run_range_and_summarize.py so we dont not have problems
+3. recall that the logic is that if data is not returned for a day from polygon then it is a non trading day,
+such as holidays or weekends
+4. you need to call prev_trading_polygon.py as per run_range_and_summarize.py
+5. recall that we need to handle all the flags that run_catalyst_flow.py handles
+6. with the request in this file i am also uploading run_catalyst_flow.py
+and run_range_and_summarize.py so you can analyze the logic
+7. please provide the script for a date range for catalysts.
+8. Below i have included examples of use but there are other examples of which you are aware.
+
+
+There are examples of use below.
+
+
+Examples of use of run_catalyst_flow.py
+
+ python scripts\run_catalyst_flow.py --date 2025-08-05 --profile B_profit_v2 --profile-v2-path config\scenarios_B_profit_v2_sized.json --news-first --require-news --news-min-score 2 --deny-negative --exclude-china --top 3 --enforce-band --band-min 10 --band-max 40 --min-rvol-open 2.0 --gate-minutes 15 --compare
+
+python scripts\run_catalyst_flow.py --date 2025-08-05 --profile B_profit_v1 --profile-v1-path config\scenarios_B_profit_v1.json --profile-v2-path config\scenarios_B_profit_v2.json --news-first --require-news --news-min-score 2 --deny-negative --exclude-china --top 3 --enforce-band --band-min 10 --band-max 40 --min-rvol-open 2.0 --gate-minutes 15 --compare
+
+python scripts\run_catalyst_flow.py --date 2025-08-06 --scenario B --news-first --require-news --news-min-score 2 --top 4 --enforce-band --band-min 10 --band-max 40 --min-rvol-open 1.8 --gate-minutes 15 --compare --compare-label B_primary_top4_rvol18_g15
+
+The non catalyst version is as follows that works over a date range.
+
+See example of use.
+
+python scripts/run_range_and_summarize.py --start 2025-08-05 --end 2025-08-31 --scenario B
+
+

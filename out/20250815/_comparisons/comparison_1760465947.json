@@ -1,0 +1,49 @@
+{
+  "schema_version": "compare.v1",
+  "run_id": 1760465947,
+  "label": "B_ON_score3_top2_rvol26_g15",
+  "date": "2025-08-15",
+  "scenario": "B",
+  "params": {
+    "news_only": null,
+    "news_first": null,
+    "deny_negative": null,
+    "exclude_china": null,
+    "news_min_score": null,
+    "top": null,
+    "enforce_band": null,
+    "band_min": 10.0,
+    "band_max": 40.0,
+    "min_rvol_open": 2.0,
+    "rvol_open_minutes": null,
+    "green_streak": null,
+    "macd_rise_bars": null,
+    "max_trades_per_symbol": null,
+    "daily_max_loss": null,
+    "tp_pct": null,
+    "sl_pct": null,
+    "gate_minutes": null
+  },
+  "metrics": {
+    "wr_pct": 0.0,
+    "pnl": -49.0,
+    "tp": 0,
+    "sl": 1,
+    "used": 1
+  },
+  "filter_stats": null,
+  "artifacts": {
+    "summary_txt": "C:\\Users\\boydp\\Desktop\\midas_V2_v044_working\\out\\20250815\\B_hybrid\\summary_hybrid_2025-08-15.txt",
+    "universe_txt": "C:\\Users\\boydp\\Desktop\\midas_V2_v044_working\\data\\catalyst\\universe_hybrid_2025-08-15.txt",
+    "catalyst_csv": "C:\\Users\\boydp\\Desktop\\midas_V2_v044_working\\data\\catalyst\\catalyst_news_2025-08-15_filtered.csv"
+  },
+  "provenance": {
+    "command_used": "C:\\Users\\boydp\\AppData\\Local\\Programs\\Python\\Python313\\python.exe C:\\Users\\boydp\\Desktop\\midas_V2_v044_working\\scripts\\write_compare_bundle.py --date 2025-08-15 --scenario B --summary C:\\Users\\boydp\\Desktop\\midas_V2_v044_working\\out\\20250815\\B_hybrid\\summary_hybrid_2025-08-15.txt --universe C:\\Users\\boydp\\Desktop\\midas_V2_v044_working\\data\\catalyst\\universe_hybrid_2025-08-15.txt --catalyst-csv C:\\Users\\boydp\\Desktop\\midas_V2_v044_working\\data\\catalyst\\catalyst_news_2025-08-15_filtered.csv --out-dir C:\\Users\\boydp\\Desktop\\midas_V2_v044_working\\out\\20250815\\_comparisons --label B_ON_score3_top2_rvol26_g15",
+    "upstream_command": null,
+    "cwd": "C:\\Users\\boydp\\Desktop\\midas_V2_v044_working",
+    "python": "3.13.6",
+    "platform": "Windows 11",
+    "timestamp_utc": 1760465947
+  },
+  "warnings": []
+}

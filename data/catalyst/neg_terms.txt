@@ -1,0 +1,27 @@
+# Negative catalyst denylist (for long-bias trading)
+downgrade
+misses expectations
+misses estimates
+guidance cut
+guidance lowered
+guidance reduced
+revenue falls
+sales decline
+profit falls
+profit drops
+earnings decline
+missed revenue
+missed earnings
+net loss
+loss widens
+disappoints
+share offering
+stock offering
+secondary offering
+dilution
+SEC investigation
+class action
+FDA rejection
+halts study
+bankruptcy
+insolvency

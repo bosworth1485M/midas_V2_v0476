@@ -1,0 +1,111 @@
+# Midas_V2 v0.4.7.5 — Baseline + Feature Plug-in Architecture (Design Ready)
+
+**Version:** v0.4.7.5  
+**Date:** 2025-10-28  
+**Stage:** Baseline locked (micro OFF); plug-in architecture designed (not yet implemented)
+
+---
+
+## 1. Version Summary
+This version establishes the **design** for Midas’s next-generation Feature Plug-in system, but **does not yet include its code implementation**.  
+The core Midas workflow, schema, and strategy remain fully intact and stable.  
+All micro-related scripts have been **smoke-tested successfully** and are ready for integration in **v0.4.8**.
+
+| Area | v0.4.7.5 State | Planned for v0.4.8 |
+|------|----------------|--------------------|
+| FeatureRegistry | **Not yet added** | ✅ Will load configs from `config/features/` |
+| Sidecar feature JSONs | **Not yet added** | ✅ Will define feature toggles per scenario |
+| Plug-in modules | **Not yet added** | ✅ Will interface with micro gateway |
+| Strategy / backtester hooks | **Not modified** | ✅ Will include 2-line registry integration |
+| Micro smoke tests | ✅ **Passed** | Ready for registry integration |
+
+---
+
+## 2. Verified Components (Smoke Tests)
+### ✅ Test 1 — Adapter
+```powershell
+python -u scripts\test_micro_adapter.py --symbol STTK --date 2025-08-05 --minute 13:41:00 --seconds 60 --resolution 5s --ema 1 --vwap 0 --ratio 0.60 --allow 1
+```
+**Result**
+```
+[INFO] fetched 12 5s bars … MICRO CONTINUATION: PASS
+```
+
+### ✅ Test 2 — Gateway
+```powershell
+python -u scripts\test_micro_gateway.py --symbol STTK --date 2025-08-05 --minute 13:41:00 --resolution 5s --window 60 --ema 1 --vwap 0 --ratio 0.60 --allow 1
+```
+**Result**
+```
+[INFO] fetched 12 5s bars … MICRO CONTINUATION: PASS
+```
+
+---
+
+## 3. Feature Planned for Next Version (v0.4.8)
+**Green-Candle + 1-Second Confirmation (Micro Plug-in)**  
+Validates that:
+1. Three strong-body green 1-minute candles occur before entry.  
+2. 1-second candles confirm continuation after the final minute.  
+
+Expected effect: filter weak momentum trades and increase expectancy.
+
+---
+
+## 4. Implementation Plan for v0.4.8
+- **Sidecar Config** → `config/features/micro.json`  
+- **FeatureRegistry** → `src/midas_v2/features/registry.py`  
+- **Feature Module** → `src/midas_v2/features/micro_feature.py`  
+- **Backtester Hook** → load registry + set `scenario_id`.  
+- **Strategy Hook** → single call to `should_block_entry()`.
+
+---
+
+## 5. Why Future Features Can Be Added Quickly
+| Step | Action | Time |
+|------|---------|------|
+| 1 | Create `config/features/<feature>.json` | 1 min |
+| 2 | Add `<feature>_feature.py` | 5-10 min |
+| 3 | Optional toggle script | 1 min |
+| 4 | Run smoke test | 2 min |
+| 5 | Run range | 1 command |
+
+No schema edits — all modular.
+
+---
+
+## 6. Baseline Results (v0.4.7.5)
+| Range | Scenario | Trades | Wins | Losses | WR% | PnL |
+|--------|-----------|---------|------|---------|-----|------|
+| Aug 05–Aug 31 2025 | B | 19 | 10 | 9 | 52.63 | -34.93 |
+
+---
+
+## 7. Commands
+**Single Day**
+```powershell
+python scripts\run_day_simple.py --date 2025-08-05 --scenario B
+```
+**Range**
+```powershell
+python scripts\run_catalyst_range_and_summarize.py --start 2025-08-05 --end 2025-08-31 --scenario B --news-first --require-news --news-min-score 2 --top 3 --enforce-band --band-min 10 --band-max 40 --min-rvol-open 2.0 --gate-minutes 15 --deny-negative --exclude-china --compare --compare-label B_v0475_baseline
+```
+
+---
+
+## 8. Save and Tag Version
+```powershell
+python scripts\refreshdocs.py
+git add -A
+git commit -m "v0.4.7.5: baseline locked (micro OFF); plug-in design documented; smoke tests passed"
+git tag -a v0.4.7.5 -m "Baseline with plug-in design documented; stable pre-registry version"
+git push
+git push --tags
+Copy-Item "C:\Users\boydp\Desktop\midas_V2_v047_working" "E:\midas_V2_v0475" -Recurse
+```
+
+---
+
+## 9. Summary
+v0.4.7.5 = **baseline + design** release  
+v0.4.8 = **implementation** release (FeatureRegistry + sidecars + micro plug-in)

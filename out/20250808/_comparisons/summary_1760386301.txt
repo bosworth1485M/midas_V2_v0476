@@ -1,0 +1,16 @@
+# TEST label=B_macd2_default_Aug date=2025-08-08 scenario=B (self-described in JSON)
+
+B: TP=0 SL=3 Win%=0.00 PnL=-104.59
+[PROFILE] newsOnly + Top-3 + band 10-40 + RVOL 2
+
+[RUN SUMMARY]
+Date      | Scen | News-first | Score | Top | Band             | Enforce | OpenRVOL       | Used |   WR   | TP/SL |   PnL
+-------------------------------------------------------------------------------------------------------------------------------
+2025-08-08 | B  | Yes        | >=3 |   3 | 10.00% / 40.00%  | Yes     | 2.00           |    3 |    0.00% |  0/3  | -104.59
+
+[PER-SYMBOL]
+[DEFS] in_band=yes if 10.00% <= gap <= 40.00% (inclusive) ; type=standard if in_band ; type=rocket if gap > 40.00%
+symbol   included_by  news_score  gap%    in_band  type     traded  trades  TP  SL    PnL   headline
+SOUNW   news                  3  25.45  yes     standard yes          1   0   1  -34.99  
+SOUN    news                  3  22.76  yes     standard yes          1   0   1  -34.74  
+ARLO    news                  3  17.16  yes     standard yes          1   0   1  -34.86  

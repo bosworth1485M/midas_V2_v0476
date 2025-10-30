@@ -1,0 +1,15 @@
+# TEST label=B_v0475_baseline date=2025-08-15 scenario=B (self-described in JSON)
+
+B: TP=1 SL=0 Win%=100.00 PnL=27.95
+[PROFILE] newsOnly + Top-3 + band 10-40 + RVOL 2
+
+[RUN SUMMARY]
+Date      | Scen | News-first | Score | Top | Band             | Enforce | OpenRVOL       | Used |   WR   | TP/SL |   PnL
+-------------------------------------------------------------------------------------------------------------------------------
+2025-08-15 | B  | Yes        | >=2 |   3 | 10.00% / 40.00%  | Yes     | 2.00           |    1 |  100.00% |  1/0  |  27.95
+
+[PER-SYMBOL]
+[DEFS] in_band=yes if 10.00% <= gap <= 40.00% (inclusive) ; type=standard if in_band ; type=rocket if gap > 40.00%
+symbol   included_by  news_score  gap%    in_band  type     traded  trades  TP  SL    PnL   headline
+BZAI    news                  2  11.11  yes     standard yes          1   1   0   27.95  
+INKT    news                  2  14.16  yes     standard no           0   0   0    0.00  

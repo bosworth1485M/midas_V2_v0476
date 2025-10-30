@@ -1,0 +1,89 @@
+Version 3.0.26
+
+Note: I reformatted commands documentation 
+
+And included catalyst commands. Will have to go back to that at some stage.
+
+I have copied and pasted related discussion below.
+
+------------------------------
+
+
+Short answer: usually it doesn’t matter, but there are a few gotchas.
+
+Works with: Python, PowerShell, and most Windows APIs accept either \ or /. So
+python scripts/run_day_simple.py … and python scripts\run_day_simple.py … both work.
+
+Watch-outs:
+
+CMD built-ins / some legacy tools treat / as an option switch (e.g., dir /w). Passing paths with / to those can misbehave.
+
+A few older utilities expect backslashes only.
+
+Best practice:
+
+In docs for Windows, prefer backslashes \ to avoid edge cases.
+
+In Python code, use pathlib (OS-agnostic) or forward slashes—Python normalizes them:
+
+from pathlib import Path
+p = Path("out/20250805/B/results_2025-08-05.csv")
+
+
+Quote paths with spaces:
+
+python "scripts\run day simple.py" --date 2025-08-07
+
+
+For our runners and analyzers, either separator is fine; we document backslashes to be consistent with Windows conventions.
+
+You said:
+there were a number of formatting problems in the command document. this is the word document with my corrections. can you create an md document
+ChatGPT said:
+
+Please upload your corrected Word document here, and I’ll convert it cleanly into a Markdown (.md) file while preserving:
+
+Section headings
+
+Command/code blocks (fenced with triple backticks for PowerShell/text)
+
+Paths with proper backslashes
+
+Lists, bold text, and revision history
+
+This way your Markdown version will match your corrected Word doc exactly.
+
+ChatGPT said:
+Thought for 39s
+
+Here’s a clean Markdown export of your corrected Word doc (with Windows backslashes preserved, broken lines fixed, and code blocks fenced):
+
+Midas_Backtesting_Commands_v1.2.md
+
+I rebuilt it directly from your upload and normalized the paths like out\auto\range_summary_... and python scripts\.... If you want this saved as v1.2 in Docs\Test Commands\ and committed, I can give you the one-liner. (Based on your file. 
+
+Midas_Backtesting_Commands_v1.2
+
+) 
+
+Sources
+ChatGPT said:
+Thought for 1m 36s
+
+Got your three docs — thanks. I’ve produced a clean Markdown commands log (with your formatting fixes plus a Catalyst section). Grab it here:
+
+Midas_Backtesting_Commands_v1.2.md
+
+Consistency checks I aligned to your docs
+
+The run-day success flow (gappers → universe → minutes → backtest → summarize) matches your USER GUIDE’s sequence and output locations. 
+
+USER_GUIDE
+
+Catalyst commands reference the scripts listed in your Script Index (e.g., enrich_universe_catalyst.py, run_day_catalyst.py). 
+
+SCRIPTS_INDEX
+
+Scenario naming and examples are consistent with the Developer Guide’s run cheat-sheet and folder layout. 
+
+DEV_GUIDE

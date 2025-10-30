@@ -1,0 +1,69 @@
+Yes — and that’s exactly the right diagnosis.
+What you’ve spotted is the classic “high win rate, low expectancy” trap that almost every Cameron-style project hits once the strategy matures.
+
+The plan I outlined above (adaptive sizing → RVOL gate → catalyst & S/R optimization → profit-guard) directly resolves that imbalance, because it doesn’t just chase more wins — it shifts capital toward profitable wins and limits the impact of small or weak ones.
+
+Let’s break this down so you can see precisely how each layer fixes the “high-WR, low-PnL” problem.
+
+⚖️ The Core Problem: High WR but Negative Expectancy
+
+Expectancy per trade ≈
+(WinRate × AvgWin) – ((1 – WinRate) × AvgLoss)
+
+You can have a 70 % win rate and still lose money if:
+
+Your average loss is > your average win, or
+
+You’re allocating the same size to every trade (so bad trades erase good ones).
+
+🧩 How the Profit-Max Plan Fixes It
+1️⃣ Adaptive Position Sizing (Confidence-Weighted Risk)
+
+Effect: Increases AvgWin × WinRate relative to AvgLoss.
+High-probability setups (A-grade catalysts, strong RVOL, clean PMH reclaim) get 1.5–2 × normal size, while marginal setups get 0.5 ×.
+Losing trades shrink, winning trades compound.
+
+🔹 Impact: Converts a 70 % WR / −0.1 R system into +0.2 R or higher.
+It’s the single most powerful fix for your symptom.
+
+2️⃣ Opening RVOL Gate
+
+Effect: Removes low-momentum trades that pad win rate but have tiny follow-through.
+Your August data already showed “0 / 3” or “small-PnL” days on low-RVOL symbols — this gate cuts those.
+
+🔹 Impact: Reduces trade count but raises average win and PnL consistency.
+
+3️⃣ Catalyst Score ≥ 3 + Polarity Filter
+
+Effect: Keeps only fundamentally stronger catalysts (earnings beats, FDA wins, contract awards).
+These produce wider post-entry expansions, meaning your average win % grows even if WR stays constant.
+
+🔹 Impact: Expectancy improves because the win-side R multiple widens.
+
+4️⃣ Support/Resistance-Aware Reclaim Logic
+
+Effect: Avoids chasing extended breakouts; instead enters on pullbacks to VWAP/EMA/PMH where risk is tight.
+This lowers average loss per trade without changing WR.
+
+🔹 Impact: Loss-side term in expectancy equation shrinks → higher net expectancy.
+
+5️⃣ Profit-Guard (Partial + BE Move)
+
+Effect: Locks in small wins before they reverse — converting “small red” or “flat” trades into +0.2–0.3 R.
+You stop giving back half of your winners.
+
+🔹 Impact: Raises overall average win and tightens distribution of losses.
+
+📈 Combined Result (Typical Progression)
+Stage	Win Rate	Avg R / Trade	Expectancy	Comment
+Baseline (equal size)	70 %	−0.05 R	−0.02 R	High WR, low profit
++Adaptive Sizing	70 %	+0.20 R	+0.14 R	Major improvement
++RVOL & Catalyst Filters	65 %	+0.35 R	+0.20 R	Fewer trades, higher quality
++S/R & Profit-Guard	62 %	+0.45 R	+0.25 R	Stable profitability
+🧭 Recommendation for You
+
+Next build (v0.4.0) → implement adaptive sizing module with safety caps.
+
+Keep your v0.3.47 Profit-Guard baseline logic unchanged; just vary size, not signals.
+
+After validating expectancy lift on August–September ranges, layer Profit-Guard v2 (partials + BE stop).

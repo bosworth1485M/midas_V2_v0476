@@ -1,0 +1,14 @@
+# TEST label=B_primary_top4_rvol18_g15 date=2025-08-28 scenario=B (self-described in JSON)
+
+B: TP=1 SL=0 Win%=100.00 PnL=5.36
+[PROFILE] newsOnly + Top-4 + band 10-40 + RVOL 1.80
+
+[RUN SUMMARY]
+Date      | Scen | News-first | Score | Top | Band             | Enforce | OpenRVOL       | Used |   WR   | TP/SL |   PnL
+-------------------------------------------------------------------------------------------------------------------------------
+2025-08-28 | B  | Yes        | >=2 |   4 | 10.00% / 40.00%  | Yes     | 1.80           |    1 |  100.00% |  1/0  |   5.36
+
+[PER-SYMBOL]
+[DEFS] in_band=yes if 10.00% <= gap <= 40.00% (inclusive) ; type=standard if in_band ; type=rocket if gap > 40.00%
+symbol   included_by  news_score  gap%    in_band  type     traded  trades  TP  SL    PnL   headline
+SPRC    news                  2  11.97  yes     standard yes          1   1   0    5.36  SciSparc: AutoMax's Shareholders Approve Merger with SciSparc

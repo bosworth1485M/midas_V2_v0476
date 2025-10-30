@@ -1,0 +1,14 @@
+Scenario,Trades,TP,SL,WinPct,Path
+A,39,29,10,74.36,out\20250805\A\results_2025-08-05.csv
+B,39,29,10,74.36,out\20250805\B\results_2025-08-05.csv
+B_one,0,0,0,0.0,out\20250805\B_one\results_2025-08-05.csv
+B_ps1,0,0,0,0.0,out\20250805\B_ps1\results_2025-08-05.csv
+B_sanity,0,0,0,0.0,out\20250805\B_sanity\results_2025-08-05.csv
+C,39,29,10,74.36,out\20250805\C\results_2025-08-05.csv
+D,21,10,11,47.62,out\20250805\D\results_2025-08-05.csv
+E2,2,2,0,100.0,out\20250805\E2\results_2025-08-05.csv
+E,607,542,65,89.29,out\20250805\E\results_2025-08-05.csv
+E_cfg2,0,0,0,0.0,out\20250805\E_cfg2\results_2025-08-05.csv
+E_cfg,0,0,0,0.0,out\20250805\E_cfg\results_2025-08-05.csv
+E_debug,0,0,0,0.0,out\20250805\E_debug\results_2025-08-05.csv
+E_vwapoff,0,0,0,0.0,out\20250805\E_vwapoff\results_2025-08-05.csv

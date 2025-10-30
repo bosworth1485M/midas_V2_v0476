@@ -1,0 +1,15 @@
+# TEST label=B_primary_top4_rvol18_g15 date=2025-08-08 scenario=B (self-described in JSON)
+
+B: TP=1 SL=1 Win%=50.00 PnL=-48.28
+[PROFILE] newsOnly + Top-4 + band 10-40 + RVOL 1.80
+
+[RUN SUMMARY]
+Date      | Scen | News-first | Score | Top | Band             | Enforce | OpenRVOL       | Used |   WR   | TP/SL |   PnL
+-------------------------------------------------------------------------------------------------------------------------------
+2025-08-08 | B  | Yes        | >=2 |   4 | 10.00% / 40.00%  | Yes     | 1.80           |    2 |   50.00% |  1/1  | -48.28
+
+[PER-SYMBOL]
+[DEFS] in_band=yes if 10.00% <= gap <= 40.00% (inclusive) ; type=standard if in_band ; type=rocket if gap > 40.00%
+symbol   included_by  news_score  gap%    in_band  type     traded  trades  TP  SL    PnL   headline
+ARLO    news                  2  17.16  yes     standard yes          1   0   1  -50.18  Arlo (ARLO) Q2 Revenue Beats Up 1.6%
+DCGO    news                  2  10.79  yes     standard yes          1   1   0    1.90  DocGo (DCGO) Q2 Revenue Falls 51%

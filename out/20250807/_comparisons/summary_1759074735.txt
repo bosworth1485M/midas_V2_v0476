@@ -1,0 +1,16 @@
+# TEST label=B_primary_top3_rvol20_g15_macd6 date=2025-08-07 scenario=B (self-described in JSON)
+
+B: TP=2 SL=1 Win%=66.67 PnL=-1.40
+[PROFILE] newsOnly + Top-3 + band 10-40 + RVOL 2
+
+[RUN SUMMARY]
+Date      | Scen | News-first | Score | Top | Band             | Enforce | OpenRVOL       | Used |   WR   | TP/SL |   PnL
+-------------------------------------------------------------------------------------------------------------------------------
+2025-08-07 | B  | Yes        | >=2 |   3 | 10.00% / 40.00%  | Yes     | 2.00           |    3 |   66.67% |  2/1  |  -1.40
+
+[PER-SYMBOL]
+[DEFS] in_band=yes if 10.00% <= gap <= 40.00% (inclusive) ; type=standard if in_band ; type=rocket if gap > 40.00%
+symbol   included_by  news_score  gap%    in_band  type     traded  trades  TP  SL    PnL   headline
+AVDL    news                  2  26.13  yes     standard yes          1   0   1  -30.99  Avadel (AVDL) Q2 Revenue Jumps 64%
+MATV    news                  2  24.12  yes     standard yes          1   1   0   16.34  Mativ (MATV) Q2 EPS Jumps 83%
+XERS    news                  2  22.50  yes     standard yes          1   1   0   13.25  Xeris (XERS) Q2 Revenue Jumps 49%

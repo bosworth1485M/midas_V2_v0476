@@ -1,0 +1,99 @@
+# SCRIPTS_INDEX
+
+- `scripts/analyze_all_ranges.py` — no docstring
+- `scripts/analyze_base_only.py` — no docstring
+- `scripts/analyze_range.py` — no docstring
+- `scripts/analyze_range_explained.py` — no docstring
+- `scripts/backtester.old.py` — no docstring
+- `scripts/build_allowlist_from_gaps.py` — Load POLYGON_API_KEY from ROOT/.env (if python-dotenv available) or environment.
+- `scripts/build_filtered_universe.py` — no docstring
+- `scripts/catalyst_filter.py` — no docstring
+- `scripts/clear_out.py` — no docstring
+- `scripts/compare_bd.py` — no docstring
+- `scripts/compose_universe_hybrid.py` — no docstring
+- `scripts/enrich_universe_catalyst.NEW.py` — no docstring
+- `scripts/enrich_universe_catalyst.old.py` — Build a catalyst-qualified universe for a given date by scoring Polygon news.
+- `scripts/enrich_universe_catalyst.old2.py` — no docstring
+- `scripts/enrich_universe_catalyst.old3.py` — no docstring
+- `scripts/enrich_universe_catalyst.old4.py` — no docstring
+- `scripts/enrich_universe_catalyst.old5.py` — no docstring
+- `scripts/enrich_universe_catalyst.old6.py` — no docstring
+- `scripts/enrich_universe_catalyst.old7.py` — no docstring
+- `scripts/enrich_universe_catalyst.old8.py` — no docstring
+- `scripts/enrich_universe_catalyst.old9.py` — Build a catalyst-qualified universe for a given date by scoring Polygon news.
+- `scripts/enrich_universe_catalyst.py` — Build a catalyst-qualified universe for a given date by scoring Polygon news.
+- `scripts/fetch_minutes_polygon.bak.py` — no docstring
+- `scripts/fetch_minutes_polygon.bak2.py` — no docstring
+- `scripts/fetch_minutes_polygon.old.py` — no docstring
+- `scripts/fetch_minutes_polygon.py` — no docstring
+- `scripts/filter_universe_by_headlines.py` — no docstring
+- `scripts/list_base_files.py` — no docstring
+- `scripts/preflight_project_guard.py` — from __future__ import annotations
+- `scripts/prepare_and_run_day.py` — no docstring
+- `scripts/prepare_and_run_day_v3.py` — no docstring
+- `scripts/prepare_and_run_day_v4.py` — no docstring
+- `scripts/prepare_and_run_day_v5.py` — no docstring
+- `scripts/prepare_and_run_day_v6.py` — no docstring
+- `scripts/prev_trading_day_polygon.bak.py` — no docstring
+- `scripts/prev_trading_day_polygon.bak2.py` — no docstring
+- `scripts/prev_trading_day_polygon.bak3.py` — no docstring
+- `scripts/prev_trading_day_polygon.py` — Walk back from (date - 1) until the grouped endpoint returns non-empty results.
+- `scripts/print_catalyst_decisions.py` — no docstring
+- `scripts/print_catalyst_decisions_plus.py` — no docstring
+- `scripts/rebuild_range_summary.py` — no docstring
+- `scripts/regression_smoke_v1.bak.py` — regression_smoke_v1.py — basic post-change regression for Midas_V2
+- `scripts/regression_smoke_v1.py` — regression_smoke_v1.py — basic post-change regression for Midas_V2 (streams live output)
+- `scripts/run_AE_local.py` — no docstring
+- `scripts/run_AE_simple.py` — no docstring
+- `scripts/run_b_multi.py` — Run Scenario B for multiple dates.
+- `scripts/run_catalyst.py` — Replace DEFAULT_UNIVERSE with temp_universe content, backing up original if present.
+- `scripts/run_catalyst_flow.py` — Run the full catalyst flow (steps 1→4) for one day or a date range.
+- `scripts/run_day_catalyst.old.py` — Calls summarize_results.py for the given date and writes:
+- `scripts/run_day_catalyst.py` — TXT: 1 symbol/line; CSV: columns 'symbol' or 'ticker', optional 'gap_pct'.
+- `scripts/run_day_catalyst.today.py` — TXT: 1 symbol/line; CSV: columns 'symbol' or 'ticker', optional 'gap_pct'.
+- `scripts/run_day_catalyst.today2.py` — TXT: 1 symbol/line; CSV: columns 'symbol' or 'ticker', optional 'gap_pct'.
+- `scripts/run_day_catalyst_SAFE.py` — Catalyst one-command runner (SAFE)
+- `scripts/run_day_simple.bak.py` — Midas_V2 helper: run_day_simple.py
+- `scripts/run_day_simple.bak2.py` — Midas_V2 helper: run_day_simple.py
+- `scripts/run_day_simple.old.py` — Midas_V2 helper: run_day_simple.py
+- `scripts/run_day_simple.old2.py` — Midas_V2 helper: run_day_simple.py
+- `scripts/run_day_simple.old3.py` — Midas_V2 helper: run_day_simple.py
+- `scripts/run_day_simple.old4.py` — Midas_V2 helper: run_day_simple.py
+- `scripts/run_day_simple.old5.py` — Midas_V2 helper: run_day_simple.py
+- `scripts/run_day_simple.py` — Midas_V2 helper: run_day_simple.py (clean rewrite)
+- `scripts/run_day_simple_SAFE.py` — Simple one-command day runner (SAFE)
+- `scripts/run_day_simple_v1.1.py` — no docstring
+- `scripts/run_flow_step1_topgappers.py` — Step 1 only: build RAW gappers for a day, and auto-create the RAW CSV from the TXT table.
+- `scripts/run_range_and_summarize.bak2.py` — Return count of gappers from topgappers --no-write (fast pre-check).
+- `scripts/run_range_and_summarize.bak3.py` — Return count of gappers from topgappers --no-write (fast pre-check).
+- `scripts/run_range_and_summarize.bak4.py` — Return count of gappers from topgappers --no-write (fast pre-check).
+- `scripts/run_range_and_summarize.old.py` — Return count of gappers from topgappers --no-write (fast pre-check).
+- `scripts/run_range_and_summarize.old2.py` — Return count of gappers from topgappers --no-write (fast pre-check).
+- `scripts/run_range_and_summarize.original.py` — Return count of gappers from topgappers --no-write (fast pre-check).
+- `scripts/run_range_and_summarize.py` — Return count of gappers from topgappers --no-write (fast pre-check).
+- `scripts/run_range_safe.py` — no docstring
+- `scripts/save_regression_snapshot.py` — no docstring
+- `scripts/set_universe_from_local.py` — no docstring
+- `scripts/show_latest_range.py` — no docstring
+- `scripts/stats_only.py` — no docstring
+- `scripts/summarize_multi.py` — no docstring
+- `scripts/summarize_pnl.py` — no docstring
+- `scripts/summarize_results.bak.py` — Optional: if a runner/CLI dropped a params snapshot (e.g., _last_cfg.json or _cfg.json),
+- `scripts/summarize_results.old.py` — Optional: if a runner/CLI dropped a params snapshot (e.g., _last_cfg.json or _cfg.json),
+- `scripts/summarize_results.py` — no docstring
+- `scripts/sweep_profitability.py` — no docstring
+- `scripts/test_scenario_b.py` — no docstring
+- `scripts/topgappers.bak (2).py` — no docstring
+- `scripts/topgappers.bak.py` — no docstring
+- `scripts/topgappers.bak2.py` — no docstring
+- `scripts/topgappers.bak3.py` — no docstring
+- `scripts/topgappers.bak4.py` — no docstring
+- `scripts/topgappers.bak5.py` — no docstring
+- `scripts/topgappers.mod1today.py` — no docstring
+- `scripts/topgappers.old (2).py` — no docstring
+- `scripts/topgappers.old.py` — no docstring
+- `scripts/topgappers.py` — no docstring
+- `scripts/topgappers.today (2).py` — no docstring
+- `scripts/topgappers.today.py` — no docstring
+- `scripts/trim_universe.py` — no docstring
+- `scripts/view_results.py` — view_results.py — tiny, dependency‑free viewer for Midas_V2 results

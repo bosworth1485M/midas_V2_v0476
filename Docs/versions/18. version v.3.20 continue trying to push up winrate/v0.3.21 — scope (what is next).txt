@@ -1,0 +1,61 @@
+v0.3.21 — scope (what we’ll add next)
+
+Goal: raise WR by trading only high-quality catalysts and requiring early tape confirmation; prepare for smarter allocation.
+
+Filter quality
+
+Require A or better: default --min-grade 2, no B-fill (remove --allow-b-fill default).
+
+Keep negative-headline exclusion (already in place).
+
+Opening RVOL gate (new)
+
+Add optional flag (default on): --min-rvol-open 1.5 (first 10–15 min vs prior day same window).
+
+Skip symbols that fail the gate.
+
+Score-based sizing (framework)
+
+Add a non-breaking mapping used in backtest only:
+
+A → 1.0× risk; A+ → 1.5×; Super-A → 2.0× (bounded by your existing per-trade/daily caps).
+
+Log the applied size per trade in results CSV (extra columns risk_mult, shares if available).
+
+Denylist hygiene (fast win)
+
+Drop warrants and obvious non-targets at the universe stage (e.g., *.WS, W, WT, ^ patterns).
+
+Config & UX
+
+New defaults in the SAFE runner for v0.3.21:
+
+--topn 3 --min-grade 2 (no B-fill)
+
+--min-rvol-open 1.5
+
+Print a short “filters used” banner at the start so every run is self-documenting.
+
+Docs & summary
+
+summarize_results.py adds a small footer showing: min_grade, topn, min_rvol_open, and date.
+
+How we’ll implement (quick checklist)
+
+run_day_catalyst_SAFE.py
+
+Add RVOL function (read your minute data; compute first 10–15m volume / prior day same window).
+
+Filter picks failing --min-rvol-open.
+
+Keep magnitude logic; default to no B-fill.
+
+Pass an optional --risk-mult into backtester (or write a sidecar map if the CLI doesn’t accept it yet).
+
+Backtester (midas_v2.cli / strategy)
+
+If a risk_mult is provided, scale position sizing (within caps). If not available, emit planned risk_mult in logs only (non-breaking).
+
+topgappers.py
+
+Apply denylist regex (e.g., \.WS$, -WS$, etc.).

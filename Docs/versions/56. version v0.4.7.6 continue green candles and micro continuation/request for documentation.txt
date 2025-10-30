@@ -1,0 +1,19 @@
+We need to do the following.
+
+1. I wish to create a version of what we have at the moment v0.4.7.6 
+
+2. Can you very clearly explain the changes implemented to easily add new features.
+What scripts were created. how do we change existing code to add new features.
+Please explain all the changes made for green candles, how we can control green candle depth
+and micro continuation.
+
+3. What are all the changes made and changes still to be made? what are the next steps.
+please summarize the steps you have suggested above. 
+
+4. What tests can we do to increase the winrate and profitability using the new feature?
+
+5. Please be explicit detailing the commands to be run and the commands we have used.
+
+6. Please provide .md and word files with this documentation.
+
+7. Also please provide the simple commands to place in gitHub.

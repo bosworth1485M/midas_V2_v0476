@@ -1,0 +1,110 @@
+Midas_V2 – Cameron Alignment Checklist
+
+(Checkpoint – Sept 2025)
+
+✅ Already Implemented
+
+Price band: $1–$20.
+
+Momentum confirm: MACD on, rise bars logic.
+
+TP/SL with RiskManager: TP ≈ 2%, SL ≈ 2.5–4%, EOD flatten.
+
+Premarket gap filter: min_gap_pct = 8 (current).
+
+VWAP/EMA confirm: Configurable per scenario.
+
+⚠️ Differences vs Cameron Rules
+
+Gap requirement
+
+Cameron: stock must be up ≥ 10% on the day.
+
+Current: min_gap_pct = 8%.
+
+Chinese ADRs
+
+Cameron avoids Chinese ADRs.
+
+Current: no country/exchange filter.
+
+News catalyst
+
+Cameron prefers an obvious news catalyst.
+
+Current: no news filter.
+
+Relative volume at open
+
+Cameron checks open RVOL (first 10–15 min vs prior day).
+
+Current: breakout_rvol_window=6, factor=1.05 (generic intraday).
+
+Daily max loss
+
+Cameron stops trading after a daily loss cap (e.g., -$1,000).
+
+Current: no hard daily circuit breaker.
+
+Still up at entry
+
+Cameron requires stock to remain ≥ +10% intraday at entry time.
+
+Current: only premarket gap is enforced.
+
+Journaling discipline
+
+Cameron journals each trade with context.
+
+Current: CSV logs but no setup / why / rules_passed fields.
+
+🛠️ Proposed Tweaks
+Config / Defaults
+
+Raise min_gap_pct to 10 (or 12 for stricter tests).
+
+Keep price band $1–$20.
+
+Engine Flags (CLI + Core)
+
+--exclude-country CN or --exclude-adr true
+
+--require-news 24h (boolean, lookback window)
+
+--min-rvol-open 1.5 (first 10–15 min vs prior day)
+
+--min-up-pct-at-entry 10 (intraday check at entry)
+
+--daily-max-loss 1000 (stop new trades after loss cap)
+
+Trade Log Extensions
+
+Add CSV columns:
+
+setup (Gap&Go, DipReclaim, etc.)
+
+why (text reason)
+
+rules_passed (list of gates passed)
+
+pct_up_at_entry
+
+had_news
+
+open_rvol
+
+🔜 Next Steps
+
+Update scenarios.toml → raise min_gap_pct to 10.
+
+Patch run_day_simple.py → add new flags (--min-rvol-open, --daily-max-loss, etc.).
+
+Implement exclude-ADR logic (simple list or country field).
+
+Optional: integrate Polygon News API for --require-news.
+
+Extend trade CSV schema → add extra journaling columns.
+
+Test baseline Scenario B (TP=2%, SL=2.5%, gate=10, MACD on, min_pm_vol=30k) with new rules.
+
+Compare results vs pre-tweak runs (2025-08-05 dataset).

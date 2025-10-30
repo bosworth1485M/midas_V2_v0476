@@ -1,0 +1,95 @@
+Midas_V2 — Version 0.3.30
+
+Date: 2025-09-23
+Tag: v0.3.30
+Scope: Baseline B with enforced gap band + catalyst flow polish, strict JSON validation, partial scenario overrides, and clearer per-symbol output.
+
+Summary
+
+Catalyst day runner polished: clear in_band definition and a new Type column (standard for in-band; rocket when gap% > max band).
+
+Enforceable gap band: keep B focused on 10–40% gappers; rockets are audited (or dropped when enforcement is on).
+
+Config hygiene (strict): JSON is the single source of truth; bad keys fail fast. Scenarios can provide partial scanner overrides.
+
+What changed
+
+Config models (Pydantic v2) — src/midas_v2/config_models.py
+
+ScannerConfig (strict keys): price_min, price_max, min_gap_pct, max_gap_pct.
+
+ScannerOverride (all fields optional) for per-scenario partial overrides.
+
+ScenariosConfig (RootModel[Dict[str, Scenario]]) with Scenario.params as free-form.
+
+merge_scanner() merges global + scenario overrides and re-validates.
+
+Standardized scanner JSON — config/scanner.json
+
+Uses only:
+
+{ "price_min": 1.0, "price_max": 20.0, "min_gap_pct": 10.0, "max_gap_pct": 40.0 }
+
+
+RVOL / gates belong in config/scenarios.json → "<SCENARIO>".params (not in scanner.json).
+
+Top-gappers — scripts/topgappers.py
+
+Loads validated JSON (+ optional per-scenario override).
+
+Polygon key handling unchanged.
+
+Catalyst day runner — scripts/run_day_catalyst.py
+
+Loads validated scanner config; drops --scenarios-file (auto-reads config/scenarios.json).
+
+Adds --enforce-band and also reads params.enforce_band from scenarios JSON.
+
+Exports scenario params to ENV (JSON first, CLI can override):
+MIDAS_MACD_RISE_BARS, MIDAS_GATE_MINUTES, MIDAS_MIN_RVOL_OPEN, MIDAS_RVOL_OPEN_MINUTES.
+
+Per-symbol console + trades_by_symbol.* now include: included_by, news_score (0 for gap-only), in_band, type, headline.
+
+Prints [DEFS] line explaining in_band and type.
+
+Keeps news-first ordering and Top-N behavior; logic otherwise unchanged.
+
+Verified single-day results (B, 2025-08-05)
+
+With band enforced + Top-12 + news-first (score≥1):
+
+Universe used: 8 (rockets dropped)
+
+WR 87.50% (7 TP / 1 SL), PnL +143.35
+
+Prior reference (no enforcement): WR 61.54%, PnL +36.07 on same day.
+(This illustrates why the B baseline avoids rockets.)
+
+How to run (B baseline, single day)
+
+Enforced band, Top-12, news-first (score ≥1):
+
+python .\scripts\run_day_catalyst.py --date 2025-08-05 --scenario B --universe data\catalyst\universe_hybrid_2025-08-05.txt --catalyst data\catalyst\catalyst_news_2025-08-05.csv --news-first --news-min-score 1 --top 12 --enforce-band
+
+
+(Optional) Enable opening RVOL gate — add to config/scenarios.json under "B".params:
+
+"min_rvol_open": 1.5,
+"rvol_open_minutes": 10
+
+
+Then re-run the same command.
+
+Notes / Compatibility
+
+Removed flag: --scenarios-file (runner auto-loads config/scenarios.json).
+
+Strict scanner.json: only price/gap fields allowed; put RVOL/gate/etc. in scenario params.
+
+Partial overrides supported: scenarios may set just min_gap_pct/max_gap_pct (no need to repeat price band).
+
+Next (optional)
+
+Keep B as the safe baseline (10–40% band enforced, Top-12, news-first).
+
+Later, spin a dedicated >40% “rocket” scenario with stricter gates and smaller size; or route rockets automatically.

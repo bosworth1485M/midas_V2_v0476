@@ -1,0 +1,13 @@
+Add/update these inside d['B']['params'] (values are explicit):
+
+{
+  "use_vwap": true,
+  "vwap_source": "typical",
+  "vwap_reclaim": true,
+  "vwap_buffer_bps": 10,
+  "vwap_slope_bps": 2,
+  "vwap_confirm": true,
+  "vwap_confirm_mode": "above",
+  "vwap_confirm_buffer_bps": 5,
+  "vwap_confirm_band_bps": 15
+}

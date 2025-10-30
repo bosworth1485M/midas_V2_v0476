@@ -1,0 +1,71 @@
+set green streak to 10
+
+copy config\scenarios.json config\scenarios.backup.json
+
+python -c "import json;p=r'config\\scenarios.json';d=json.load(open(p,'r',encoding='utf-8'));d['B']['params']['rise_bars']=10;json.dump(d,open(p,'w',encoding='utf-8'),indent=2);print('B.params.rise_bars=10')"
+
+test range with green streak of 10
+
+python scripts\run_catalyst_range_and_summarize.py --start 2025-08-05 --end 2025-08-31 --scenario B --top 3 --enforce-band --band-min 10 --band-max 40 --min-rvol-open 2.0 --gate-minutes 15 --compare --compare-label B_OFF_rise10_smoketest --save-csv "out\labeled\B_OFF_rise10_smoketest\range_summary_20250805_20250831.csv"
+python scripts\show_latest_range.py --glob "out/labeled/B_OFF_rise10_smoketest/range_summary*.csv"
+Option 2 — ON (if you also want to confirm with catalysts)
+
+ python scripts\show_latest_range.py --glob "out/labeled/B_OFF_rise10_smoketest/range_summary*.csv"
+
+success
+
+[FILE] out/labeled/B_OFF_rise10_smoketest\range_summary_20250805_20250831.csv
+date       | label | trades | wins | losses | winrate_pct | pnl
+-----------+-------+--------+------+--------+-------------+----
+2025-08-05 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-06 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-07 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-08 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-11 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-12 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-13 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-14 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-15 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-18 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-19 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-20 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-21 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-22 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-25 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-26 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-27 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-28 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-29 | B     | 0      | 0    | 0      | 0.0         | 0.0
+
+test with catalysts
+
+python scripts\run_catalyst_range_and_summarize.py --start 2025-08-05 --end 2025-08-31 --scenario B --news-first --require-news --news-min-score 2 --top 3 --enforce-band --band-min 10 --band-max 40 --min-rvol-open 2.0 --gate-minutes 15 --deny-negative --exclude-china --compare --compare-label B_ON_rise10_smoketest --save-csv "out\labeled\B_ON_rise10_smoketest\range_summary_20250805_20250831.csv"
+
+success again
+
+[FILE] out/labeled/B_ON_rise10_smoketest\range_summary_20250805_20250831.csv
+date       | label | trades | wins | losses | winrate_pct | pnl
+-----------+-------+--------+------+--------+-------------+----
+2025-08-05 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-06 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-07 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-08 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-11 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-12 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-13 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-14 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-15 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-18 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-19 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-20 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-21 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-22 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-25 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-26 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-27 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-28 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-29 | B     | 0      | 0    | 0      | 0.0         | 0.0
+
+set green streak back to 3
+
+python -c "import json;p=r'config\\scenarios.json';d=json.load(open(p,'r',encoding='utf-8'));d['B']['params'].update({'rise_bars':3,'macd_rise_bars':2});json.dump(d,open(p,'w',encoding='utf-8'),indent=2);print('Reverted: rise_bars=3, macd_rise_bars=2')"

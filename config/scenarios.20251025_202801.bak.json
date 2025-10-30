@@ -1,0 +1,380 @@
+{
+  "A": {
+    "params": {
+      "min_pm_vol": 30000,
+      "dip_reclaim": false,
+      "tp_pct": 2.0,
+      "rise_bars": 3,
+      "macd_rise_bars": 2,
+      "gate_minutes": 10,
+      "sl_pct": 2.5,
+      "reclaim_ref": "EMA",
+      "min_price": 1,
+      "max_price": 20,
+      "min_gap_pct": 10,
+      "max_gap_pct": 40,
+      "sizing": {
+        "enabled": false,
+        "base_risk_usd": 50,
+        "max_per_trade_risk_usd": 120,
+        "max_daily_risk_usd": 300,
+        "drawdown_throttle_after_losses": 3,
+        "throttled_risk_factor": 0.5,
+        "confidence_map": {
+          "A": 1.8,
+          "B": 1.0,
+          "C": 0.5
+        },
+        "tier_rules": {
+          "A": {
+            "news_min_score": 3,
+            "min_rvol_open": 2.4
+          },
+          "B": {
+            "news_min_score": 2,
+            "min_rvol_open": 2.0
+          },
+          "C": {
+            "news_min_score": 1,
+            "min_rvol_open": 1.5
+          }
+        }
+      }
+    }
+  },
+  "B": {
+    "params": {
+      "min_pm_vol": 30000,
+      "dip_reclaim": false,
+      "tp_pct": 2.0,
+      "rise_bars": 3,
+      "green_body_min": 0.22,
+      "macd_rise_bars": 2,
+      "require_macd_rise": true,
+      "gate_minutes": 20,
+      "sl_pct": 2.5,
+      "min_rvol_open": 2.0,
+      "rvol_open_minutes": 15,
+      "min_price": 1,
+      "max_price": 20,
+      "min_gap_pct": 10,
+      "max_gap_pct": 40,
+      "sizing": {
+        "enabled": true,
+        "base_risk_usd": 35,
+        "max_per_trade_risk_usd": 50,
+        "max_daily_risk_usd": 300,
+        "drawdown_throttle_after_losses": 999,
+        "throttled_risk_factor": 1.0,
+        "confidence_map": {
+          "A": 1.4,
+          "B": 1.0,
+          "C": 1.0
+        },
+        "tier_rules": {
+          "A": {
+            "news_min_score": 0,
+            "min_rvol_open": 2.6
+          },
+          "B": {
+            "news_min_score": 0,
+            "min_rvol_open": 2.0
+          },
+          "C": {
+            "news_min_score": 1,
+            "min_rvol_open": 1.5
+          }
+        }
+      }
+    },
+    "pparams": {
+      "use_micro_confirmation": true,
+      "require_micro_continuation": true,
+      "micro_resolution": "5s",
+      "micro_window_secs": 60,
+      "micro_min_green_ratio": 0.6,
+      "micro_require_ema_reclaimhold": true,
+      "micro_require_vwap_holdhold": false,
+      "micro_allow_first_pullback": true
+    }
+  },
+  "C": {
+    "params": {
+      "min_pm_vol": 30000,
+      "dip_reclaim": false,
+      "tp_pct": 2.0,
+      "rise_bars": 3,
+      "macd_rise_bars": 2,
+      "gate_minutes": 10,
+      "sl_pct": 2.5,
+      "reclaim_ref": "EMA",
+      "min_price": 1,
+      "max_price": 20,
+      "min_gap_pct": 10,
+      "max_gap_pct": 40,
+      "sizing": {
+        "enabled": false,
+        "base_risk_usd": 50,
+        "max_per_trade_risk_usd": 120,
+        "max_daily_risk_usd": 300,
+        "drawdown_throttle_after_losses": 3,
+        "throttled_risk_factor": 0.5,
+        "confidence_map": {
+          "A": 1.8,
+          "B": 1.0,
+          "C": 0.5
+        },
+        "tier_rules": {
+          "A": {
+            "news_min_score": 3,
+            "min_rvol_open": 2.4
+          },
+          "B": {
+            "news_min_score": 2,
+            "min_rvol_open": 2.0
+          },
+          "C": {
+            "news_min_score": 1,
+            "min_rvol_open": 1.5
+          }
+        }
+      }
+    }
+  },
+  "D": {
+    "params": {
+      "min_pm_vol": 30000,
+      "dip_reclaim": false,
+      "tp_pct": 2.0,
+      "rise_bars": 3,
+      "green_body_min": 0.22,
+      "macd_rise_bars": 2,
+      "gate_minutes": 5,
+      "sl_pct": 2.5,
+      "reclaim_ref": "EMA",
+      "min_price": 1,
+      "max_price": 20,
+      "min_gap_pct": 10,
+      "max_gap_pct": 40,
+      "sizing": {
+        "enabled": false,
+        "base_risk_usd": 50,
+        "max_per_trade_risk_usd": 120,
+        "max_daily_risk_usd": 300,
+        "drawdown_throttle_after_losses": 3,
+        "throttled_risk_factor": 0.5,
+        "confidence_map": {
+          "A": 1.8,
+          "B": 1.0,
+          "C": 0.5
+        },
+        "tier_rules": {
+          "A": {
+            "news_min_score": 3,
+            "min_rvol_open": 2.4
+          },
+          "B": {
+            "news_min_score": 2,
+            "min_rvol_open": 2.0
+          },
+          "C": {
+            "news_min_score": 1,
+            "min_rvol_open": 1.5
+          }
+        }
+      }
+    }
+  },
+  "E": {
+    "params": {
+      "min_pm_vol": 50000,
+      "dip_reclaim": true,
+      "reclaim_ref": "vwap",
+      "min_dip_pct": 2.0,
+      "min_reclaim_pct": 0.0,
+      "reclaim_buffer_bps": 5,
+      "vwap_slope_bps": 2,
+      "ema_period": 5,
+      "tp_pct": 2.0,
+      "rise_bars": 3,
+      "green_body_min": 0.22,
+      "macd_rise_bars": 2,
+      "require_macd_rise": true,
+      "gate_minutes": 15,
+      "sl_pct": 2.5,
+      "min_rvol_open": 2.0,
+      "rvol_open_minutes": 15,
+      "min_price": 1,
+      "max_price": 20,
+      "min_gap_pct": 10,
+      "max_gap_pct": 40,
+      "sizing": {
+        "enabled": false,
+        "base_risk_usd": 50,
+        "max_per_trade_risk_usd": 120,
+        "max_daily_risk_usd": 300,
+        "drawdown_throttle_after_losses": 3,
+        "throttled_risk_factor": 0.5,
+        "confidence_map": {
+          "A": 1.8,
+          "B": 1.0,
+          "C": 0.5
+        },
+        "tier_rules": {
+          "A": {
+            "news_min_score": 3,
+            "min_rvol_open": 2.4
+          },
+          "B": {
+            "news_min_score": 2,
+            "min_rvol_open": 2.0
+          },
+          "C": {
+            "news_min_score": 1,
+            "min_rvol_open": 1.5
+          }
+        }
+      }
+    },
+    "pparams": {
+      "use_micro_confirmation": true,
+      "require_micro_continuation": true,
+      "micro_resolution": "5s",
+      "micro_window_secs": 60,
+      "micro_min_green_ratio": 0.6,
+      "micro_require_ema_reclaimhold": true,
+      "micro_require_vwap_holdhold": false,
+      "micro_allow_first_pullback": true
+    }
+  },
+  "B_safe": {
+    "params": {
+      "min_pm_vol": 30000,
+      "dip_reclaim": false,
+      "tp_pct": 2.0,
+      "rise_bars": 3,
+      "macd_rise_bars": 2,
+      "gate_minutes": 15,
+      "sl_pct": 2.5,
+      "reclaim_ref": "EMA",
+      "min_price": 1,
+      "max_price": 20,
+      "min_gap_pct": 10,
+      "max_gap_pct": 40,
+      "sizing": {
+        "enabled": false,
+        "base_risk_usd": 50,
+        "max_per_trade_risk_usd": 120,
+        "max_daily_risk_usd": 300,
+        "drawdown_throttle_after_losses": 3,
+        "throttled_risk_factor": 0.5,
+        "confidence_map": {
+          "A": 1.8,
+          "B": 1.0,
+          "C": 0.5
+        },
+        "tier_rules": {
+          "A": {
+            "news_min_score": 3,
+            "min_rvol_open": 2.4
+          },
+          "B": {
+            "news_min_score": 2,
+            "min_rvol_open": 2.0
+          },
+          "C": {
+            "news_min_score": 1,
+            "min_rvol_open": 1.5
+          }
+        }
+      }
+    }
+  },
+  "D_backup": {
+    "params": {
+      "min_pm_vol": 30000,
+      "dip_reclaim": false,
+      "tp_pct": 2.0,
+      "rise_bars": 3,
+      "macd_rise_bars": 2,
+      "gate_minutes": 5,
+      "sl_pct": 2.5,
+      "reclaim_ref": "EMA",
+      "min_price": 1,
+      "max_price": 20,
+      "min_gap_pct": 10,
+      "max_gap_pct": 40,
+      "sizing": {
+        "enabled": false,
+        "base_risk_usd": 50,
+        "max_per_trade_risk_usd": 120,
+        "max_daily_risk_usd": 300,
+        "drawdown_throttle_after_losses": 3,
+        "throttled_risk_factor": 0.5,
+        "confidence_map": {
+          "A": 1.8,
+          "B": 1.0,
+          "C": 0.5
+        },
+        "tier_rules": {
+          "A": {
+            "news_min_score": 3,
+            "min_rvol_open": 2.4
+          },
+          "B": {
+            "news_min_score": 2,
+            "min_rvol_open": 2.0
+          },
+          "C": {
+            "news_min_score": 1,
+            "min_rvol_open": 1.5
+          }
+        }
+      }
+    }
+  },
+  "B_backup": {
+    "params": {
+      "min_pm_vol": 30000,
+      "dip_reclaim": false,
+      "tp_pct": 2.0,
+      "rise_bars": 3,
+      "green_body_min": 0.22,
+      "macd_rise_bars": 2,
+      "gate_minutes": 20,
+      "sl_pct": 2.5,
+      "reclaim_ref": "EMA",
+      "min_price": 1,
+      "max_price": 20,
+      "min_gap_pct": 10,
+      "max_gap_pct": 40,
+      "sizing": {
+        "enabled": false,
+        "base_risk_usd": 50,
+        "max_per_trade_risk_usd": 120,
+        "max_daily_risk_usd": 300,
+        "drawdown_throttle_after_losses": 3,
+        "throttled_risk_factor": 0.5,
+        "confidence_map": {
+          "A": 1.8,
+          "B": 1.0,
+          "C": 0.5
+        },
+        "tier_rules": {
+          "A": {
+            "news_min_score": 3,
+            "min_rvol_open": 2.4
+          },
+          "B": {
+            "news_min_score": 2,
+            "min_rvol_open": 2.0
+          },
+          "C": {
+            "news_min_score": 1,
+            "min_rvol_open": 1.5
+          }
+        }
+      }
+    }
+  }
+}

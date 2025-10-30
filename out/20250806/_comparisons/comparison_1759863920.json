@@ -1,0 +1,49 @@
+{
+  "schema_version": "compare.v1",
+  "run_id": 1759863920,
+  "label": "B_top3_score3_g15_rvol2_authFix",
+  "date": "2025-08-06",
+  "scenario": "B",
+  "params": {
+    "news_only": true,
+    "news_first": true,
+    "deny_negative": true,
+    "exclude_china": true,
+    "news_min_score": 3.0,
+    "top": 3,
+    "enforce_band": true,
+    "band_min": 10.0,
+    "band_max": 40.0,
+    "min_rvol_open": 2.0,
+    "rvol_open_minutes": 15,
+    "green_streak": null,
+    "macd_rise_bars": null,
+    "max_trades_per_symbol": null,
+    "daily_max_loss": null,
+    "tp_pct": null,
+    "sl_pct": null,
+    "gate_minutes": null
+  },
+  "metrics": {
+    "wr_pct": 0.0,
+    "pnl": -98.24,
+    "tp": 0,
+    "sl": 3,
+    "used": 3
+  },
+  "filter_stats": null,
+  "artifacts": {
+    "summary_txt": "C:\\Users\\boydp\\Desktop\\midas_V2_v044_working\\out\\20250806\\B_hybrid\\summary_hybrid_2025-08-06.txt",
+    "universe_txt": "C:\\Users\\boydp\\Desktop\\midas_V2_v044_working\\data\\catalyst\\universe_hybrid_2025-08-06.txt",
+    "catalyst_csv": "C:\\Users\\boydp\\Desktop\\midas_V2_v044_working\\data\\catalyst\\catalyst_news_2025-08-06_filtered.csv"
+  },
+  "provenance": {
+    "command_used": "C:\\Users\\boydp\\AppData\\Local\\Programs\\Python\\Python313\\python.exe C:\\Users\\boydp\\Desktop\\midas_V2_v044_working\\scripts\\write_compare_bundle.py --date 2025-08-06 --scenario B --summary C:\\Users\\boydp\\Desktop\\midas_V2_v044_working\\out\\20250806\\B_hybrid\\summary_hybrid_2025-08-06.txt --universe C:\\Users\\boydp\\Desktop\\midas_V2_v044_working\\data\\catalyst\\universe_hybrid_2025-08-06.txt --catalyst-csv C:\\Users\\boydp\\Desktop\\midas_V2_v044_working\\data\\catalyst\\catalyst_news_2025-08-06_filtered.csv --out-dir C:\\Users\\boydp\\Desktop\\midas_V2_v044_working\\out\\20250806\\_comparisons --upstream-command C:\\Users\\boydp\\AppData\\Local\\Programs\\Python\\Python313\\python.exe scripts\\run_catalyst_range_and_summarize.py --start 2025-08-05 --end 2025-08-07 --scenario B --news-first --require-news --news-min-score 3 --top 3 --enforce-band --band-min 10 --band-max 40 --min-rvol-open 2.0 --gate-minutes 15 --deny-negative --exclude-china --compare --compare-label B_top3_score3_g15_rvol2_authFix --label B_top3_score3_g15_rvol2_authFix --band-min 10.0 --band-max 40.0 --min-rvol-open 2.0 --news-first --require-news --enforce-band --top 3 --news-min-score 3.0 --deny-negative --exclude-china --rvol-open-minutes 15",
+    "upstream_command": "C:\\Users\\boydp\\AppData\\Local\\Programs\\Python\\Python313\\python.exe scripts\\run_catalyst_range_and_summarize.py --start 2025-08-05 --end 2025-08-07 --scenario B --news-first --require-news --news-min-score 3 --top 3 --enforce-band --band-min 10 --band-max 40 --min-rvol-open 2.0 --gate-minutes 15 --deny-negative --exclude-china --compare --compare-label B_top3_score3_g15_rvol2_authFix",
+    "cwd": "C:\\Users\\boydp\\Desktop\\midas_V2_v044_working",
+    "python": "3.13.6",
+    "platform": "Windows 11",
+    "timestamp_utc": 1759863920
+  },
+  "warnings": []
+}

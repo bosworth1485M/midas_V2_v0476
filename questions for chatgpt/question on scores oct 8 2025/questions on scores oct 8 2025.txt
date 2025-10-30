@@ -1,0 +1,56 @@
+
+chatgpt can i have your opinion on the following questions.
+
+I ran run_catalyst_range_and_summarize.py for August 1 2025 to August 29th 2025.
+
+I have extracted lines from the screen for analysis.
+
+Question. should the following be score 3? What do you think?
+
+
+[KEEP] MAX   score=2 (base=2) title='White Mountains (WTM) Q2 Revenue Up 74%'
+
+[KEEP] NATR  score=2 (base=2) title='Nature's Sunshine (NATR) Q2 EPS Up 400%'
+
+[KEEP] REAL  score=2 (base=2) title='RealReal (REAL) Q2 Revenue Jumps 14%'
+
+[KEEP] RUM   score=2 (base=2) title='Rumble Reports 12 Percent Revenue Growth'
+
+[KEEP] SWAG  score=2 (base=2) title='Stran & Company Achieves 95.2% Increase in Sales to Approximately $32.6 Million for the Second Quarter of 2025'
+
+[KEEP] CINT  score=2 (base=2) title='CI&T Q2 Revenue Rises to $117 Million'
+
+[KEEP] BFRI  score=2 (base=2) title='Biofrontera Q2 Revenue Jumps 15%'
+
+
+Question. why are the following score 2 as they are negative? what do you think?
+
+
+[KEEP] JELD  score=2 (base=2) title='Jeld-wen (JELD) Q2 Revenue Falls 17%'
+
+[KEEP] OPAD  score=2 (base=2) title='Offerpad Q2 Revenue Drops 36%'
+
+[KEEP] OPAD  score=2 (base=2) title='Offerpad Q2 Revenue Drops 36%'
+
+[KEEP] JELD  score=2 (base=2) title='Jeld-wen (JELD) Q2 Revenue Falls 17%'
+
+
+
+[KEEP] DCGO  score=2 (base=2) title='DocGo (DCGO) Q2 Revenue Falls 51%'
+
+KEEP] KSS   score=2 (base=2) title='Kohl's Posts 5% Sales Decline in Q2'
+
+[KEEP] DXLG  score=2 (base=2) title='Destination Xl Revenue Falls 7.5% in Q2'
+
+
+Question. How should the following be scored?
+
+
+[KEEP] WKHS  score=1 (base=0) title='Workhorse Sales Beat Estimates'
+
+[KEEP] BZAI  score=2 (base=2) title='Blaize Reports 59 Percent Margin in Q2'
+
+
+
+
+

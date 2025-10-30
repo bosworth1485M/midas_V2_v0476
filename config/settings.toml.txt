@@ -1,0 +1,10 @@
+@'
+[run]
+random_seed = 1337
+timezone = "America/New_York"
+data_source = "polygon"
+
+[logging]
+level = "DEBUG"
+why = true
+'@ | Set-Content -Encoding UTF8 .\config\settings.toml

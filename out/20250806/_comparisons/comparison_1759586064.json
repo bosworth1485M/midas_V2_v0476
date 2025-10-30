@@ -1,0 +1,40 @@
+{
+  "schema_version": "compare.v1",
+  "run_id": 1759586064,
+  "label": "B_primary_top4_rvol18_g15",
+  "date": "2025-08-06",
+  "scenario": "B",
+  "params": {
+    "news_only": true,
+    "news_first": true,
+    "deny_negative": null,
+    "exclude_china": null,
+    "news_min_score": 2.0,
+    "top": 4,
+    "enforce_band": true,
+    "band_min": 10.0,
+    "band_max": 40.0,
+    "min_rvol_open": 1.8,
+    "rvol_open_minutes": 15,
+    "green_streak": null,
+    "macd_rise_bars": null,
+    "max_trades_per_symbol": null,
+    "daily_max_loss": null,
+    "tp_pct": null,
+    "sl_pct": null,
+    "gate_minutes": null
+  },
+  "metrics": {
+    "wr_pct": 0.0,
+    "pnl": -81.37,
+    "tp": 0,
+    "sl": 3,
+    "used": 3
+  },
+  "filter_stats": null,
+  "artifacts": {
+    "summary_txt": "C:\\Users\\boydp\\Desktop\\midas_V2_v044_working\\out\\20250806\\B_hybrid\\summary_hybrid_2025-08-06.txt",
+    "universe_txt": "C:\\Users\\boydp\\Desktop\\midas_V2_v044_working\\data\\catalyst\\universe_hybrid_2025-08-06.txt",
+    "catalyst_csv": "C:\\Users\\boydp\\Desktop\\midas_V2_v044_working\\data\\catalyst\\catalyst_news_2025-08-06.csv"
+  }
+}

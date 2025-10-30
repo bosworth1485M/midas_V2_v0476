@@ -1,0 +1,68 @@
+Run with catalysts on
+python scripts\run_catalyst_range_and_summarize.py --start 2025-08-05 --end 2025-08-31 --scenario B --news-first --require-news --news-min-score 3 --top 2 --enforce-band --band-min 10 --band-max 40 --min-rvol-open 2.6 --gate-minutes 15 --deny-negative --exclude-china --compare --compare-label B_ON_score3_top2_rvol26_g15 --save-csv "out\labeled\B_ON_score3_top2_rvol26_g15\range_summary_20250805_20250831.csv"
+Result
+=== TOTALS ===
+[B] trades=11, wins=2, losses=9, winrate=18.18%, totalPnL=-361.82
+[OK] Catalyst range summary CSV -> out\labeled\B_ON_score3_top2_rvol26_g15\range_summary_20250805_20250831.csv
+
+Run with catalysts off
+python scripts\run_catalyst_range_and_summarize.py --start 2025-08-05 --end 2025-08-31 --scenario B --top 2 --enforce-band --band-min 10 --band-max 40 --min-rvol-open 2.6 --gate-minutes 15 --compare --compare-label B_OFF_top2_rvol26_g15 --save-csv "out\labeled\B_OFF_top2_rvol26_g15\range_summary_20250805_20250831.csv"
+Result
+=== TOTALS ===
+[B] trades=3, wins=2, losses=1, winrate=66.67%, totalPnL=+29.34
+[OK] Catalyst range summary CSV -> out\labeled\B_OFF_top2_rvol26_g15\range_summary_20250805_20250831.csv
+
+show latest range for catalysts on
+
+python scripts\show_latest_range.py --glob "out/labeled/B_ON_score3_top2_rvol26_g15/range_summary*.csv"
+Result
+PS C:\Users\boydp\Desktop\midas_V2_v044_working> python scripts\show_latest_range.py --glob "out/labeled/B_ON_score3_top2_rvol26_g15/range_summary*.csv"
+[FILE] out/labeled/B_ON_score3_top2_rvol26_g15\range_summary_20250805_20250831.csv
+date       | label | trades | wins | losses | winrate_pct | pnl
+-----------+-------+--------+------+--------+-------------+-------
+2025-08-05 | B     | 1      | 1    | 0      | 100.0       | 39.16
+2025-08-06 | B     | 2      | 0    | 2      | 0.0         | -97.77
+2025-08-07 | B     | 2      | 0    | 2      | 0.0         | -97.95
+2025-08-08 | B     | 2      | 0    | 2      | 0.0         | -97.5
+2025-08-11 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-12 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-13 | B     | 1      | 0    | 1      | 0.0         | -48.97
+2025-08-14 | B     | 1      | 0    | 1      | 0.0         | -48.93
+2025-08-15 | B     | 1      | 0    | 1      | 0.0         | -49.0
+2025-08-18 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-19 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-20 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-21 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-22 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-25 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-26 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-27 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-28 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-29 | B     | 1      | 1    | 0      | 100.0       | 39.14
+show latest range for catalysts off
+
+python scripts\show_latest_range.py --glob "out/labeled/B_OFF_top2_rvol26_g15/range_summary*.csv"
+Result
+
+[FILE] out/labeled/B_OFF_top2_rvol26_g15\range_summary_20250805_20250831.csv
+date       | label | trades | wins | losses | winrate_pct | pnl
+-----------+-------+--------+------+--------+-------------+-------
+2025-08-05 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-06 | B     | 1      | 1    | 0      | 100.0       | 39.19
+2025-08-07 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-08 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-11 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-12 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-13 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-14 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-15 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-18 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-19 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-20 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-21 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-22 | B     | 1      | 1    | 0      | 100.0       | 39.14
+2025-08-25 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-26 | B     | 1      | 0    | 1      | 0.0         | -48.99
+2025-08-27 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-28 | B     | 0      | 0    | 0      | 0.0         | 0.0
+2025-08-29 | B     | 0      | 0    | 0      | 0.0         | 0.0

@@ -1,0 +1,187 @@
+Perfect 👍 — here’s the complete and detailed documentation for
+Midas_V2 v0.4.7.6 — Feature-Integration Architecture (Full Documentation)
+
+You can copy all of this directly into a Markdown or Word document (.md or .docx).
+It’s fully formatted and includes all sections, tables, code examples, and commands.
+
+🧭 Midas_V2 v0.4.7.6 — Feature-Integration Architecture (Full Documentation)
+1. Purpose of v0.4.7.6
+
+This version formalizes the feature-integration architecture in Midas_V2.
+It allows modular feature addition or removal — such as micro-continuation, Bollinger filters, or S/R logic — without editing core logic.
+All features are controlled externally via sidecar JSON files and are OFF by default until enabled.
+
+This version sets the foundation for fast, low-risk feature iteration:
+
+Features can be smoke-tested in isolation.
+
+Core components (strategy.py, backtester.py) stay stable.
+
+Each new feature has its own sidecar and plug-in script.
+
+2. Files / Scripts Introduced
+File	Purpose
+src\midas_v2\features\registry.py	Loads feature configurations from config/features/*.json and provides is_enabled() and get() helpers.
+config\features\micro.json	Sidecar controlling the micro-continuation feature (OFF by default).
+src\midas_v2\features\micro_feature.py	Main logic for micro-continuation and candle-confirmation filtering.
+src\midas_v2\utils\epoch_tools.py	Safely converts a bar’s .ts (epoch) or .t (HH:MM[:SS]) into UTC epoch — prevents crashes when timestamps are strings.
+src\midas_v2\strategy.py	Minimal import + single hook that calls enabled features. Core breakout logic untouched.
+(Planned v0.4.8) src\\midas_v2\\features\\pipeline.py	Will provide a generic routing layer (run_features()) for all future features.
+3. What Changed in strategy.py
+
+Only five small edits, all tagged # v0.4.8:
+
+# v0.4.8: Sidecar-driven feature hook (generic, OFF by default)
+from midas_v2.features.micro_feature import should_block_entry  # v0.4.8
+
+# ...
+# (inside should_enter, after EMA/VWAP/MACD checks)
+try:  # v0.4.8
+    if should_block_entry(getattr(self, "scenario_id", ""), getattr(self, "symbol", ""), bars[i], self):  # v0.4.8
+        return False  # v0.4.8
+except Exception:  # v0.4.8
+    pass  # fail-open (preserve baseline)  # v0.4.8
+
+✅ Why This Is Safe
+
+If the sidecar lists no enabled scenarios, the call immediately returns False (do nothing).
+
+Any failure inside the plug-in automatically fails open (baseline preserved).
+
+There is no performance impact if all features are OFF.
+
+4. Micro Feature Logic — Overview
+(a) Minute-Candle Filter
+
+Requires rise_bars ≥ 3 consecutive green 1-minute candles with body ratio ≥ green_body_min (default ≈ 0.22 = 22%).
+This ensures momentum before any micro check.
+
+(b) Micro-Continuation Window
+
+After a qualifying 1-minute bar, the plug-in fetches 1-second or 5-second data for a 60-second window.
+
+It checks:
+
+✅ Ratio of green micro-candles ≥ min_green_ratio (0.60 = 60%).
+
+✅ EMA reclaim and/or VWAP hold (configurable).
+
+✅ Allows a single brief pullback (allow_first_pullback=True).
+
+(c) Decision Logic
+Condition	Result
+Continuation confirmed	Allow entry
+Continuation fails	Block entry
+No micro data / invalid timestamp	Skip check (baseline behavior)
+5. Configuring Feature Parameters
+
+Edit: config\\features\\micro.json
+
+{
+  "enable_for": ["B"],
+  "resolution": "5s",
+  "window_secs": 60,
+  "min_green_ratio": 0.60,
+  "require_ema_reclaim": true,
+  "require_vwap_hold": false,
+  "allow_first_pullback": true
+}
+
+
+Turn Off (safe baseline):
+
+"enable_for": []
+
+6. How to Add a New Feature
+
+Create a new feature file:
+src\\midas_v2\\features\\<name>_feature.py
+
+Add a matching sidecar:
+config\\features\\<name>.json
+
+Implement the plug-in pattern:
+
+from midas_v2.features.registry import FeatureRegistry
+def should_block_entry(scenario_id, symbol, bar, strategy):
+    if not FeatureRegistry.is_enabled("<name>", scenario_id):
+        return False
+    # feature logic…
+    return True_or_False
+
+
+Strategy remains unchanged.
+The one-line hook calls all active features automatically.
+
+7. Verification & Testing
+✅ Single-Day Baseline vs Feature Test
+python scripts\run_day_simple.py --date 2025-08-05 --scenario B
+python scripts\run_day_simple.py --date 2025-08-05 --scenario B_safe
+
+
+Compare outputs:
+
+out\20250805\B\results_2025-08-05.csv
+out\20250805\B_safe\results_2025-08-05.csv
+
+✅ Multi-Day Range Comparison
+python scripts\run_catalyst_range_and_summarize.py --start 2025-08-05 --end 2025-08-31 --scenario B ...
+python scripts\run_catalyst_range_and_summarize.py --start 2025-08-05 --end 2025-08-31 --scenario B_safe ...
+python scripts\scan_run_bundles.py --scenario B --ignore-labels --dedupe-latest --per-day
+
+✅ Optional Debug (for proof of call)
+
+Add temporarily inside micro_feature.py before return not ok:
+
+print(f"[MICRO] scen={scenario_id} sym={symbol} ts={ts} ok={ok}")
+
+
+Outputs:
+
+[MICRO] ... ok=True → continuation confirmed (allowed).
+
+[MICRO] ... ok=False → continuation failed (blocked).
+
+8. Parameter Tests to Improve Profitability
+Parameter	Description	Expected Effect
+min_green_ratio ↑ 0.7	Require stronger micro-trend	Fewer trades, higher WR
+require_vwap_hold = true	VWAP must hold during micro window	Filters weak setups
+window_secs ↓ 30	Faster micro check	Captures early momentum
+resolution = "1s"	Use 1-second bars	More precise trend reading
+EMA reclaim ON	Enforces EMA micro support	Higher quality entries
+9. Next Steps (v0.4.8 Roadmap)
+Step	Description
+Feature Pipeline	Implement run_features("before_enter", …) for all future plug-ins.
+CLI Sidecar Manager	Simple on/off toggles for features via command line.
+Profitability Sweep	Run parametric sweeps of WR/PnL by feature configuration.
+Feature Audit Logs	Auto-record which feature blocked/allowed each trade.
+10. GitHub Commands (Version Control)
+git add -A
+git commit -m "v0.4.7.6: added feature-integration architecture + micro continuation plug-in"
+git tag -a v0.4.7.6 -m "v0.4.7.6: feature integration baseline"
+git push
+git push --tags
+
+
+Also back up to your USB:
+
+C:\Users\boydp\Desktop\Midas_V2_v0476_Working
+
+11. Expected Behavior Summary
+Scenario	Micro Enabled?	Behavior
+B	✅ Yes (enable_for: ['B'])	Requires strong green minute candles + micro continuation confirmation.
+B_safe	❌ No	Standard breakout logic only.
+Other Scenarios	❌ No	Unaffected baseline behavior.
+✅ Summary
+
+Core code remains stable.
+
+Features are modular, sidecar-controlled, and off by default.
+
+Baseline fully preserved.
+
+Ready for fast feature iteration (Bollinger bands, S/R Lite, adaptive sizing, etc.).
+
+End of Midas_V2 v0.4.7.6 Documentation
+Prepared for: Midas_V2 Development Series (Profitability Architecture)
+Date: October 2025

@@ -1,0 +1,9 @@
+{
+    "gap_basis":  "open",
+    "min_price":  1.0,
+    "max_price":  20.0,
+    "min_gap":  5.0,
+    "top_n":  8,
+    "float_under_20m":  false,
+    "set_universe":  true
+}

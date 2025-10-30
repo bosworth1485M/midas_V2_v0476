@@ -1,0 +1,9 @@
+{
+  "enable_for": [],
+  "resolution": "5s",
+  "window_secs": 60,
+  "min_green_ratio": 0.60,
+  "require_ema_reclaim": true,
+  "require_vwap_hold": false,
+  "allow_first_pullback": true
+}

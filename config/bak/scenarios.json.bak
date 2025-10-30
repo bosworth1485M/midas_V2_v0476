@@ -1,0 +1,59 @@
+﻿{
+    "A":  {
+              "name":  "Safer open",
+              "params":  {
+                             "gate_minutes":  10,
+                             "tp_pct":  1.2,
+                             "sl_pct":  2.8,
+                             "rise_bars":  2,
+                             "vwap_confirm":  true
+                         }
+          },
+    "B":  {
+              "name":  "Pivot reclaim",
+              "params":  {
+                             "gate_minutes":  5,
+                             "tp_pct":  1.3,
+                             "sl_pct":  2.7,
+                             "reclaim_pmh":  true,
+                             "vwap_confirm":  true
+                         }
+          },
+    "C":  {
+              "name":  "Liquid-only quick",
+              "params":  {
+                             "gate_minutes":  1,
+                             "tp_pct":  1.0,
+                             "sl_pct":  2.5,
+                             "min_pm_vol":  50000,
+                             "rise_bars":  3
+                         }
+          },
+    "D":  {
+              "name":  "Late confirm",
+              "params":  {
+                             "gate_minutes":  20,
+                             "tp_pct":  1.1,
+                             "sl_pct":  3.0,
+                             "rise_bars":  2,
+                             "vwap_confirm":  true
+                         }
+          },
+    "E":  {
+              "name":  "Dip Reclaim (stub)",
+              "params":  {
+                             "gate_minutes":  5,
+                             "tp_pct":  1.3,
+                             "sl_pct":  2.7,
+                             "reclaim_pmh":  true,
+                             "vwap_confirm":  true,
+                             "rise_bars":  2,
+                             "dip_reclaim":  true,
+                             "reclaim_ref":  "ema",
+                             "min_dip_pct":  2,
+                             "min_reclaim_pct":  0.5,
+                             "ema_period":  5,
+                             "macd_confirm":  true
+                         }
+          }
+}

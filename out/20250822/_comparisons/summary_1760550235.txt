@@ -1,0 +1,13 @@
+# TEST label=B_ON_rise10_smoketest date=2025-08-22 scenario=B (self-described in JSON)
+
+B: TP=0 SL=0 Win%=0.00 PnL=0.00
+[PROFILE] newsOnly + Top-3 + band 10-40 + RVOL 2
+
+[RUN SUMMARY]
+Date      | Scen | News-first | Score | Top | Band             | Enforce | OpenRVOL       | Used |   WR   | TP/SL |   PnL
+-------------------------------------------------------------------------------------------------------------------------------
+2025-08-22 | B  | Yes        | >=2 |   3 | 10.00% / 40.00%  | Yes     | 2.00           |    0 |    0.00% |  0/0  |   0.00
+
+[PER-SYMBOL]
+[DEFS] in_band=yes if 10.00% <= gap <= 40.00% (inclusive) ; type=standard if in_band ; type=rocket if gap > 40.00%
+symbol   included_by  news_score  gap%    in_band  type     traded  trades  TP  SL    PnL   headline
