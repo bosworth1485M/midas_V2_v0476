@@ -1,0 +1,54 @@
+diff --git a/src/midas_v2/strategy.py b/src/midas_v2/strategy.py
+index abcdef1..1234567 100644
+--- a/src/midas_v2/strategy.py
++++ b/src/midas_v2/strategy.py
+@@ -1,6 +1,8 @@
+ #!/usr/bin/env python
+ # -*- coding: utf-8 -*-
+ 
++"""
++This module contains strategies for Midas V2.
++"""
+ 
+ import logging
+ from typing import Any, Dict, List, Optional
+ 
+@@ -10,18 +12,21 @@
+ 
+ logging.basicConfig(level=logging.INFO)
+ logger = logging.getLogger(__name__)
+ 
+-def perform_strategy(data: List[Dict[str, Any]]) -> None:
++def perform_strategy(data: List[Dict[str, Any]]) -> None:
++    """Perform the strategy on the given data.
++
++    Args:
++        data: A list of dictionaries containing strategy information.
++    """
+     # TODO(claude): Implement the strategy logic
+     logger.info("Performing strategy on data: %s", data)
+ 
+-def calculate_threshold(value: float) -> float:
++def calculate_threshold(value: float) -> float:
++    """Calculate the threshold for the given value.
++
++    Args:
++        value: The input value to calculate the threshold for.
++
++    Returns:
++        The calculated threshold value.
++    """
+     # TODO(claude): Implement threshold calculation
+     threshold = value * 0.5
+     logger.info("Calculated threshold: %f", threshold)
+ 
+@@ -29,11 +36,12 @@
+ 
+ def main() -> None:
+     """Main entry point for the Midas V2 strategy."""
+     # TODO(claude): Implement main logic
+     data = [{"example_key": "example_value"}]
+     perform_strategy(data)
+ 
+-# TODO: Handle exceptions
++    # TODO: Handle exceptions

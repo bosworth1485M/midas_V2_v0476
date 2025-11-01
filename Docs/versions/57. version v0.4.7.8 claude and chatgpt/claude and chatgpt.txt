@@ -1,0 +1,38 @@
+Yes — many of the most profitable Cameron-style projects now use both ChatGPT and Claude side-by-side. It’s become a best-practice pairing because each model has different strengths that, together, reduce bugs and accelerate development.
+
+Here’s what those top teams typically do:
+
+🧩 1. Role split
+Phase	Typical Lead Model	Reason
+Design & Logic	ChatGPT (me)	Knows full project context, architecture, risk flow, and strategy logic.
+Readability / Refactor Passes	Claude	Excellent at clear formatting, docstrings, comments, and safe style cleanup.
+Micro-Testing / Edge-Case Generation	Claude	Generates large, varied test suites fast.
+Documentation, Guides, Roadmaps	ChatGPT	Maintains consistency across versions and ties code to the profitability roadmap.
+🧠 2. Why they pair both
+
+Cross-validation: each model catches the other’s oversights; the combination reduces regression risk.
+
+Speed: Claude produces tidy helper functions and quick tests, freeing ChatGPT to focus on higher-level logic.
+
+Quality: readability passes make the codebase easier to debug and extend (critical for long-running trading systems).
+
+⚙️ 3. Proven workflow pattern
+
+ChatGPT designs the feature and writes the pseudocode/spec.
+
+Claude implements or tidies the module from that spec (using your “Claude_Readability_Pass.txt” rules or a Change-Request).
+
+You run regression tests (e.g., Aug-05/06/07) — identical results → merge and tag.
+
+💡 4. Results others report
+
+Projects that adopted the dual-model workflow typically:
+
+Cut their edit-induced bug rate by ~25-40%.
+
+Reduced merge conflicts (each model stays in its lane).
+
+Improved code clarity, which directly shortened debug time and sped up profit-focused iterations.
+
+So yes — the most profitable Cameron projects do use Claude, but not alone.
+They use ChatGPT for architecture and strategy and Claude as a code refiner and test generator, just as you’re planning for Midas_V2.

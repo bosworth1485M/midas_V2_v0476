@@ -1,3 +1,5 @@
+# TEST label=B_primary_top3_rvol20_g15 date=2025-08-05 scenario=B (self-described in JSON)
+
 B: TP=1 SL=0 Win%=100.00 PnL=27.82
 [PROFILE] newsOnly + Top-3 + band 10-40 + RVOL 2
 

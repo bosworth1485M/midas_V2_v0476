@@ -1,0 +1,163 @@
+Midas V2 v0.4.7.8 — Readability Pass & Two-Model Workflow Notes
+
+Date: 2025-11-01
+Scope: Documentation-only update to src/midas_v2/strategy.py (readability pass) + workflow guidance for ChatGPT + Claude.
+
+1 What changed in v0.4.7.8 (readability only)
+
+File: src/midas_v2/strategy.py
+
+Added concise module/class/function docstrings and inline comments.
+
+Clarified purpose and usage of: StrategyParams, Bar, EMA/VWAP/MACD helpers, SimpleBreakoutStrategy (gates, dip-reclaim, plugin hook).
+
+No logic, names, imports, thresholds, or defaults changed.
+
+Preserved the v0.4.8 sidecar hook should_block_entry(...).
+
+Sanity check run (passed):
+
+$env:PYTHONPATH='src'
+python scripts\run_catalyst_flow.py --date 2025-08-05 --scenario B `
+  --news-first --require-news --news-min-score 3 --top 3 `
+  --enforce-band --band-min 10 --band-max 40 `
+  --min-rvol-open 2.0 --gate-minutes 15 --deny-negative --exclude-china
+
+
+Result: Outputs matched baseline expectations; behavior unchanged.
+
+2 Why this pass matters
+
+Improves clarity and maintainability without risking regressions.
+
+Makes it easier to onboard tests (unit + golden-day) and future features (opening RVOL gates, MACD rise bars, dip-reclaim refinements).
+
+Keeps our core rule intact: never change a working engine without tests.
+
+3 ChatGPT + Claude — two-model workflow (simple & safe)
+
+Roles
+
+Tool	Role	Typical Tasks
+ChatGPT (designer/architect)	Writes specs, change requests, acceptance criteria, and verification steps. Guards constraints so features stay aligned with the profitability roadmap.	Design, planning, validation
+Claude (editor/generator)	Performs readability passes, creates small helpers, and drafts tests from clear prompts.	Refactor, docstrings, test drafts
+
+Daily loop
+
+Define a tiny scope with ChatGPT (what file/block, allowed/forbidden changes).
+
+Claude executes — returns full file or small diff.
+
+Verify with single-day or golden-day runs; only then commit + tag.
+
+Repeat with another tiny scope.
+
+When to use each style
+
+Whole-file swap (preferred for readability): fastest; Claude returns entire cleaned file → diff locally → if identical behavior, replace and tag.
+
+Patch/diff mode (optional for audit): use when editing critical blocks and you want a record under patches/.
+
+4 Do we recommend the patching approach?
+
+Optional — useful for critical code and auditability, not needed for simple readability.
+
+Use patching when:
+
+You want a reviewable diff touching fragile logic.
+
+You need an instant revert path and a logged Change Request.
+
+Use whole-file swap when:
+
+The change is cosmetic only.
+
+You confirmed via diff that no logic changed.
+
+You want speed without patch overhead.
+
+v0.4.7.8 used the whole-file swap approach and passed sanity tests.
+
+5 Can Claude help with tests? Yes — examples to reuse
+
+Below are ready-to-adapt prompts and test ideas (for pytest).
+
+A) Unit tests — EMA/MACD helpers
+
+Spec:
+
+EMA constant series → EMA equals constant.
+
+Short period edge cases.
+
+Seed behavior once period met.
+
+MACD rising histogram logic.
+
+Prompt stub
+
+“Write pytest tests for ema and macd in strategy.py. Cover constant series, period = 1, and steady uptrend. Assert lengths match, Nones only during warm-up, histogram rises for N bars.”
+
+B) Unit tests — price-rise gate
+
+Spec: With rise_bars=3, reject non-rising sequences; accept rising; test green_body_min.
+
+Prompt stub
+
+“Generate pytest for _passes_price_rise_gate(bars,i) in SimpleBreakoutStrategy. Use synthetic Bar lists; test rising vs flat vs doji cases.”
+
+C) Unit tests — MACD rising gate
+
+Spec: When require_macd_rise=True and macd_rise_bars=N, ensure gate fails when histogram doesn’t rise N times and passes when it does.
+
+Prompt stub
+
+“Draft pytest for _passes_macd_gate(closes,i) covering require_macd_rise on/off and various macd_rise_bars values.”
+
+D) Unit tests — dip-reclaim logic
+
+Spec: Validate reclaim above EMA vs VWAP; check min_dip_pct, min_reclaim_pct, slope_bps; confirm MACD confirmations.
+
+Prompt stub
+
+“Create pytest for _dip_reclaim_should_enter(bars,i) covering insufficient/sufficient dip, reclaim above EMA/VWAP, slope gate, MACD confirm on/off.”
+
+E) Golden-day regression harness
+
+Spec: Run Aug-05→07 range and assert identical entries/PNL when new flags OFF.
+
+Prompt stub
+
+“Write pytest that runs known days and asserts entries/PNL match stored CSV baselines. Skip gracefully if data missing.”
+
+6 Verification (run successful)
+
+Command used:
+
+$env:PYTHONPATH='src'
+python scripts\run_catalyst_flow.py --date 2025-08-05 --scenario B `
+  --news-first --require-news --news-min-score 3 --top 3 `
+  --enforce-band --band-min 10 --band-max 40 `
+  --min-rvol-open 2.0 --gate-minutes 15 --deny-negative --exclude-china
+
+
+Outcome: Success — behavior unchanged.
+
+7 Git steps (to record this version)
+git add -A
+git commit -m "v0.4.7.8: Claude readability pass on strategy.py (docstrings/comments only, no logic change)"
+git tag -a v0.4.7.8 -m "Readability-only update; behavior unchanged"
+git push
+git push --tags
+
+8 Next tiny steps
+
+Ask Claude for Docs-only Markdown for StrategyParams → save as Docs/StrategyParams.md.
+
+Have Claude draft pytest skeletons for EMA/MACD and price-rise gate.
+
+Add a minimal golden-day regression test runner.
+
+Principle: tiny scope → generate → sanity run → commit + tag.
+
+(End of document — Midas V2 v0.4.7.8)

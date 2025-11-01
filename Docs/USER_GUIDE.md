@@ -244,9 +244,11 @@ python scripts/run_catalyst_flow.py --start 2025-08-05 --end 2025-08-07 --scenar
 - `src/midas_v2/risk.py` — 2025-10-04 — from __future__ import annotations
 - `src/midas_v2/settings.py` — 2025-10-04 — from __future__ import annotations
 - `src/midas_v2/sizing.py` — 2025-10-09 — """
+- `src/midas_v2/strategy.backup.py` — 2025-10-29 — from __future__ import annotations
 - `src/midas_v2/strategy.bak.py` — 2025-10-16 — from __future__ import annotations
 - `src/midas_v2/strategy.baseline.py` — 2025-10-04 — from __future__ import annotations
-- `src/midas_v2/strategy.py` — 2025-10-29 — from __future__ import annotations
+- `src/midas_v2/strategy.py` — 2025-11-01 — from __future__ import annotations
+- `src/midas_v2/strategy_claude.py` — 2025-11-01 — from __future__ import annotations
 - `src/midas_v2/tests/strategy_smoke.py` — 2025-10-16 — from __future__ import annotations
 - `src/midas_v2/utils/epoch_tools.py` — 2025-10-29 — # src/midas_v2/utils/epoch_tools.py  # v0.4.8
 - `src/midas_v2/utils_logging.py` — 2025-10-04 — import logging, os
