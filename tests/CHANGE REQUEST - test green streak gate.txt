@@ -1,0 +1,73 @@
+CHANGE REQUEST — Generate pytest for GREEN-STREAK gate (deterministic, uses real module, fixed mk_bar helper, float-safe)
+
+Goal:
+Create a self-contained pytest file that tests SimpleBreakoutStrategy._passes_price_rise_gate(bars, i)
+using my REAL module implementation.
+
+Import targets (DO NOT reimplement):
+from midas_v2.strategy import SimpleBreakoutStrategy, StrategyParams, Bar
+
+Gate semantics (current code):
+- If rise_bars > 0, look = min(rise_bars, i); if look <= 0 → return False
+- For k in range(look): require strictly rising closes: bars[i-k].c > bars[i-k-1].c
+- If green_body_min > 0: require (abs(c-o)/(h-l)) >= green_body_min on each checked bar
+- If rise_bars == 0 → gate disabled → return True
+
+Constraints:
+- Deterministic, pure pytest; no I/O or network.
+- Build synthetic Bar sequences directly in tests.
+- Use clear assert messages.
+
+Include this helper (CORRECTED and FLOAT-SAFE):
+
+    def mk_bar(t, o, c, rng=1.0, vol=1000):
+        """
+        Build a Bar with exact range = rng, centered around midpoint of o and c.
+        Requires rng >= abs(c - o). Then body_pct = abs(c - o) / rng exactly.
+        """
+        assert rng >= abs(c - o)
+        mid = (o + c) / 2.0
+        h = mid + rng / 2.0
+        l = mid - rng / 2.0
+        return Bar(t, o, h, l, c, vol)
+
+Deliverable:
+Return full contents of tests/test_green_streak_gate.py (no commentary).
+
+Required test cases:
+
+1) test_disabled_gate_always_true  
+   - rise_bars=0, green_body_min=0.22 → any sequence → expect True
+
+2) test_three_strict_rising_greens_pass  
+   - rise_bars=3, green_body_min=0.0  
+   - 4 bars, last 3 strictly rising → expect True
+
+3) test_one_red_bar_in_last_three_fails  
+   - rise_bars=3, green_body_min=0.0  
+   - one red (close ≤ prev) among last 3 → expect False
+
+4) test_doji_like_bodies_fail_when_body_min_enforced  
+   - rise_bars=3, green_body_min=0.22  
+   - last 3 rising, but one bar body_pct < 0.22 → expect False
+
+5) test_rising_with_body_threshold_plus_epsilon_passes  
+   - rise_bars=2, green_body_min=0.22  
+   - two rising bars with body_pct ≈ 0.2201 (> threshold slightly)  
+   - use +0.0001 epsilon to avoid float rounding  
+   - expect True
+
+6) test_boundary_index_too_early_fails  
+   - rise_bars=3, only 2 bars, i=1 → expect False
+
+7) test_longer_sequence_only_last_three_checked  
+   - rise_bars=3, long sequence, last 3 rising → expect True
+
+8) test_mixed_body_sizes_all_pass_min  
+   - rise_bars=3, green_body_min=0.25  
+   - last 3 body_pct 0.50, 0.333, 0.2501 (use +0.0001 epsilon) → expect True
+
+Implementation notes:
+- Use t=0,1,2,… and vol=1000 for simplicity.
+- For threshold tests, always build body_pct **≥ threshold + 1e-4** to defeat float precision errors.
+- Clear asserts like “expected True for 3 rising greens” or “expected False due to doji body < min”.

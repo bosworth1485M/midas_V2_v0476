@@ -1,0 +1,156 @@
+# Midas_V2 v0.4.7.9 — Unit Testing of Green-Streak and MACD Rising Gates
+
+*Date:* 2025-11-02
+*Scope:* Establish deterministic unit-test coverage for `SimpleBreakoutStrategy` green-streak and MACD rising gate logic.  This version completes robust testing of both gates before proceeding to micro-continuation and live A/B profitability testing.
+
+---
+
+## 1) Overview
+
+In v0.4.7.9 we introduced **comprehensive, deterministic unit tests** for two of Midas_V2’s most critical gate components:
+
+1. **Green-Streak Gate** – verifies sequences of rising green candles with configurable body strength (`rise_bars`, `green_body_min`).
+2. **MACD Rising Gate** – validates MACD histogram behavior (`require_macd_rise`, `macd_rise_bars`) to confirm sustained bullish momentum.
+
+Both test suites were designed for repeatability (no randomness, no API calls) and precision (clear pass/fail logic using controlled synthetic data).  All tests were generated from refined Change Requests and run locally with pytest.
+
+---
+
+## 2) Green-Streak Gate Tests
+
+**File:** `tests/test_green_streak_gate.py`
+**Count:** 8 tests
+**Status:** ✅ 8/8 Passed
+
+### What They Test
+
+| # | Test Name                                             | Purpose                                                                                    |
+| - | ----------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| 1 | `test_disabled_gate_always_true`                      | Verifies that when `rise_bars=0`, the gate always returns True (disabled).                 |
+| 2 | `test_three_strict_rising_greens_pass`                | Ensures three consecutive green bars with rising closes return True.                       |
+| 3 | `test_one_red_bar_in_last_three_fails`                | Confirms that any red bar (close ≤ previous) causes gate failure.                          |
+| 4 | `test_doji_like_bodies_fail_when_body_min_enforced`   | Fails if a bar’s body percentage is smaller than `green_body_min`.                         |
+| 5 | `test_rising_with_body_threshold_plus_epsilon_passes` | Validates boundary behavior — passes at or slightly above threshold (`>= green_body_min`). |
+| 6 | `test_boundary_index_too_early_fails`                 | Checks early index behavior (too few bars to evaluate).                                    |
+| 7 | `test_longer_sequence_only_last_three_checked`        | Confirms that only the configured window (`rise_bars`) is evaluated.                       |
+| 8 | `test_mixed_body_sizes_all_pass_min`                  | Verifies multiple bar body sizes all exceeding `green_body_min` pass.                      |
+
+### Helper Function
+
+A corrected and float-safe `mk_bar()` helper ensures precise body percentage calculation:
+
+```python
+def mk_bar(t, o, c, rng=1.0, vol=1000):
+    assert rng >= abs(c - o)
+    mid = (o + c) / 2.0
+    h = mid + rng / 2.0
+    l = mid - rng / 2.0
+    return Bar(t, o, h, l, c, vol)
+```
+
+This guarantees `body_pct = abs(c-o)/rng` exactly, eliminating floating-point drift that caused earlier threshold misfires.
+
+**Result:** All eight tests passed consistently (`8/8 passed in 0.30s`).
+
+---
+
+## 3) MACD Rising Gate Tests
+
+**File:** `tests/test_macd_gate.py`
+**Count:** 8 tests
+**Status:** ✅ 8/8 Passed
+
+### What They Test
+
+| # | Test Name                                             | Purpose                                                                        |
+| - | ----------------------------------------------------- | ------------------------------------------------------------------------------ |
+| 1 | `test_disabled_gate_always_true`                      | Confirms gate returns True when `require_macd_rise=False`.                     |
+| 2 | `test_passes_with_two_consecutive_rises`              | Validates rising MACD histogram across two bars (`macd_rise_bars=2`).          |
+| 3 | `test_histogram_rises_then_dips_fails`                | Ensures a price dip (not flat) forces histogram decline, causing gate failure. |
+| 4 | `test_one_decline_within_three_fails`                 | Confirms a mid-sequence decline breaks the consecutive-rise requirement.       |
+| 5 | `test_insufficient_warmup_fails_by_index`             | Forces early index (`i < N+1`) to guarantee False (insufficient data).         |
+| 6 | `test_long_flat_then_accel_requires_recent_rise_only` | Ensures only recent bars matter (old flats ignored).                           |
+| 7 | `test_rising_but_histogram_negative_fails`            | Verifies failure when histogram is negative even if prices rise.               |
+| 8 | `test_borderline_noise_requires_strict_increase`      | Validates strict increase enforcement under small noisy moves.                 |
+
+### Helper Function
+
+Each test uses `last_hist()` to inspect trailing histogram values for clarity:
+
+```python
+def last_hist(closes, window=6):
+    macd_line, signal, hist = macd(closes)
+    return [round(h, 6) if h is not None else None for h in hist[-window:]]
+```
+
+**Result:** All eight tests passed deterministically (`8/8 passed in 0.30s`).
+
+---
+
+## 4) Commands Used to Run Tests
+
+Executed from project root (`C:\Users\boydp\Desktop\midas_V2_v047_working`):
+
+```powershell
+# Run Green-Streak tests
+$env:PYTHONPATH='src'
+python -m pytest -q tests\test_green_streak_gate.py
+
+# Run MACD Rising Gate tests
+$env:PYTHONPATH='src'
+python -m pytest -q tests\test_macd_gate.py
+
+# Run all tests at once
+python -m pytest -q tests
+```
+
+Each run executed cleanly without any manual PYTHONPATH tweaks thanks to `pytest.ini`:
+
+```
+[pytest]
+pythonpath = src
+```
+
+---
+
+## 5) Summary of Results
+
+| Suite             | File                            | Tests | Result       |
+| ----------------- | ------------------------------- | ----- | ------------ |
+| Green-Streak Gate | tests/test_green_streak_gate.py | 8     | ✅ 8/8 Passed |
+| MACD Rising Gate  | tests/test_macd_gate.py         | 8     | ✅ 8/8 Passed |
+
+All unit tests are deterministic, float-safe, and self-contained — producing consistent results across runs.
+
+---
+
+## 6) Next Steps
+
+1. **Optional Commit & Tag Locally**
+
+   ```powershell
+   git add -A
+   git commit -m "v0.4.7.9: deterministic unit tests for green-streak and MACD rising gates (8/8 each)"
+   git tag -a v0.4.7.9 -m "Stable unit tests for both gates"
+   ```
+
+2. **Optional Push to GitHub**
+
+   ```powershell
+   git push
+   git push --tags
+   ```
+
+3. **Prepare Micro-Continuation Harness**
+   Next, we’ll add `tests/micro_continuation_test.py` — a small replay module that loads 1-second candles, applies both gates, and logs gate outcomes per bar.
+
+4. **Run Acid Test (WR/PnL)**
+   Once micro-level validation is complete, re-run A/B backtests across Aug-05→07 to evaluate Win Rate and Profitability lift:
+
+   * **Baseline OFF**: all gates disabled.
+   * **Feature ON**: `rise_bars=3`, `green_body_min=0.22`, `require_macd_rise=1`, `macd_rise_bars=2`, `gate=15`.
+
+---
+
+**Version Summary:**
+Midas_V2 v0.4.7.9 locks in the first fully deterministic unit tests for the two most critical breakout gates, ensuring future development on micro and live systems can safely reference validated logic.  These tests will serve as the safety net for the upcoming v0.4.8 micro-continuation and profitability experiments.

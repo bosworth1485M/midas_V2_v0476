@@ -1,0 +1,101 @@
+CHANGE REQUEST — Overwrite tests/test_macd_gate.py (deterministic MACD rising gate; robust dip & negative-hist cases)
+
+Goal:
+Create a complete pytest file that exercises SimpleBreakoutStrategy._passes_macd_gate(closes, i)
+using my REAL module implementation.
+
+Import targets (DO NOT reimplement):
+from midas_v2.strategy import SimpleBreakoutStrategy, StrategyParams, macd
+
+Gate rule (current code, honor exactly):
+- If require_macd_rise is False -> gate passes (True).
+- If require_macd_rise is True -> gate requires:
+    • strictly rising MACD histogram for the last N bars: hist[i] > hist[i-1] > …,
+    • AND hist[i] > 0,
+    • AND i >= N+1 (enough indices for N comparisons).
+
+Constraints:
+- Deterministic & fast. No I/O, no network. Only dependency is pytest.
+- Build synthetic 'closes' in tests.
+- Add a helper to show trailing histogram when assertions fail:
+
+    def last_hist(closes, window=6):
+        macd_line, signal, hist = macd(closes)
+        return [round(h, 6) if h is not None else None for h in hist[-window:]]
+
+Implementation notes (to avoid ambiguity):
+- Do NOT rely on a "flat" last price to stop momentum. EMA smoothing can keep hist rising.
+  Use an explicit DIP: reduce the final close by ~0.6 to force hist[i] <= hist[i-1].
+- For “negative histogram” case, either (a) keep recent rises very small, or (b) pick i one bar
+  earlier so hist[i] is still ≤ 0. Include one of these strategies in the test.
+- For “insufficient warm-up,” explicitly set i < N+1 (e.g., N=3, i=2) to guarantee False.
+
+Deliverable:
+Return ONLY the full contents of tests/test_macd_gate.py (no extra commentary).
+
+Required tests (names, data shape, expectations):
+
+1) test_disabled_gate_always_true
+   - params = StrategyParams(require_macd_rise=False)
+   - closes: gentle uptrend, e.g., [100 + 0.2*i for i in range(20)]
+   - i = last
+   - Expect: True
+
+2) test_passes_with_two_consecutive_rises
+   - params = StrategyParams(require_macd_rise=True, macd_rise_bars=2)
+   - closes:
+       * Warm-up: [100 + 0.2*i for i in range(30)]
+       * Momentum: extend [106.0, 108.0, 110.6, 112.0]   # strong, unambiguous rise
+   - i = last
+   - Expect: True and hist[i] > hist[i-1] > 0
+   - If it fails, include last_hist(closes) in the message.
+
+3) test_histogram_rises_then_dips_fails   # stronger dip to prevent false positives
+   - params = StrategyParams(require_macd_rise=True, macd_rise_bars=2)
+   - closes:
+       * Warm-up: [100 + 0.2*i for i in range(30)]
+       * Acceleration: extend [106.0, 108.0, 110.5]
+       * Strong DIP: extend [111.0, 110.0]   # ensures hist[i] <= hist[i-1] deterministically
+   - i = last
+   - Expect: False
+   - Also assert: hist[i] <= hist[i-1], f"still rising: {last_hist(closes)}"
+
+4) test_one_decline_within_three_fails   # N=3; mid-step dip must break sequence
+   - params = StrategyParams(require_macd_rise=True, macd_rise_bars=3)
+   - closes:
+       * Warm-up: [100 + 0.3*i for i in range(30)]
+       * Pattern: extend [109.0, 111.0, 110.2, 113.0]   # deeper dip breaks consecutive rise
+   - i = last
+   - Expect: False
+   - Optional: assert not (hist[i] > hist[i-1] > hist[i-2] > 0), f"unexpected rise: {last_hist(closes)}"
+
+5) test_insufficient_warmup_fails_by_index   # explicit early-index rule
+   - params = StrategyParams(require_macd_rise=True, macd_rise_bars=3)  # N=3
+   - closes: [100.0, 101.0, 102.0, 103.0]
+   - i = 2  # i < N+1 (2 < 4) → guaranteed False
+   - Expect: False
+
+6) test_long_flat_then_accel_requires_recent_rise_only
+   - params = StrategyParams(require_macd_rise=True, macd_rise_bars=2)
+   - closes: long flat then acceleration, e.g., [100,100,100,100,100, 102,104,106]
+   - i = last
+   - Expect: True; include last_hist(closes) in failure message if needed
+
+7) test_rising_but_histogram_negative_fails   # ensure hist[i] ≤ 0 at chosen i
+   - params = StrategyParams(require_macd_rise=True, macd_rise_bars=2)
+   - Approach A (preferred): use a strong downtrend then tiny upticks that keep hist ≤ 0:
+       * closes = [120 - 0.8*i for i in range(50)] + [80.0, 80.1]   # very small rises
+       * i = last
+     Expect: False because hist[i] must be > 0.
+   - Approach B (alternative): if using a longer uptick tail, evaluate one bar earlier:
+       * closes = [120 - 0.8*i for i in range(50)] + [80.0, 80.4, 80.9, 81.3]
+       * i = len(closes) - 2
+     Expect: False (hist[i] still ≤ 0).
+
+8) test_borderline_noise_requires_strict_increase
+   - params = StrategyParams(require_macd_rise=True, macd_rise_bars=2)
+   - closes:
+       * Warm-up: [100 + 0.2*i for i in range(30)]
+       * Noise: extend [106.0, 106.4, 106.39]   # last step slightly down
+   - i = last
+   - Expect: False (strict increase violated)
