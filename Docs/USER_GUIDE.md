@@ -252,5 +252,7 @@ python scripts/run_catalyst_flow.py --start 2025-08-05 --end 2025-08-07 --scenar
 - `src/midas_v2/tests/strategy_smoke.py` — 2025-10-16 — from __future__ import annotations
 - `src/midas_v2/utils/epoch_tools.py` — 2025-10-29 — # src/midas_v2/utils/epoch_tools.py  # v0.4.8
 - `src/midas_v2/utils_logging.py` — 2025-10-04 — import logging, os
+- `tests/test_green_streak_gate.py` — 2025-11-04 — """
+- `tests/test_macd_gate.py` — 2025-11-04 — """
 - `tools/diagnose_catalyst_pipeline.py` — 2025-10-07 — #!/usr/bin/env python3
 - `tools/diagnose_catalyst_scoring.py` — 2025-10-07 — #!/usr/bin/env python3
