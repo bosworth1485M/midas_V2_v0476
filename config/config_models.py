@@ -1,3 +1,16 @@
+# =============================================================================
+# Midas_V2 config models (Pydantic v2) — v0.4.8 changes
+# PURPOSE: enable the Green-Streak + MACD “momentum bundle” as FLAT top-level
+#          fields in each scenario and make the Scenario model accept existing
+#          flat keys from scenarios.json without validation errors.
+# CHANGES (all lines tagged with `# v0.4.8`):
+#   • Scenario.model_config: extra="allow" (was "forbid")  # v0.4.8
+#   • Add four top-level fields with default OFF:
+#       rise_bars, green_body_min, require_macd_rise, macd_rise_bars          # v0.4.8
+#   • (Optional safety) ScenariosConfig.model_config: extra="ignore"          # v0.4.8
+# Everything else is unchanged.
+# =============================================================================
+
 """
 Config models for Midas_V2 (Pydantic v2)
 
@@ -55,15 +68,23 @@ class ScenarioParams(BaseModel):
 class Scenario(BaseModel):
     """Per-scenario overrides."""
     # Only allow known top-level keys; this keeps structure clean.
-    model_config = ConfigDict(extra="forbid")
+    # model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="allow")  # v0.4.8 — allow flat keys (min_price, tp_pct, etc.) + momentum fields
 
     scanner: Optional[ScannerConfig] = None
     params: Optional[ScenarioParams] = None
 
+    # ---- v0.4.8: Green-Streak (price action) & MACD-Rising (momentum) — default OFF
+    rise_bars: int = Field(0, ge=0)                 # v0.4.8
+    green_body_min: float = Field(0.0, ge=0.0, le=1.0)  # v0.4.8
+    require_macd_rise: bool = False                 # v0.4.8
+    macd_rise_bars: int = Field(0, ge=0)            # v0.4.8
+
 
 class ScenariosConfig(RootModel[Dict[str, Scenario]]):
     """Root model: scenario-name -> Scenario (e.g., {'B': {...}, 'D': {...}})."""
-    pass
+    # (Optional safety) tolerate unknown extras at the root wrapper               # v0.4.8
+    model_config = ConfigDict(extra="ignore")                                     # v0.4.8
 
 
 def merge_scanner(global_scanner: ScannerConfig, scenario: Optional[Scenario]) -> ScannerConfig:

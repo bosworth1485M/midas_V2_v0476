@@ -1,0 +1,14 @@
+B: TP=5 SL=4 Win%=55.56
+B (catalyst): TP=0 SL=0 Win%=0.00
+D: TP=0 SL=0 Win%=0.00
+E: TP=0 SL=0 Win%=0.00
+[AUTHORITATIVE] Wrote out\20250829\_final\summary_only_2025-08-29.txt
+
+---
+Run Parameters:
+  scenarios_in_summary = B, D, E
+  [B] tp_pct=2.0, sl_pct=2.5, gate_minutes=20, rise_bars=3, min_pm_vol=30000
+  [D] tp_pct=2.0, sl_pct=2.5, gate_minutes=5, rise_bars=3, min_pm_vol=30000
+  [E] tp_pct=2.0, sl_pct=2.5, gate_minutes=15, rise_bars=3, min_pm_vol=50000
+  [catalyst] picked=0, a_only=False
+  [overrides] min_rvol_open=None, rvol_open_minutes=15, max_trades_per_symbol=1, daily_max_loss=1000.0
