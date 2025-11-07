@@ -1,0 +1,60 @@
+# example day tests
+
+python scripts/run_day_simple.py --date 2025-08-13 --scenario B
+
+python scripts/run_day_simple.py --date 2025-08-13 --scenario B --top 12
+
+python scripts/run_day_simple.py --date 2025-08-13 --scenario B --top 12
+
+python scripts/run_day_simple.py --date 2025-08-13 --scenario D --top 12
+
+python scripts/run_day_simple.py --date 2025-08-08 --scenario B --top 12
+
+python scripts\show_latest_range.py
+
+
+# day range tests
+
+
+python scripts\run_range_and_summarize.py --start 2025-08-05 --end 2025-08-31 --scenario B
+
+python scripts/run_range_and_summarize.py --start 2025-08-05 --end 2025-08-31 --scenario B --top 12
+
+python scripts/run_range_and_summarize.py --start 2025-08-05 --end 2025-08-31 --scenario D --top 12
+
+python scripts/run_range_and_summarize.py --start 2025-08-05 --end 2025-08-31 --scenario E --top 12
+
+python scripts/run_range_and_summarize.py --start 2025-08-05 --end 2025-08-31 --scenario B,D,E --top 12
+
+
+python scripts\analyze_range_explained.py --csv out\auto\range_summary_20250805_20250831_B.csv
+
+python scripts\analyze_range_explained.py --csv out\auto\range_summary_20250805_20250831_D.csv
+
+python scripts\analyze_range_explained.py --csv out\auto\range_summary_20250805_20250831_E.csv
+
+#not working
+
+Python scripts\rebuild_range_summary.py --start 2025-08-05 --end 2025-08-31 --scenarios B D E
+
+
+
+# catalyst range
+
+python scripts\run_catalyst_range_and_summarize.py --start 2025-08-05 --end 2025-08-07 --scenario B --require-news --news-min-score 3 --top 2 --enforce-band --band-min 10 --band-max 40 --min-rvol-open 2.4 --gate-minutes 20 --deny-negative --exclude-china --compare --compare-label B_sizingON_Aug05_07_A14_cap50_rvol26
+python scripts\scan_run_bundles.py --scenario B --ignore-labels --dedupe-latest --per-day
+python scripts\sizing_mode.py on-b
+python scripts\sizing_mode.py off
+python scripts\scan_run_bundles.py --scenario B --labels B_top2_score3_g20_rvol24_authFix --dedupe-latest --per-day --min-trades 1
+
+
+
+
+
+
+
+
+
+
+
+

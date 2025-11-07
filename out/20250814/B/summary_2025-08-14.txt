@@ -1,0 +1,3 @@
+B: TP=0 SL=3 Win%=0.00
+D: TP=0 SL=0 Win%=0.00
+E: TP=0 SL=0 Win%=0.00

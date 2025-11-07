@@ -1,14 +1,13 @@
-B: TP=1 SL=2 Win%=33.33 PnL=-41.81
-[PROFILE] newsOnly + Top-3 + band 10-40 + RVOL 2
+B: TP=0 SL=2 Win%=0.00 PnL=-69.74
+[PROFILE] newsOnly + Top-2 + band 10-40 + RVOL 2.40
 
 [RUN SUMMARY]
 Date      | Scen | News-first | Score | Top | Band             | Enforce | OpenRVOL       | Used |   WR   | TP/SL |   PnL
 -------------------------------------------------------------------------------------------------------------------------------
-2025-08-07 | B  | Yes        | >=3 |   3 | 10.00% / 40.00%  | Yes     | 2.00           |    3 |   33.33% |  1/2  | -41.81
+2025-08-07 | B  | No         | >=3 |   2 | 10.00% / 40.00%  | Yes     | 2.40           |    2 |    0.00% |  0/2  | -69.74
 
 [PER-SYMBOL]
 [DEFS] in_band=yes if 10.00% <= gap <= 40.00% (inclusive) ; type=standard if in_band ; type=rocket if gap > 40.00%
 symbol   included_by  news_score  gap%    in_band  type     traded  trades  TP  SL    PnL   headline
 AVDL    news                  3  26.13  yes     standard yes          1   0   1  -34.86  
 HL      news                  3  13.91  yes     standard yes          1   0   1  -34.88  
-MATV    news                  3  24.12  yes     standard yes          1   1   0   27.93  

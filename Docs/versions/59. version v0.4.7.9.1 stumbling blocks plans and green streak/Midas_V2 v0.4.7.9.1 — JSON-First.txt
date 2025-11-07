@@ -1,0 +1,173 @@
+# Midas_V2 v0.4.7.9.1 — JSON-First + Web UI Plan (Updated)
+
+**Date:** 2025-11-07
+**Author:** Project Midas_V2 (ChatGPT co-pilot & Malcolm)
+
+---
+
+## Definition: A/B Testing
+
+Throughout this document, **A** and **B** refer to the standard experimental testing format used in profitability evaluation:
+
+* **A (Baseline):** The feature or gate is **OFF**, representing the current or previous stable configuration.
+* **B (Feature):** The feature or gate is **ON**, representing the new logic, filter, or strategy being tested.
+
+Both runs (A and B) are executed on the **same dates and universe of symbols** to ensure a fair comparison.
+A feature is accepted only if B demonstrates a measurable lift under the following criteria:
+
+* **Win Rate** improves by **≥ +3 percentage points**, or
+* **Profit Factor (PF)** ≥ 1.2 **with higher total PnL**, or
+* **Expectancy** increases by **≥ +0.2R**.
+
+---
+
+## 0) Executive Summary
+
+We are stabilizing the **Cameron-style Midas_V2 backtester** under a JSON-first, date-only CLI model and preparing for a gradual Web UI rollout.  The purpose of this release (v0.4.7.9.1) is to document the architecture shift, the new testing discipline, and a phased roadmap of features — both Cameron staples and profitability enhancers.
+
+---
+
+## 1) From v0.4.7.9 to v0.4.7.9.1
+
+* **Schema fixed:** `config/config_models.py` now recognizes flat top-level momentum fields (`rise_bars`, `green_body_min`, `require_macd_rise`, `macd_rise_bars`).
+* **Unit tests:** Green-streak and MACD-rising gates each pass 8/8 deterministic tests.
+* **Problem solved:** CLI feature flags and internal defaults caused confusion. We now enforce *JSON as the only configuration source*.
+* **CLI simplified:** Only controls dates and scenario name. Runners echo the momentum settings read from JSON.
+
+---
+
+## 2) Guiding Principles
+
+1. **JSON is the Boss:** All features are configured in `config/scenarios.json`.
+2. **CLI = Dates Only:** Use `--date` or `--start/--end` plus `--scenario`. No feature flags.
+3. **Web UI = JSON Programmer:** The Web UI writes feature values to JSON, then invokes the date-only CLI.
+4. **A/B Testing:**
+
+   * **A (Baseline)** = Feature OFF
+   * **B (Feature)** = Feature ON
+     Both run over identical date ranges. Keep the feature only if **WR +≥3 pp** or **PF ≥ 1.2 with PnL↑** or **Expectancy +≥ 0.2 R**.
+5. **Echo for Transparency:** Each run prints:
+   `[CFG] scenario=B momentum: rise_bars=3 green_body_min=0.22 macd_rise_bars=2 require_macd_rise=True`
+
+---
+
+## 3) Canonical Commands (dates only)
+
+```powershell
+# Single-day run
+python scripts\run_day_simple.py --date YYYY-MM-DD --scenario B
+
+# Range run (non-catalyst)
+python scripts\run_range_and_summarize.py --start YYYY-MM-DD --end YYYY-MM-DD --scenario B
+
+# Range run (catalyst)
+python scripts\run_catalyst_range_and_summarize.py --start YYYY-MM-DD --end YYYY-MM-DD --scenario B
+```
+
+All other knobs live in JSON.
+
+---
+
+## 4) Web UI — Stage Plan
+
+| Stage | Feature                                    | Purpose                                                                   |
+| ----- | ------------------------------------------ | ------------------------------------------------------------------------- |
+| **1** | **Momentum bundle** (Green-Streak + MACD)  | Core confirmation gates; verify lift.                                     |
+| **2** | **Candle Snapshots (before / after)**      | Diagnostic layer; print chart PNGs per trade to debug features visually.  |
+| **3** | **Catalysts (multi-source)**               | Integrate Polygon + Finnhub/Benzinga; normalize scores, apply deny lists. |
+| **4** | **Adaptive Sizing**                        | Risk-tier logic, daily cap, Kelly-lite multipliers.                       |
+| **5** | **Micro Continuation (1-second)**          | Confirm continuation with micro-bars; refine entries.                     |
+| **6** | **Bollinger / Regime / Execution Quality** | Context filter + latency & slippage tracking for expectancy gain.         |
+
+Each stage adds JSON keys and a corresponding UI tab.  The Web UI writes JSON → calls CLI → displays WR/PnL/PF and (for A/B) both results side-by-side.
+
+**Upcoming (v0.4.7.9.2):** The Web UI will introduce an **A/B toggle panel** for Green-Streak and MACD.  Users can set both ON/OFF, pick date ranges, and execute paired backtests with one click.
+
+---
+
+## 5) Candle Printing (Stage 2)
+
+* **Why now:** Immediate visual feedback accelerates debugging of Green-Streak, MACD, and future modules.
+* **Implementation:**
+
+  * Fields: `snap_pre_bars`, `snap_post_bars`, `snapshot_enabled` (bool).
+  * Strategy saves PNGs to `out/<date>/<symbol>/snaps/`.
+* **Usage:** Toggle via JSON or UI; backtester prints candle sequences around each entry/exit.
+
+---
+
+## 6) Catalyst Expansion (Stage 3)
+
+* Add secondary news source (Finnhub, Benzinga, or FMP).
+* JSON fields:
+
+  ```json
+  "news_sources": ["polygon", "finnhub"],
+  "news_weight": {"polygon":1.0, "finnhub":0.8}
+  ```
+* Normalize scores, merge feeds, apply deny-lists (`neg_terms`, China tickers).
+* UI controls: require-news toggle, min-score, source weights.
+
+---
+
+## 7) Execution Quality & Latency (Stage 6)
+
+* **Metrics logged per trade:**
+
+  * `order_sent_ts`, `fill_ts` → latency (ms)
+  * `requested_price` vs `filled_price` → slippage
+  * `spread_at_entry`, `broker_response_time`
+* **Goals:**
+
+  * Feed latency/slippage into Adaptive Sizing.
+  * Compare brokers (Alpaca vs Lightspeed vs IBKR).
+  * Display histograms in UI under “Execution Quality”.
+
+---
+
+## 8) Collaboration Roles and Tool Choice
+
+| Tool        | Role                                                                                           | Why                                                                                      |
+| ----------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| **ChatGPT** | Architecture, specs, Change-Request drafting, validation logic, interpretation of A/B results. | Maintains version discipline and reproducibility.                                        |
+| **Claude**  | Code generation per CR (schema patches, toggles, pytest units, Streamlit pages).               | Best at Streamlit / Python integration; follows CR precisely.                            |
+| **Gemini**  | Optional UI scaffolding (React/Next.js, visualization, styling).                               | Strong at visual polish but tends to guess schema; use after Claude’s backend is proven. |
+
+**Best practice:**
+Start with **Claude** for functional Streamlit prototype — it reads our schema and generates a reliable working page that writes JSON and calls CLI. Once workflow is stable, let **Gemini** or a designer enhance visuals (React/Next.js skin) without touching logic.
+
+This “function first, visuals later” approach matches what the most profitable Cameron projects follow: it delivers a working control panel early while keeping configuration stable.
+
+---
+
+## 9) Next Version (v0.4.7.9.2)
+
+* Implement the **Web UI toggle panel** for Green-Streak and MACD (A/B OFF→ON).
+* Execute first A/B for Momentum OFF→ON (Aug-05→07).
+* Evaluate WR/PnL/PF vs baseline.
+* If profitable, retain momentum and add Candle Snapshots (Stage 2) next.
+
+---
+
+## 10) Git & Archival Steps
+
+```powershell
+git add -A
+git commit -m "v0.4.7.9.1: JSON-first policy + Web UI staged roadmap (updated)"
+git tag -a v0.4.7.9.1 -m "JSON-first; date-only CLI; Stage plan with Candle Printing and multi-source catalysts"
+git push
+git push --tags
+```
+
+Copy this document to:
+
+```
+Docs/versions/Midas_V2_v0.4.7.9.1_roadmap_UPDATED.md
+Docs/versions/Midas_V2_v0.4.7.9.1_roadmap_UPDATED.docx
+```
+
+Store both on the USB backup.
+
+---
+
+**Summary:**  v0.4.7.9.1 formalizes the JSON-first policy, locks CLI to date-only, and defines a six-stage profitability roadmap beginning with the Momentum bundle and early Candle Printing diagnostics.  Future versions will execute A/B testing stage-by-stage, integrate multi-source catalysts, adaptive sizing, microstructure gates, and latency tracking — all driven by a simple, web-based interface that edits JSON and runs the same trusted CLI backtesters.
