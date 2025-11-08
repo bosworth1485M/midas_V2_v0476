@@ -1,0 +1,44 @@
+Message for Claude:
+
+Project: Midas_V2 Local Runner Web UI (Phase 1)
+
+Goal:
+Build a simple local webpage in React (with Tailwind + shadcn/ui) that mirrors the design spec below.
+The page should only generate the CLI command for the standard range runner — no execution yet.
+All other feature tiles should appear as disabled placeholders for future use.
+
+Core requirements:
+
+Framework: React (Tailwind + shadcn/ui).
+
+File name: MidasLocalRunnerUI.jsx (or .tsx if preferred).
+
+One working feature only: Start Date / End Date / Scenario selection → builds the CLI command
+
+python scripts\run_range_and_summarize.py --start YYYY-MM-DD --end YYYY-MM-DD --scenario B
+
+
+Include Copy button (copies command to clipboard) and disabled Run button.
+
+Show presets “Yesterday” and “Aug 2025 Sample”.
+
+All other controls (Catalyst, Adaptive Sizing, S/R Lite, Candle Snapshots, Analyzer, Router, etc.) appear as disabled fields.
+
+The UI must not modify or read any files, configs, or keys. Local only.
+
+Layout follows the React skeleton provided by ChatGPT (dated today).
+
+Keep the same header, cards, and overall grid structure.
+
+Preserve comments noting future features (“coming soon”).
+
+Deliverable:
+
+A single self-contained React component (can run in a standard Vite or Next.js setup).
+
+No strategy/backtester changes.
+
+Confirm it renders correctly and displays the exact CLI command string in the text area when dates are valid.
+
+Purpose:
+This is the foundation UI for Midas_V2 testing. Later we will enable features one by one (Catalyst, Adaptive Sizing, etc.), but Phase 1 must stay purely non-executing.
