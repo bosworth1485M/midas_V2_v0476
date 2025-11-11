@@ -3,248 +3,619 @@ from dataclasses import dataclass
 from typing import List, Optional
 import math
 
+# v0.4.8: Sidecar-driven feature hook (generic, OFF by default)
+# This v0.4.8 update adds a minimal import and a tiny guarded call into the external
+# micro plug-in. Behavior is unchanged unless config/features/micro.json enables it.  # v0.4.8
+from midas_v2.features.micro_feature import should_block_entry  # v0.4.8
+
+
 @dataclass
 class StrategyParams:
-    gate_minutes: int = 5
-    tp_pct: float = 1.2
-    sl_pct: float = 2.7
-    vwap_confirm: bool = False
-    ema_confirm: bool = True
-    macd_confirm: bool = False  # legacy boolean confirm
-    rise_bars: int = 2
-    green_body_min: float = 0.0  # optional min real-body fraction per bar (0 keeps old behavior)
-    min_pm_vol: Optional[int] = None
-    reclaim_pmh: Optional[bool] = None
+    """
+    Configuration parameters for the breakout trading strategy.
+    
+    This class encapsulates all tunable parameters that control entry conditions,
+    exit levels, and various confirmation filters for the trading strategy.
+    """
+    
+    # Basic entry timing and risk management
+    gate_minutes: int = 5  # Minimum number of minutes after market open before allowing entries
+    tp_pct: float = 1.2    # Take profit percentage above entry price
+    sl_pct: float = 2.7    # Stop loss percentage below entry price
+    
+    # Confirmation indicators (boolean toggles)
+    vwap_confirm: bool = False  # Require VWAP confirmation for entry
+    ema_confirm: bool = True    # Require EMA confirmation for entry
+    macd_confirm: bool = False  # Legacy boolean MACD confirmation (for dip reclaim mode)
+    
+    # Price action requirements
+    rise_bars: int = 2              # Number of consecutive rising price bars required
+    green_body_min: float = 0.0     # Minimum real-body fraction per bar (0 = no filter)
+    
+    # Pre-market filters (optional)
+    min_pm_vol: Optional[int] = None    # Minimum pre-market volume required
+    reclaim_pmh: Optional[bool] = None  # Require reclaim of pre-market high
+    
+    # ========== Dip Reclaim Strategy Parameters ==========
+    dip_reclaim: bool = False      # Enable dip-and-reclaim entry mode (alternative to basic breakout)
+    reclaim_ref: str = "ema"       # Reference for reclaim check: "ema" or "vwap"
+    min_dip_pct: float = 2.0       # Minimum percentage dip from swing high required
+    min_reclaim_pct: float = 0.5   # Percentage above reference (EMA/VWAP) required to confirm reclaim
+    ema_period: int = 5            # EMA period when using EMA as reclaim reference
+    reclaim_buffer_bps: float = 0.0      # Extra buffer above reference in basis points (e.g., 5.0 = +0.05%)
+    vwap_slope_bps: Optional[int] = None # Require VWAP slope >= this value in bps (optional filter)
+    vwap_period_min: int = 1             # Minimum VWAP period (guard; VWAP is cumulative)
+    
+    # ========== Opening Relative Volume Filter (v0.3.21) ==========
+    min_rvol_open: Optional[float] = None   # Minimum opening RVOL (e.g., 1.5 = 150% of yesterday's pace)
+    rvol_open_minutes: int = 15             # Number of minutes to compare for RVOL calculation
+    
+    # ========== MACD Rising Filter (v0.4.x) ==========
+    require_macd_rise: bool = False         # Enable explicit MACD histogram rising requirement
+    macd_rise_bars: int = 0                 # Number of consecutive rising MACD histogram bars required
 
-    # Dip reclaim knobs
-    dip_reclaim: bool = False
-    reclaim_ref: str = "ema"     # "ema" or "vwap"
-    min_dip_pct: float = 2.0
-    min_reclaim_pct: float = 0.5 # % above reference (EMA/VWAP) required to count as reclaim
-    ema_period: int = 5
-    reclaim_buffer_bps: float = 0.0      # extra buffer above ref in basis points (e.g., 5.0 = +5 bps)
-    vwap_slope_bps: Optional[int] = None # require VWAP slope >= this bps over last few bars (optional)
-    vwap_period_min: int = 1             # guard; VWAP is cumulative anyway
-
-    # NEW (v0.3.21): Opening RVOL gate
-    min_rvol_open: Optional[float] = None   # e.g., 1.5
-    rvol_open_minutes: int = 15             # compare first N minutes
-
-    # NEW (v0.4.x): Explicit MACD rising gate
-    require_macd_rise: bool = False         # enable/disable MACD rising requirement
-    macd_rise_bars: int = 0                 # number of consecutive rising MACD histogram bars required
 
 class Bar:
+    """
+    Represents a single price bar (candlestick) with OHLCV data.
+    
+    Attributes:
+        t: Timestamp
+        o: Open price
+        h: High price
+        l: Low price
+        c: Close price
+        v: Volume
+    """
     def __init__(self, t, o, h, l, c, v):
-        self.t = t; self.o = o; self.h = h; self.l = l; self.c = c; self.v = v
+        self.t = t  # Time
+        self.o = o  # Open
+        self.h = h  # High
+        self.l = l  # Low
+        self.c = c  # Close
+        self.v = v  # Volume
+
 
 def ema(series: List[float], period: int) -> List[Optional[float]]:
+    """
+    Calculate Exponential Moving Average (EMA) for a price series.
+    
+    The EMA gives more weight to recent prices and responds faster to price changes
+    than a simple moving average.
+    
+    Args:
+        series: List of prices (typically closing prices)
+        period: Number of periods for the EMA calculation
+    
+    Returns:
+        List of EMA values (same length as input series). Early values may be None
+        until enough data is available for proper EMA calculation.
+    
+    Notes:
+        - Uses standard EMA smoothing constant: k = 2/(period+1)
+        - Seeds the EMA with a simple average once enough data is available
+        - For period <= 1, returns the original series as floats
+    """
+    # Special case: no smoothing needed
     if period <= 1:
         return [float(x) for x in series]
+    
     out: List[Optional[float]] = [None] * len(series)
-    k = 2.0 / (period + 1.0)
+    k = 2.0 / (period + 1.0)  # EMA smoothing constant
     val: Optional[float] = None
+    
     for i, x in enumerate(series):
         if val is None:
+            # Seed the EMA with a simple moving average once we have enough data
             if i + 1 >= period:
                 seed = sum(series[i + 1 - period : i + 1]) / float(period)
                 val = seed
             else:
+                # Not enough data yet; use current price
                 val = x
         else:
+            # Apply EMA formula: EMA = (Price - PrevEMA) * k + PrevEMA
             val = (x - val) * k + val
         out[i] = val
+    
     return out
 
+
 def macd(series: List[float], fast=12, slow=26, signal=9):
+    """
+    Calculate MACD (Moving Average Convergence Divergence) indicator.
+    
+    MACD is a trend-following momentum indicator that shows the relationship between
+    two moving averages of prices. It consists of:
+    - MACD Line: Difference between fast and slow EMAs
+    - Signal Line: EMA of the MACD line
+    - Histogram: Difference between MACD line and signal line
+    
+    Args:
+        series: List of prices (typically closing prices)
+        fast: Period for fast EMA (default 12)
+        slow: Period for slow EMA (default 26)
+        signal: Period for signal line EMA (default 9)
+    
+    Returns:
+        Tuple of (macd_line, signal_line, histogram) - all lists of Optional[float]
+    
+    Notes:
+        - Positive histogram suggests bullish momentum
+        - Rising histogram suggests strengthening momentum
+        - MACD line crossing above signal line is a bullish signal
+    """
+    # Ensure slow > fast
     if slow < fast:
         fast, slow = slow, fast
+    
+    # Calculate fast and slow EMAs
     ema_fast = ema(series, fast)
     ema_slow = ema(series, slow)
+    
+    # Calculate MACD line (difference between fast and slow EMAs)
     macd_line: List[Optional[float]] = [None] * len(series)
     for i in range(len(series)):
         if ema_fast[i] is None or ema_slow[i] is None:
             macd_line[i] = None
         else:
             macd_line[i] = float(ema_fast[i]) - float(ema_slow[i])
+    
+    # Calculate signal line (EMA of MACD line)
     signal_line = ema([x if x is not None else 0.0 for x in macd_line], signal)
+    
+    # Calculate histogram (difference between MACD line and signal line)
     hist: List[Optional[float]] = [None] * len(series)
     for i in range(len(series)):
         if macd_line[i] is None or signal_line[i] is None:
             hist[i] = None
         else:
             hist[i] = float(macd_line[i]) - float(signal_line[i])
+    
     return macd_line, signal_line, hist
 
-class SimpleBreakoutStrategy:
-    def __init__(self, params: StrategyParams):
-        self.p = params
-        self._yday_bars: Optional[List[Bar]] = None  # NEW: prior-day bars (optional)
 
-    # NEW: allow engine to provide yesterday’s bars
+class SimpleBreakoutStrategy:
+    """
+    A configurable breakout trading strategy with multiple entry modes and filters.
+    
+    This strategy supports two main entry modes:
+    1. Basic Breakout: Requires consecutive rising green bars with optional confirmations
+    2. Dip Reclaim: Looks for a dip below a reference (EMA/VWAP) followed by a reclaim
+    
+    The strategy includes various filters and confirmations:
+    - Time-based gate (wait X minutes after open)
+    - Opening relative volume filter
+    - MACD rising momentum filter
+    - Price action filters (green body size, consecutive rises)
+    - Technical indicator confirmations (EMA, VWAP, MACD)
+    """
+    
+    def __init__(self, params: StrategyParams):
+        """
+        Initialize the strategy with given parameters.
+        
+        Args:
+            params: StrategyParams object containing all strategy configuration
+        """
+        self.p = params
+        self._yday_bars: Optional[List[Bar]] = None  # Store yesterday's bars for RVOL calculation
+
     def set_yesterday_bars(self, bars: Optional[List[Bar]]) -> None:
+        """
+        Provide yesterday's intraday bars for relative volume calculations.
+        
+        Args:
+            bars: List of bars from the previous trading day
+        """
         self._yday_bars = bars
 
     def targets(self, entry: float):
-        tp = entry * (1.0 + self.p.tp_pct / 100.0)
-        sl = entry * (1.0 - self.p.sl_pct / 100.0)
+        """
+        Calculate take profit and stop loss levels based on entry price.
+        
+        Args:
+            entry: Entry price
+        
+        Returns:
+            Tuple of (take_profit_price, stop_loss_price)
+        """
+        tp = entry * (1.0 + self.p.tp_pct / 100.0)  # Calculate TP price
+        sl = entry * (1.0 - self.p.sl_pct / 100.0)  # Calculate SL price
         return tp, sl
 
-    # NEW: opening RVOL helper
-    def _opening_rvol_ok(self, today: List[Bar], yesterday: Optional[List[Bar]], minutes: int, thresh: float) -> bool:
+    def _opening_rvol_ok(self, today: List[Bar], yesterday: Optional[List[Bar]], 
+                         minutes: int, thresh: float) -> bool:
+        """
+        Check if opening relative volume meets the minimum threshold.
+        
+        Relative volume (RVOL) compares today's volume pace to yesterday's at the same
+        time. An RVOL of 1.5 means today is trading at 150% of yesterday's volume pace.
+        
+        Args:
+            today: List of today's bars
+            yesterday: List of yesterday's bars (optional)
+            minutes: Number of minutes to compare
+            thresh: Minimum RVOL threshold (e.g., 1.5)
+        
+        Returns:
+            True if RVOL meets threshold or if data is unavailable (fail-open)
+        """
+        # Fail-open if we don't have yesterday's data
         if yesterday is None or not today:
-            return True  # fail-open if no prior-day bars are set
+            return True
+        
+        # Compare the first N minutes
         n = min(minutes, len(today), len(yesterday))
         if n <= 0:
             return True
+        
+        # Sum volume for the first N bars
         vol_today = sum(b.v for b in today[:n]) or 0
-        vol_yday  = sum(b.v for b in yesterday[:n]) or 1
+        vol_yday  = sum(b.v for b in yesterday[:n]) or 1  # Avoid division by zero
+        
+        # Calculate relative volume
         rvol = vol_today / vol_yday
         return rvol >= thresh
 
-    # NEW: VWAP utilities
     def _vwap_series(self, bars: List[Bar]) -> List[Optional[float]]:
-        """Cumulative VWAP = cum(price*vol)/cum(vol). Returns per-bar VWAP."""
+        """
+        Calculate cumulative Volume Weighted Average Price (VWAP) for each bar.
+        
+        VWAP is the average price weighted by volume and is calculated cumulatively
+        throughout the day. It's commonly used as a benchmark for execution quality
+        and as a dynamic support/resistance level.
+        
+        Args:
+            bars: List of price bars
+        
+        Returns:
+            List of VWAP values (one per bar)
+        
+        Formula:
+            VWAP = Cumulative(Typical Price × Volume) / Cumulative(Volume)
+            Typical Price = (High + Low + Close) / 3
+        """
         vwap: List[Optional[float]] = [None] * len(bars)
-        pv_cum = 0.0
-        v_cum = 0.0
+        pv_cum = 0.0  # Cumulative price × volume
+        v_cum = 0.0   # Cumulative volume
+        
         for i, b in enumerate(bars):
-            price = (b.h + b.l + b.c) / 3.0  # typical price
+            # Calculate typical price for this bar
+            price = (b.h + b.l + b.c) / 3.0
+            
+            # Update cumulative values
             pv_cum += price * (b.v or 0.0)
             v_cum  += (b.v or 0.0)
+            
+            # Calculate VWAP (avoid division by zero)
             vwap[i] = (pv_cum / v_cum) if v_cum > 0 else None
+        
         return vwap
 
-    def _vwap_slope_bps(self, vwap: List[Optional[float]], i: int, lookback: int = 3) -> Optional[float]:
-        """Return approximate slope in basis points over last `lookback` bars."""
+    def _vwap_slope_bps(self, vwap: List[Optional[float]], i: int, 
+                        lookback: int = 3) -> Optional[float]:
+        """
+        Calculate the approximate slope of VWAP in basis points.
+        
+        This helps determine if VWAP is trending upward (positive slope) or
+        downward (negative slope), which can confirm trend direction.
+        
+        Args:
+            vwap: List of VWAP values
+            i: Current bar index
+            lookback: Number of bars to look back for slope calculation
+        
+        Returns:
+            VWAP slope in basis points (100 bps = 1%), or None if insufficient data
+        
+        Example:
+            A slope of 50 bps means VWAP rose 0.5% over the lookback period
+        """
+        # Need enough data for lookback
         if i < lookback or lookback <= 0:
             return None
+        
+        # Get VWAP values from lookback bars ago and current bar
         a = vwap[i - lookback]
         b = vwap[i]
+        
+        # Ensure we have valid data
         if a is None or b is None or a <= 0:
             return None
-        return ((b - a) / a) * 1e4  # basis points
+        
+        # Calculate percentage change and convert to basis points
+        return ((b - a) / a) * 1e4  # 1e4 converts to basis points
 
-    def _required_price_above_ref(self, ref_val: Optional[float], pct: float, bps: float) -> Optional[float]:
-        """Return required price given a reference, pct (e.g., 0.5%) and bps buffer."""
+    def _required_price_above_ref(self, ref_val: Optional[float], 
+                                   pct: float, bps: float) -> Optional[float]:
+        """
+        Calculate the required price level above a reference value.
+        
+        This is used in dip reclaim logic to determine how far above the reference
+        (EMA or VWAP) the price must be to consider it a valid reclaim.
+        
+        Args:
+            ref_val: Reference value (e.g., EMA or VWAP)
+            pct: Percentage above reference required (e.g., 0.5 for 0.5%)
+            bps: Additional buffer in basis points (e.g., 5.0 for +5 bps)
+        
+        Returns:
+            Required price level, or None if ref_val is invalid
+        
+        Example:
+            ref_val=100, pct=0.5, bps=5.0 → 100.55 (0.5% + 5 bps above reference)
+        """
         if ref_val is None or ref_val <= 0:
             return None
+        
+        # Apply percentage requirement
         req = ref_val * (1.0 + (pct / 100.0 if pct else 0.0))
+        
+        # Apply basis points buffer if specified
         if bps and bps != 0.0:
             req *= (1.0 + bps / 1e4)
+        
         return req
 
     def _passes_price_rise_gate(self, bars: List[Bar], i: int) -> bool:
+        """
+        Check if the recent price action shows consecutive rising green bars.
+        
+        This filter ensures we only enter during clear upward momentum, requiring
+        each recent bar to close higher than the previous bar. Optionally also
+        checks for minimum real body size to filter out doji-like bars.
+        
+        Args:
+            bars: List of all bars
+            i: Current bar index
+        
+        Returns:
+            True if price rise requirements are met (or if rise_bars=0)
+        """
+        # If no rise bars required, pass automatically
         if self.p.rise_bars and self.p.rise_bars > 0:
+            # Determine how many bars we can actually look back
             look = min(self.p.rise_bars, i)
             if look <= 0:
                 return False
+            
+            # Check each of the last N bars
             for k in range(look):
-                cur = bars[i - k]
-                prv = bars[i - k - 1]
+                cur = bars[i - k]       # Current bar in the lookback
+                prv = bars[i - k - 1]   # Previous bar
+                
+                # Require current bar closes higher than previous
                 if not (cur.c > prv.c):
                     return False
-                # Optional body-size filter
+                
+                # Optional: check minimum green body size
                 if self.p.green_body_min and self.p.green_body_min > 0.0:
-                    body = abs(cur.c - cur.o)
-                    rng  = max(1e-9, cur.h - cur.l)
+                    body = abs(cur.c - cur.o)      # Real body size
+                    rng  = max(1e-9, cur.h - cur.l) # Full bar range (avoid div by 0)
+                    
+                    # Require body to be at least X% of the full range
                     if (body / rng) < self.p.green_body_min:
                         return False
+        
         return True
 
     def _passes_macd_gate(self, closes: List[float], i: int) -> bool:
-        """Require MACD histogram to rise for N bars and be >0 when enabled."""
+        """
+        Check if MACD histogram shows rising momentum.
+        
+        When enabled, this requires the MACD histogram to be:
+        1. Rising for N consecutive bars
+        2. Above zero (positive momentum)
+        
+        This helps confirm that momentum is not only present but accelerating.
+        
+        Args:
+            closes: List of closing prices
+            i: Current bar index
+        
+        Returns:
+            True if MACD requirements are met (or if filter is disabled)
+        """
+        # If filter is disabled, pass automatically
         if not self.p.require_macd_rise:
             return True
+        
         n = int(self.p.macd_rise_bars or 0)
+        
+        # If no bars required or insufficient data, fail
         if n <= 0 or i < n + 1:
             return False
+        
+        # Calculate MACD components
         macd_line, signal_line, hist = macd(closes)
-        # need n+1 points to compare last n deltas
+        
+        # Check that histogram has been rising for N consecutive bars
+        # and is currently positive
         for k in range(n):
-            h_cur = hist[i - k]
-            h_prev = hist[i - k - 1]
+            h_cur = hist[i - k]       # Current histogram value
+            h_prev = hist[i - k - 1]  # Previous histogram value
+            
+            # Require: rising and positive
             if h_cur is None or h_prev is None or not (h_cur > h_prev and h_cur > 0):
                 return False
+        
         return True
 
     def should_enter(self, bars: List[Bar], i: int) -> bool:
-        # Gate by minutes
+        """
+        Main entry logic: determine if we should enter a trade at bar i.
+        
+        This method coordinates all entry filters and confirmation checks.
+        It supports two main modes:
+        1. Dip Reclaim Mode (if dip_reclaim=True)
+        2. Basic Breakout Mode (default)
+        
+        Args:
+            bars: List of all bars up to current time
+            i: Index of current bar to evaluate
+        
+        Returns:
+            True if all entry conditions are met
+        
+        Entry Flow:
+        1. Check time-based gate (minimum minutes after open)
+        2. Check opening relative volume (if enabled)
+        3. Route to appropriate entry mode (dip reclaim vs basic breakout)
+        4. Apply mode-specific filters and confirmations
+        5. Check plug-in hook (v0.4.8 feature)
+        """
+        # Gate 1: Minimum time after market open
+        # Don't enter until we're past the specified number of minutes
         if i < max(0, int(self.p.gate_minutes)):
             return False
 
-        # Opening RVOL gate (v0.3.21)
+        # Gate 2: Opening RVOL filter (v0.3.21)
+        # Ensure today's opening volume is strong relative to yesterday
         if self.p.min_rvol_open is not None and self.p.min_rvol_open > 0:
-            if not self._opening_rvol_ok(bars, self._yday_bars, int(self.p.rvol_open_minutes), float(self.p.min_rvol_open)):
+            if not self._opening_rvol_ok(bars, self._yday_bars, 
+                                        int(self.p.rvol_open_minutes), 
+                                        float(self.p.min_rvol_open)):
                 return False
 
+        # Route to dip reclaim logic if that mode is enabled
         if self.p.dip_reclaim:
             return self._dip_reclaim_should_enter(bars, i)
 
-        # A–D: require rising greens (price candles)
+        # ========== Basic Breakout Mode ==========
+        
+        # Gate 3: Require consecutive rising green bars
         if not self._passes_price_rise_gate(bars, i):
             return False
 
-        # NEW: MACD rising gate (only when enabled)
+        # Gate 4: MACD rising momentum filter (when enabled)
         closes = [b.c for b in bars]
         if not self._passes_macd_gate(closes, i):
             return False
 
-        # (Optional EMA/VWAP/MACD boolean confirms would live here; kept as-is)
+        # Note: Additional confirmations (EMA, VWAP, legacy MACD boolean)
+        # would be implemented here in production code
+        
+        # v0.4.8: External plug-in hook (sidecar-driven; OFF by default)
+        # This allows external modules to add custom blocking logic without
+        # modifying core strategy code. The try-except ensures fail-open behavior.
+        try:
+            # Call external function to check if entry should be blocked
+            if should_block_entry(getattr(self, "scenario_id", ""), 
+                                 getattr(self, "symbol", ""), 
+                                 bars[i], self):
+                return False  # External module blocked the entry
+        except Exception:
+            pass  # Fail-open: if plug-in fails, continue with baseline behavior
+
+        # All gates passed
         return True
 
     def _dip_reclaim_should_enter(self, bars: List[Bar], i: int) -> bool:
+        """
+        Dip-and-reclaim entry logic: look for price dipping below a reference
+        and then reclaiming it.
+        
+        Strategy:
+        1. Find recent swing high
+        2. Measure the dip (lowest point since swing high)
+        3. Verify the dip is significant enough (min_dip_pct)
+        4. Check if price has reclaimed above the reference (EMA or VWAP)
+        5. Apply additional confirmations (MACD, rising bars, etc.)
+        
+        This pattern often indicates strong buyers stepping in at support.
+        
+        Args:
+            bars: List of all bars
+            i: Current bar index
+        
+        Returns:
+            True if dip-and-reclaim pattern is confirmed with all filters
+        """
         p = self.p
+        
+        # Need minimum data
         if i < 3:
             return False
 
+        # Step 1: Identify swing high and trough
         closes = [b.c for b in bars]
-        lookback = min(20, i)
+        lookback = min(20, i)  # Look back up to 20 bars
+        
+        # Find the highest close in the lookback period (before current bar)
         swing_high = max(closes[i - lookback : i])
         curr_close = closes[i]
+        
+        # Find the lowest point in recent price action (including current bar)
         recent_segment = closes[i - lookback : i + 1]
         trough = min(recent_segment)
+        
+        # Step 2: Calculate dip percentage
         if swing_high <= 0:
             return False
+        
         dip_pct = (swing_high - trough) / swing_high * 100.0
+        
+        # Step 3: Verify dip meets minimum threshold
         if dip_pct < p.min_dip_pct:
-            return False
+            return False  # Dip not significant enough
 
-        # Choose reference (EMA or VWAP) and check reclaim with pct + optional bps buffer
+        # Step 4: Check reclaim above reference (EMA or VWAP)
         ref_kind = p.reclaim_ref.lower().strip()
         ref_val: Optional[float] = None
+        
         if ref_kind == "ema":
+            # Use EMA as reference
             ema_vals = ema(closes, max(2, int(p.ema_period)))
             ref_val = ema_vals[i]
+            
         elif ref_kind == "vwap":
+            # Use VWAP as reference
             vwap_vals = self._vwap_series(bars)
             ref_val = vwap_vals[i]
-            # Optional VWAP slope filter (in bps) if requested
+            
+            # Optional VWAP slope filter: require upward-sloping VWAP
             if p.vwap_slope_bps is not None:
                 slope = self._vwap_slope_bps(vwap_vals, i, lookback=3)
                 if slope is None or slope < float(p.vwap_slope_bps):
-                    return False
+                    return False  # VWAP not sloping up enough
         else:
-            return False
+            return False  # Invalid reference type
 
-        req_price = self._required_price_above_ref(ref_val, p.min_reclaim_pct, p.reclaim_buffer_bps)
+        # Calculate required price for reclaim (reference + pct + bps buffer)
+        req_price = self._required_price_above_ref(ref_val, p.min_reclaim_pct, 
+                                                   p.reclaim_buffer_bps)
+        
+        # Verify price has reclaimed above the reference
         if req_price is None or curr_close < req_price:
-            return False
+            return False  # Not above required reclaim level
 
+        # Step 5: MACD confirmation (if enabled for dip reclaim)
         if p.macd_confirm:
             macd_line, signal_line, hist = macd(closes)
+            
+            # Require all MACD values to be available
             if macd_line[i] is None or signal_line[i] is None or hist[i] is None:
                 return False
+            
+            # Require MACD line above signal line (bullish crossover)
             if not (macd_line[i] > signal_line[i]):
                 return False
+            
+            # Require histogram to be rising (increasing momentum)
             if hist[i] <= (hist[i - 1] if hist[i - 1] is not None else -1e9):
                 return False
 
+        # Step 6: Price rise confirmation (consecutive green bars)
         if p.rise_bars and p.rise_bars > 0:
             look = min(p.rise_bars, i)
+            
             for k in range(look):
+                # Require consecutive rising closes
                 if not (bars[i - k].c >= bars[i - k - 1].c):
                     return False
+                
+                # Optional: check minimum green body size
                 if self.p.green_body_min and self.p.green_body_min > 0.0:
                     cur = bars[i - k]
                     body = abs(cur.c - cur.o)
@@ -252,8 +623,10 @@ class SimpleBreakoutStrategy:
                     if (body / rng) < self.p.green_body_min:
                         return False
 
-        # Also honor MACD rising gate here when enabled
+        # Step 7: MACD rising gate (when enabled)
+        # Also honor the explicit MACD rising requirement if configured
         if not self._passes_macd_gate(closes, i):
             return False
 
+        # All dip-reclaim conditions met
         return True

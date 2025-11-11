@@ -20,24 +20,11 @@
         "max_daily_risk_usd": 300,
         "drawdown_throttle_after_losses": 3,
         "throttled_risk_factor": 0.5,
-        "confidence_map": {
-          "A": 1.8,
-          "B": 1.0,
-          "C": 0.5
-        },
+        "confidence_map": { "A": 1.8, "B": 1.0, "C": 0.5 },
         "tier_rules": {
-          "A": {
-            "news_min_score": 3,
-            "min_rvol_open": 2.4
-          },
-          "B": {
-            "news_min_score": 2,
-            "min_rvol_open": 2.0
-          },
-          "C": {
-            "news_min_score": 1,
-            "min_rvol_open": 1.5
-          }
+          "A": { "news_min_score": 3, "min_rvol_open": 2.4 },
+          "B": { "news_min_score": 2, "min_rvol_open": 2.0 },
+          "C": { "news_min_score": 1, "min_rvol_open": 1.5 }
         }
       }
     }
@@ -66,44 +53,13 @@
         "max_daily_risk_usd": 300,
         "drawdown_throttle_after_losses": 999,
         "throttled_risk_factor": 1.0,
-        "confidence_map": {
-          "A": 1.4,
-          "B": 1.0,
-          "C": 1.0
-        },
+        "confidence_map": { "A": 1.4, "B": 1.0, "C": 1.0 },
         "tier_rules": {
-          "A": {
-            "news_min_score": 0,
-            "min_rvol_open": 2.6
-          },
-          "B": {
-            "news_min_score": 0,
-            "min_rvol_open": 2.0
-          },
-          "C": {
-            "news_min_score": 1,
-            "min_rvol_open": 1.5
-          }
+          "A": { "news_min_score": 0, "min_rvol_open": 2.6 },
+          "B": { "news_min_score": 0, "min_rvol_open": 2.0 },
+          "C": { "news_min_score": 1, "min_rvol_open": 1.5 }
         }
-      },
-      "use_micro_confirmation": false,
-      "require_micro_continuation": false,
-      "micro_resolution": "5s",
-      "micro_window_secs": 60,
-      "micro_min_green_ratio": 0.6,
-      "micro_require_ema_reclaim": true,
-      "micro_require_vwap_hold": false,
-      "micro_allow_first_pullback": true
-    },
-    "pparams": {
-      "use_micro_confirmation": true,
-      "require_micro_continuation": true,
-      "micro_resolution": "5s",
-      "micro_window_secs": 60,
-      "micro_min_green_ratio": 0.6,
-      "micro_require_ema_reclaimhold": true,
-      "micro_require_vwap_holdhold": false,
-      "micro_allow_first_pullback": true
+      }
     }
   },
   "C": {
@@ -127,24 +83,11 @@
         "max_daily_risk_usd": 300,
         "drawdown_throttle_after_losses": 3,
         "throttled_risk_factor": 0.5,
-        "confidence_map": {
-          "A": 1.8,
-          "B": 1.0,
-          "C": 0.5
-        },
+        "confidence_map": { "A": 1.8, "B": 1.0, "C": 0.5 },
         "tier_rules": {
-          "A": {
-            "news_min_score": 3,
-            "min_rvol_open": 2.4
-          },
-          "B": {
-            "news_min_score": 2,
-            "min_rvol_open": 2.0
-          },
-          "C": {
-            "news_min_score": 1,
-            "min_rvol_open": 1.5
-          }
+          "A": { "news_min_score": 3, "min_rvol_open": 2.4 },
+          "B": { "news_min_score": 2, "min_rvol_open": 2.0 },
+          "C": { "news_min_score": 1, "min_rvol_open": 1.5 }
         }
       }
     }
@@ -171,44 +114,13 @@
         "max_daily_risk_usd": 300,
         "drawdown_throttle_after_losses": 3,
         "throttled_risk_factor": 0.5,
-        "confidence_map": {
-          "A": 1.8,
-          "B": 1.0,
-          "C": 0.5
-        },
+        "confidence_map": { "A": 1.8, "B": 1.0, "C": 0.5 },
         "tier_rules": {
-          "A": {
-            "news_min_score": 3,
-            "min_rvol_open": 2.4
-          },
-          "B": {
-            "news_min_score": 2,
-            "min_rvol_open": 2.0
-          },
-          "C": {
-            "news_min_score": 1,
-            "min_rvol_open": 1.5
-          }
+          "A": { "news_min_score": 3, "min_rvol_open": 2.4 },
+          "B": { "news_min_score": 2, "min_rvol_open": 2.0 },
+          "C": { "news_min_score": 1, "min_rvol_open": 1.5 }
         }
-      },
-      "use_micro_confirmation": true,
-      "require_micro_continuation": true,
-      "micro_resolution": "5s",
-      "micro_window_secs": 60,
-      "micro_min_green_ratio": 0.6,
-      "micro_require_ema_reclaim": true,
-      "micro_require_vwap_hold": false,
-      "micro_allow_first_pullback": true
-    },
-    "pparams": {
-      "use_micro_confirmation": true,
-      "require_micro_continuation": true,
-      "micro_resolution": "5s",
-      "micro_window_secs": 60,
-      "micro_min_green_ratio": 0.6,
-      "micro_require_ema_reclaimhold": true,
-      "micro_require_vwap_holdhold": false,
-      "micro_allow_first_pullback": true
+      }
     }
   },
   "E": {
@@ -241,44 +153,13 @@
         "max_daily_risk_usd": 300,
         "drawdown_throttle_after_losses": 3,
         "throttled_risk_factor": 0.5,
-        "confidence_map": {
-          "A": 1.8,
-          "B": 1.0,
-          "C": 0.5
-        },
+        "confidence_map": { "A": 1.8, "B": 1.0, "C": 0.5 },
         "tier_rules": {
-          "A": {
-            "news_min_score": 3,
-            "min_rvol_open": 2.4
-          },
-          "B": {
-            "news_min_score": 2,
-            "min_rvol_open": 2.0
-          },
-          "C": {
-            "news_min_score": 1,
-            "min_rvol_open": 1.5
-          }
+          "A": { "news_min_score": 3, "min_rvol_open": 2.4 },
+          "B": { "news_min_score": 2, "min_rvol_open": 2.0 },
+          "C": { "news_min_score": 1, "min_rvol_open": 1.5 }
         }
-      },
-      "use_micro_confirmation": true,
-      "require_micro_continuation": true,
-      "micro_resolution": "5s",
-      "micro_window_secs": 60,
-      "micro_min_green_ratio": 0.6,
-      "micro_require_ema_reclaim": true,
-      "micro_require_vwap_hold": false,
-      "micro_allow_first_pullback": true
-    },
-    "pparams": {
-      "use_micro_confirmation": true,
-      "require_micro_continuation": true,
-      "micro_resolution": "5s",
-      "micro_window_secs": 60,
-      "micro_min_green_ratio": 0.6,
-      "micro_require_ema_reclaimhold": true,
-      "micro_require_vwap_holdhold": false,
-      "micro_allow_first_pullback": true
+      }
     }
   },
   "B_safe": {
@@ -302,24 +183,11 @@
         "max_daily_risk_usd": 300,
         "drawdown_throttle_after_losses": 3,
         "throttled_risk_factor": 0.5,
-        "confidence_map": {
-          "A": 1.8,
-          "B": 1.0,
-          "C": 0.5
-        },
+        "confidence_map": { "A": 1.8, "B": 1.0, "C": 0.5 },
         "tier_rules": {
-          "A": {
-            "news_min_score": 3,
-            "min_rvol_open": 2.4
-          },
-          "B": {
-            "news_min_score": 2,
-            "min_rvol_open": 2.0
-          },
-          "C": {
-            "news_min_score": 1,
-            "min_rvol_open": 1.5
-          }
+          "A": { "news_min_score": 3, "min_rvol_open": 2.4 },
+          "B": { "news_min_score": 2, "min_rvol_open": 2.0 },
+          "C": { "news_min_score": 1, "min_rvol_open": 1.5 }
         }
       }
     }
@@ -345,24 +213,11 @@
         "max_daily_risk_usd": 300,
         "drawdown_throttle_after_losses": 3,
         "throttled_risk_factor": 0.5,
-        "confidence_map": {
-          "A": 1.8,
-          "B": 1.0,
-          "C": 0.5
-        },
+        "confidence_map": { "A": 1.8, "B": 1.0, "C": 0.5 },
         "tier_rules": {
-          "A": {
-            "news_min_score": 3,
-            "min_rvol_open": 2.4
-          },
-          "B": {
-            "news_min_score": 2,
-            "min_rvol_open": 2.0
-          },
-          "C": {
-            "news_min_score": 1,
-            "min_rvol_open": 1.5
-          }
+          "A": { "news_min_score": 3, "min_rvol_open": 2.4 },
+          "B": { "news_min_score": 2, "min_rvol_open": 2.0 },
+          "C": { "news_min_score": 1, "min_rvol_open": 1.5 }
         }
       }
     }
@@ -389,24 +244,11 @@
         "max_daily_risk_usd": 300,
         "drawdown_throttle_after_losses": 3,
         "throttled_risk_factor": 0.5,
-        "confidence_map": {
-          "A": 1.8,
-          "B": 1.0,
-          "C": 0.5
-        },
+        "confidence_map": { "A": 1.8, "B": 1.0, "C": 0.5 },
         "tier_rules": {
-          "A": {
-            "news_min_score": 3,
-            "min_rvol_open": 2.4
-          },
-          "B": {
-            "news_min_score": 2,
-            "min_rvol_open": 2.0
-          },
-          "C": {
-            "news_min_score": 1,
-            "min_rvol_open": 1.5
-          }
+          "A": { "news_min_score": 3, "min_rvol_open": 2.4 },
+          "B": { "news_min_score": 2, "min_rvol_open": 2.0 },
+          "C": { "news_min_score": 1, "min_rvol_open": 1.5 }
         }
       }
     }
