@@ -65,10 +65,14 @@ def _load_scenarios(path: Path) -> Optional[Dict[str, Any]]:
 
 def _filter_params(scenario_obj: Dict[str, Any]) -> Dict[str, Any]:
 	"""Return a dict containing only ALLOWED_FIELDS if present."""
+	# Prefer nested params dict per Phase 2b data model
+	raw_params = scenario_obj.get("params") if isinstance(scenario_obj, dict) else {}
+	if not isinstance(raw_params, dict):
+		raw_params = {}
 	params: Dict[str, Any] = {}
 	for key in ALLOWED_FIELDS:
-		if key in scenario_obj:
-			params[key] = scenario_obj[key]
+		if key in raw_params:
+			params[key] = raw_params[key]
 	return params
 
 
@@ -144,14 +148,14 @@ def patch_scenario():
 		return jsonify({"error": "scenario not found"}), 400
 
 	params_before = _filter_params(scenario_obj)
-	params_after = dict(params_before)
-	params_after["top"] = new_top_int
 	applied_fields = []
 	if params_before.get("top") != new_top_int:
 		applied_fields.append("top")
 
 	# Dry run: report the changes, do not write
 	if dry:
+		params_after = dict(params_before)
+		params_after["top"] = new_top_int
 		return jsonify({
 			"scenario": scenario,
 			"params_before": params_before,
@@ -160,15 +164,19 @@ def patch_scenario():
 			"dry_run": True,
 		}), 200
 
-	# Apply: modify in-memory and write with backup
+	# Apply: modify in-memory and write with backup (only nested params)
 	if apply_flag:
-		# Update the in-memory structure
-		if container == "dict":
-			data[key]["top"] = new_top_int
-		elif container == "list":
-			data[key]["top"] = new_top_int
-		else:
-			return jsonify({"error": "unsupported scenarios.json structure"}), 400
+		# Ensure scenario object is a dict
+		if not isinstance(scenario_obj, dict):
+			return jsonify({"error": "unsupported scenario object"}), 400
+
+		params_obj = scenario_obj.get("params")
+		if not isinstance(params_obj, dict):
+			params_obj = {}
+			scenario_obj["params"] = params_obj
+
+		# Set the nested 'top' only
+		params_obj["top"] = new_top_int
 
 		try:
 			backup_file = _write_with_backup(data, SCENARIOS_PATH)
@@ -176,6 +184,8 @@ def patch_scenario():
 			logger.info("Failed to write scenarios file: %s", e)
 			return jsonify({"error": "Failed to write scenarios file"}), 500
 
+		# Recompute params_after from the nested params to ensure source-of-truth
+		params_after = _filter_params(scenario_obj)
 		return jsonify({
 			"scenario": scenario,
 			"params_before": params_before,
