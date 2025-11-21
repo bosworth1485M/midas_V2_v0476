@@ -31,6 +31,8 @@ class ScannerConfig(BaseModel):
     price_max: float = Field(gt=0)
     min_gap_pct: float = Field(ge=0, le=100)
     max_gap_pct: float = Field(ge=0, le=100)
+    # v0.7.9.6.4: add top_n for per-scenario Top-N gappers
+    top_n: int = Field(ge=1, default=10)
 
     @field_validator("price_max")
     @classmethod
@@ -60,6 +62,8 @@ class ScannerOverride(BaseModel):
     price_max: Optional[float] = Field(default=None, gt=0)
     min_gap_pct: Optional[float] = Field(default=None, ge=0, le=100)
     max_gap_pct: Optional[float] = Field(default=None, ge=0, le=100)
+    # v0.7.9.6.4: optional override for top_n
+    top_n: Optional[int] = Field(default=None, ge=1)
 
     @field_validator("price_max")
     @classmethod
@@ -107,4 +111,11 @@ def merge_scanner(global_scanner: ScannerConfig, scenario: Optional[Scenario]) -
     if scenario and scenario.scanner:
         overrides = scenario.scanner.model_dump(exclude_none=True)
         base.update(overrides)
+    # v0.7.9.6.4: allow Scenario.params['top'] to override scanner top_n per scenario
+    if scenario and isinstance(scenario.params, dict) and "top" in scenario.params:
+        try:
+            base["top_n"] = int(scenario.params.get("top"))
+        except Exception:
+            # ignore non-int convertible values
+            pass
     return ScannerConfig.model_validate(base)

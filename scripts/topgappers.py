@@ -171,7 +171,8 @@ def main():
     if rows:
         print(f"{'SYMBOL':<8} {'GAP%':>7} {'PRICE':>8}")
         # Respect preview to Top-N for the on-screen list as well
-        preview_n = args.top if isinstance(args.top, int) and args.top > 0 else len(rows)
+        # v0.7.9.6.5: use scanner.top_n (fed from Scenario.params['top']) instead of CLI args.top
+        preview_n = scanner.top_n if isinstance(getattr(scanner, "top_n", None), int) and scanner.top_n > 0 else len(rows)
         for t, g, p in rows[:preview_n]:
             print(f"{t:<8} {g:>7.2f} {p:>8.4f}")
     else:
@@ -182,13 +183,15 @@ def main():
 
     if not args.no_write:
         # Determine final list to write
-        if isinstance(args.top, int) and args.top > 0:
-            symbols_trimmed = [t for (t, _, _) in rows[:args.top]]
+        # v0.7.9.6.5: use scanner.top_n (fed from Scenario.params['top']) instead of CLI args.top
+        top_n_val = scanner.top_n if isinstance(getattr(scanner, "top_n", None), int) else None
+        if isinstance(top_n_val, int) and top_n_val > 0:
+            symbols_trimmed = [t for (t, _, _) in rows[:top_n_val]]
             # Clear & truthful logging
-            if len(rows) > args.top:
-                print(f"[UNIVERSE] Trimmed to Top-{args.top} symbols (from {len(rows)})")
+            if len(rows) > top_n_val:
+                print(f"[UNIVERSE] Trimmed to Top-{top_n_val} symbols (from {len(rows)})")
             else:
-                print(f"[UNIVERSE] Using all {len(symbols_trimmed)} symbols (list shorter than Top-{args.top})")
+                print(f"[UNIVERSE] Using all {len(symbols_trimmed)} symbols (list shorter than Top-{top_n_val})")
         else:
             symbols_trimmed = [t for (t, _, _) in rows]
             print(f"[UNIVERSE] Using full list (no trim). Count={len(symbols_trimmed)}")
