@@ -75,8 +75,10 @@ def main() -> None:
 
     # 1) Build universe (forward --top if provided)
     top_cmd = [sys.executable, str(SCRIPTS / "topgappers.py"), "--date", date_str]
-    if args.top and args.top > 0:
-        top_cmd += ["--top", str(args.top)]
+    # v0.7.9.6.5: args.top is no longer passed; Top-N comes from Scenario.params['top'] via scanner.top_n
+    # v0.7.9.6.5: pass scenario through to topgappers so Scenario.params['top'] can override scanner.top_n
+    if scenario:
+        top_cmd += ["--scenario", scenario]
     run(top_cmd)
 
     # 1b) Universe sanity
