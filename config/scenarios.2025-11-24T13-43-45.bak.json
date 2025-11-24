@@ -54,7 +54,7 @@
       "min_pm_vol": 30000,
       "min_price": 1,
       "min_rvol_open": 2.0,
-      "require_macd_rise": false,
+      "require_macd_rise": true,
       "rise_bars": 3,
       "rvol_open_minutes": 15,
       "sizing": {

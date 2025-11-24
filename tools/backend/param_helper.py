@@ -32,7 +32,14 @@ from flask_cors import CORS
 # Constants
 SCENARIOS_PATH = Path("config/scenarios.json")
 DEFAULT_SCENARIO = "B"
-ALLOWED_FIELDS = ("top", "price_min", "price_max")
+# v0.7.9.7.1: include MACD gate fields in allowed params
+ALLOWED_FIELDS = (
+	"top",
+	"price_min",
+	"price_max",
+	"require_macd_rise",
+	"macd_rise_bars",
+)
 
 app = Flask(__name__)
 # Only allow the frontend origins used in Phase 2a
@@ -125,19 +132,38 @@ def patch_scenario():
 	apply_flag = request.args.get("apply") == "1"
 	if dry and apply_flag:
 		return jsonify({"error": "Specify only one of dry_run=1 or apply=1"}), 400
-
 	body = request.get_json(silent=True)
-	if not isinstance(body, dict) or "top" not in body:
-		return jsonify({"error": "Missing 'top' in JSON body"}), 400
+	# Expect at least one updatable field. Accept any subset of the keys.
+	if not isinstance(body, dict) or not any(k in body for k in ("top", "require_macd_rise", "macd_rise_bars")):
+		return jsonify({"error": "Request body must contain at least one of 'top', 'require_macd_rise', 'macd_rise_bars'"}), 400
 
-	# Validate top
-	new_top = body.get("top")
-	try:
-		new_top_int = int(new_top)
-		if new_top_int < 1:
-			raise ValueError()
-	except Exception:
-		return jsonify({"error": "Invalid 'top' value; must be integer >= 1"}), 400
+	# Parse and validate optional fields
+	new_top_int = None
+	new_require_macd = None
+	new_macd_bars = None
+
+	if "top" in body:
+		# v0.7.9.7.1: support require_macd_rise and macd_rise_bars in /patch
+		try:
+			val = body.get("top")
+			new_top_int = int(val)
+			if new_top_int < 1:
+				raise ValueError()
+		except Exception:
+			return jsonify({"error": "Invalid 'top' value; must be integer >= 1"}), 400
+
+	if "require_macd_rise" in body:
+		# Treat any truthy/falsy JSON value as boolean and store strict bool
+		new_require_macd = bool(body.get("require_macd_rise"))
+
+	if "macd_rise_bars" in body:
+		try:
+			val = body.get("macd_rise_bars")
+			new_macd_bars = int(val)
+			if new_macd_bars < 0:
+				raise ValueError()
+		except Exception:
+			return jsonify({"error": "Invalid 'macd_rise_bars' value; must be integer >= 0"}), 400
 
 	data = _load_scenarios(SCENARIOS_PATH)
 	if data is None:
@@ -149,13 +175,30 @@ def patch_scenario():
 
 	params_before = _filter_params(scenario_obj)
 	applied_fields = []
-	if params_before.get("top") != new_top_int:
-		applied_fields.append("top")
+	# Determine which fields would change
+	if new_top_int is not None:
+		if params_before.get("top") != new_top_int:
+			applied_fields.append("top")
+	if new_require_macd is not None:
+		existing_macd = params_before.get("require_macd_rise")
+		# Normalize existing to bool if present, else leave as None
+		if existing_macd is not None:
+			existing_macd = bool(existing_macd)
+		if existing_macd != new_require_macd:
+			applied_fields.append("require_macd_rise")
+	if new_macd_bars is not None:
+		if params_before.get("macd_rise_bars") != new_macd_bars:
+			applied_fields.append("macd_rise_bars")
 
 	# Dry run: report the changes, do not write
 	if dry:
 		params_after = dict(params_before)
-		params_after["top"] = new_top_int
+		if new_top_int is not None:
+			params_after["top"] = new_top_int
+		if new_require_macd is not None:
+			params_after["require_macd_rise"] = new_require_macd
+		if new_macd_bars is not None:
+			params_after["macd_rise_bars"] = new_macd_bars
 		return jsonify({
 			"scenario": scenario,
 			"params_before": params_before,
@@ -174,9 +217,13 @@ def patch_scenario():
 		if not isinstance(params_obj, dict):
 			params_obj = {}
 			scenario_obj["params"] = params_obj
-
-		# Set the nested 'top' only
-		params_obj["top"] = new_top_int
+		# Set only the fields present in the request
+		if new_top_int is not None:
+			params_obj["top"] = new_top_int
+		if new_require_macd is not None:
+			params_obj["require_macd_rise"] = new_require_macd
+		if new_macd_bars is not None:
+			params_obj["macd_rise_bars"] = new_macd_bars
 
 		try:
 			backup_file = _write_with_backup(data, SCENARIOS_PATH)

@@ -1,0 +1,179 @@
+1️⃣ What do these MACD values mean?
+
+You listed:
+
+macd_enable: bool
+
+macd_fast: int
+
+macd_slow: int
+
+macd_signal: int
+
+These correspond to the standard parameters used to compute the MACD indicator in technical analysis.
+
+macd_enable: bool
+
+This is just an on/off switch for using MACD as a filter.
+
+false = ignore MACD; strategy behaves as if no MACD confirmation is required.
+
+true = MACD filter is active; entries that don’t meet MACD conditions (rising histogram, above threshold, etc.) are blocked.
+
+Purpose:
+Let you toggle MACD per scenario without deleting the other MACD parameters.
+
+macd_fast: int
+
+This is the length (in bars) of the fast EMA used in MACD.
+
+Default 12 is the classic standard for MACD on daily charts (sometimes also used for intraday).
+
+Mathematically:
+
+You compute an EMA(12) (fast) and an EMA(26) (slow).
+
+MACD line = EMA(12) − EMA(26).
+
+Effect:
+A smaller fast period responds more quickly to recent price changes; a larger one smooths more and reacts slower. In most “standard MACD” uses, 12 is kept as-is.
+
+macd_slow: int
+
+This is the length of the slow EMA for MACD.
+
+Default 26 is the standard partner to fast = 12 in the classic MACD (12, 26, 9).
+
+MACD line = EMA(fast) − EMA(slow), so slow is the “baseline” trend average.
+
+Effect:
+
+A larger slow makes the underlying trend reference slower and smoother.
+
+The difference between fast and slow (12 vs 26) gives you a measure of “recent momentum vs underlying trend”.
+
+macd_signal: int
+
+This is the length of the signal line EMA applied to the MACD line itself.
+
+Default 9 is standard: you compute EMA(12) − EMA(26) → MACD line, then EMA(9) of that MACD line → signal line.
+
+Histogram = MACD line − signal line.
+
+Effect:
+
+signal controls how sensitive the “smoothed MACD” is.
+
+The histogram (MACD − signal) is what we usually test for “rising momentum”.
+
+So, in plain language:
+
+macd_fast and macd_slow define what MACD is (the shape of the momentum curve).
+
+macd_signal defines how you smooth MACD to get a histogram.
+
+macd_enable just tells the strategy whether it should pay attention to MACD or ignore it.
+
+In most Cameron-style systems, these three integers are left at their standard values (12, 26, 9), and the real “knobs” are:
+
+How many bars of histogram must be rising (macd_rise_bars),
+
+Minimum histogram value (macd_hist_min),
+
+Whether MACD filter is required (require_macd_rise, macd_enable).
+
+2️⃣ Neutral question: designing now with a future relational database in mind
+
+You said:
+
+“We will soon change to recording and tracking the most profitable trades in a relational database… please bear in mind in all of our designs of features that we will soon be logging results needed to monitor profitability. What do you think?”
+
+I think that’s exactly the right mindset, and it’s good you’re bringing it up now, while we design features like MACD and VWAP.
+
+Here’s how I see it:
+
+✔ Why we should design with the DB in mind now
+
+A relational DB (even a simple SQLite to start) will eventually need:
+
+Per-trade records:
+
+symbol, entry/exit time & price, size, PnL, scenario, strategy params in effect (including MACD/VWAP settings).
+
+Per-run / per-day records:
+
+date, scenario, config snapshot (top, MACD settings, VWAP settings, risk settings), aggregated stats.
+
+Per-config summaries:
+
+config ID, win rate, average R, profit factor, max drawdown, etc.
+
+If we know this is coming, we’ll want any new feature (MACD, VWAP, top, etc.) to:
+
+Have a clear name and meaning in params.
+
+Be logged consistently whenever we make decisions:
+
+E.g. [WHY] MACD: hist=0.03, rise_bars=2, pass=True.
+
+Be easy to attach as “columns” later in the DB.
+
+✔ How this affects MACD design specifically
+
+For MACD, thinking ahead to the DB means:
+
+When we reject a trade because of MACD, we log:
+
+The values:
+
+macd_fast, macd_slow, macd_signal
+
+macd_hist_min, macd_rise_bars
+
+The outcome:
+
+“MACD filter = True/False”
+
+When we accept a trade, we log:
+
+“MACD filter passed with hist=..., rise_bars_ok=True/False”
+
+Later, the DB will let us query:
+
+“How many trades that MACD rejected would have been losers/winners?”
+
+“Is MACD actually improving our expectancy?”
+
+“Which MACD settings (rise bars, hist threshold) produce the best PnL for scenario B?”
+
+Similarly for top:
+
+We now know which top value was used (params.top), and we can store that per run.
+
+✔ Concrete takeaway
+
+Your request:
+
+“Please bear in mind… that we will soon be logging results needed to monitor profitability.”
+
+Perfectly aligned with:
+
+Always having features like top, MACD, VWAP:
+
+Defined as clean params in scenarios.json.
+
+Used in the strategy in a way that we can log clearly: “which guard passed/failed and why.”
+
+Not encoded as hidden magic numbers in code.
+
+So yes: for every new feature (MACD next, then VWAP, then maybe DB itself), we’ll keep asking:
+
+“How will we log this?”
+
+“What fields will we want to store in the DB later?”
+
+“Is this parameter name and behaviour clear enough for queries?”
+
+You are thinking like the most profitable teams: config-driven, logged, explainable, and designed with performance tracking in mind.
+
+When you’re ready to start MACD implementation, we’ll follow the design we just wrote, but we’ll also sprinkle in the logging you’ll need for the DB phase later (without actually introducing the DB yet).
