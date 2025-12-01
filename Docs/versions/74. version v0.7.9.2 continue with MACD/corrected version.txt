@@ -1,0 +1,29 @@
+[TRADE] PBM — LONG — Scenario B
+Date: 2025-08-04
+
+Entry:
+• Time: 09:37:00
+• Price: 4.3201 dollars per share
+• Quantity: 324 shares
+• Total bought: 324 × 4.3201 ≈ 1399.71 dollars
+
+Exit:
+• Time: 09:46:00
+• Price: 4.2121 dollars per share
+• Total sold: 324 × 4.2121 ≈ 1364.72 dollars
+• Exit reason: STOP LOSS hit
+
+Result:
+• We lost 34.99 dollars on this trade.
+• Calculation: 1399.71 (entry) − 1364.72 (exit) ≈ 34.99
+
+Trading parameters (for this scenario):
+• Stop loss (SL) is 2.5% below the entry price.
+• Take profit (TP) is 2.0% above the entry price.
+• Dollar risk per trade is 35 dollars.
+
+Risk explanation:
+• Risk per share = entry price − stop price
+= 4.3201 − 4.2121 ≈ 0.108 dollars per share.
+• Shares = risk_usd ÷ risk_per_share
+≈ 35.00 ÷ 0.108 ≈ 324 shares.

@@ -1,0 +1,10 @@
+
+Note: displays well to file. Needs to display to screen also
+
+PS C:\Users\boydp\Desktop\midas_V2_v0.4.7.9_working> python .\gemini_scripts\stock_chart_indicator_visualizer.py TSLA 2024-11-27 10:00 10:15 --out .\gemini_scripts\out.png
+
+Attempting to fetch TSLA data for 2024-11-27...
+Polygon Data Loaded: 878 minute bars found.
+Chart saved to gemini_scripts\out.png
+
+

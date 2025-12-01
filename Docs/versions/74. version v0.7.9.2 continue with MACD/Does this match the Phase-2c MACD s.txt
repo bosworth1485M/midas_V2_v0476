@@ -1,0 +1,124 @@
+Does this match the Phase-2c MACD spec?
+
+Key points from the code: 
+
+MidasLocalRunnerUI
+
+MACD state is wired up
+
+macdCurrent, macdProposed, macdPreview state objects.
+
+Separate loading / error / success state for MACD preview & apply.
+
+handleLoadCurrent fills both:
+
+macdCurrent from data.params.require_macd_rise and data.params.macd_rise_bars
+
+macdProposed initial values from the same.
+
+Preview & Apply send only MACD fields
+
+Preview:
+
+fetch(`http://127.0.0.1:5001/patch?dry_run=1&scenario=${scenario}`, {
+  method: "POST",
+  ...
+  body: JSON.stringify({
+    require_macd_rise: macdProposed.require_macd_rise,
+    macd_rise_bars: macdRiseBars,
+  }),
+})
+
+
+Apply:
+
+fetch(`http://127.0.0.1:5001/patch?apply=1&scenario=${scenario}`, {
+  method: "POST",
+  ...
+  body: JSON.stringify({
+    require_macd_rise: macdProposed.require_macd_rise,
+    macd_rise_bars: macdRiseBars,
+  }),
+})
+
+
+✅ Only require_macd_rise and macd_rise_bars are sent – exactly as we said.
+
+It uses scenario=${scenario} (A/B/C/D/E), which is consistent with how the top code already works. In practice you’ll be on B, which is what we want.
+
+Preview After & Current columns are updated correctly
+
+Preview handler updates macdPreview from data.params_after.
+
+Apply handler:
+
+updates macdCurrent from params_after,
+
+updates macdProposed to match,
+
+updates macdPreview to match,
+
+shows a success message with backup_file.
+
+Exactly the pattern we wanted.
+
+Validation & Apply-enabled logic
+
+Validates macd_rise_bars is an integer ≥ 0.
+
+isApplyEnabledMacd checks both:
+
+value is valid, and
+
+at least one of require_macd_rise or macd_rise_bars differs from macdCurrent.
+
+That’s exactly the “don’t enable Apply unless something actually changed” rule we asked for.
+
+MACD card layout
+
+There’s a dedicated “MACD Parameters” card with:
+
+Current: read-only checkbox + macd_rise_bars
+
+Proposed: editable checkbox + number input
+
+Preview After: read-only view of patched values
+
+Own Preview / Apply buttons and messages.
+
+That matches the three-column mental model from the spec.
+
+So: yes, this is a faithful implementation of the design. Nothing scary jumps out.
+
+Minor note: GET /current is still called without ?scenario=B, but that’s how your old Phase-2a code already worked and it’s obviously been returning the right params for B, so I’d leave that alone for now.
+
+✅ Next tiny step (test MACD UI end-to-end)
+
+Now we want to prove the UI is actually talking to the patch server the same way your PowerShell calls did.
+
+Tiny step:
+
+In a terminal for the UI project (e.g. C:\Users\boydp\Desktop\midas-ui):
+
+npm run dev
+
+
+Open the UI in your browser (whatever URL Vite prints, e.g. http://127.0.0.1:5173/).
+
+In the UI:
+
+Make sure Scenario at the top is set to B.
+
+Scroll to Parameters (read-only) and click “Load Current”.
+
+Then scroll to the MACD Parameters card and confirm:
+
+“Current → Require MACD rise” matches what you know (should be true given our earlier patch),
+
+“Current → MACD rise bars” matches what’s in scenarios (should be 2 right now).
+
+If those Current values match what you see in scenarios.json / your last PowerShell patch, we’ve confirmed:
+
+website → patch server → scenarios works for MACD,
+
+and this version thread is ready to tag / close once we’ve done one small “change via UI, then run a day” test in the next step.
