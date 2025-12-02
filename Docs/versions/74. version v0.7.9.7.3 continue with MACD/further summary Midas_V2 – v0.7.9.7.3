@@ -1,0 +1,184 @@
+Midas_V2 – v0.7.9.7.3
+MACD for UI (contd.) – Final Version Summary
+
+(Use this at the start of the next session to restore context.)
+
+✅ Scope of v0.7.9.7.3
+
+This version’s purpose was to wire MACD gating into the website UI, using the existing patch server, so Scenario B MACD parameters can be edited entirely from the UI:
+
+require_macd_rise (on/off)
+
+macd_rise_bars (integer)
+
+And to confirm the backtester responds correctly:
+
+trades appear for low bars (2, 3)
+
+trades disappear for high bars (50, 999)
+
+This completes the MACD user-interface integration cycle.
+
+What was added/verified in this version
+1. MACD patch-server wiring
+
+Patch server now correctly applies:
+
+{ "require_macd_rise": true/false, "macd_rise_bars": <int> }
+
+Verified with:
+
+dry_run calls
+
+apply calls
+
+Backtester logs confirmed:
+
+[CFG] require_macd_rise=True/False
+
+[CFG] macd_rise_bars=2/3/50/999
+
+[WHY] Using StrategyParams reflects the same.
+
+2. MACD gating behavior proven
+
+3 bars → trades appear
+
+2 bars → more trades
+
+50 or 999 → zero trades, confirming MACD is a real gate
+
+This proves:
+UI → patch server → scenarios.json → StrategyParams → entry logic
+is fully wired.
+
+3. MACD controls added to the UI
+
+In midas-ui (file: src/pages/MidasLocalRunnerUI.tsx):
+
+New MACD Parameters card including:
+
+Current values
+
+Proposed values
+
+Preview After
+
+Preview button (dry_run)
+
+Apply button (apply)
+
+Validation
+
+Success/error messages
+
+New checkbox component
+
+Claude created a new component:
+
+src/components/ui/checkbox.tsx
+
+
+It resolved the Vite error and is now fully functioning.
+
+Confirmed working
+
+From UI:
+
+Setting MACD rise bars to 3 shows trades.
+
+Setting MACD rise bars to 50 or 999 removes trades.
+
+Website loads Current MACD values via /current.
+
+Preview and Apply work exactly like Phase-2b (Top), but for MACD.
+
+4. This version is now complete
+
+Everything required for v0.7.9.7.3 is done:
+
+MACD gating works
+
+UI modifies MACD
+
+patch server integrated
+
+backtester receives live MACD settings
+
+You are ready to tag this version in GitHub.
+
+Git Commands for v0.7.9.7.3
+
+Use your standard 5-line flow:
+
+git add -A
+git commit -m "v0.7.9.7.3: MACD controls wired into UI for Scenario B"
+git tag -a v0.7.9.7.3 -m "v0.7.9.7.3: MACD UI integration completed"
+git push
+git push --tags
+
+
+If the UI (midas-ui) is a separate repo, tag it there too with:
+
+git add -A
+git commit -m "v0.7.9.7.3: UI MACD controls (require_macd_rise + macd_rise_bars)"
+git tag -a v0.7.9.7.3 -m "v0.7.9.7.3 UI: MACD parameters added"
+git push
+git push --tags
+
+5. Your design question
+
+MACD has more parts than rise bars — should everything be specified in the UI?
+
+My answer:
+
+✔ NO — not everything belongs in the UI.
+
+The profitable teams expose only the high-leverage knobs, not internal MACD structure.
+
+Expose in UI:
+
+require_macd_rise
+
+macd_rise_bars
+
+Keep fixed/hidden:
+
+MACD fast period (12)
+
+MACD slow period (26)
+
+MACD signal period (9)
+
+Whether we use histogram vs line
+
+Exact combination logic with EMA/VWAP/green-streak filters
+
+Why:
+Too many knobs = inconsistent results + difficulty debugging.
+Profitable teams intentionally restrict UI controls to “daily tuning knobs” only.
+
+Later, if desired, we can provide:
+
+A dropdown selector like:
+
+“MACD Mode: Standard / Fast / Aggressive”
+instead of exposing the raw periods.
+
+For now, your UI is exactly at the correct complexity.
+
+Ready for next version thread
+
+Your next version (v0.7.9.7.4) should begin focusing on:
+
+Full trade logging (time, price, qty, reason)
+
+Screen-friendly trade explanations (“explain like a child”)
+
+Relational DB logging
+
+Candle snapshot integration
+
+and we’ll design those cleanly in that new version thread.
+
+If you want, I can generate the first draft of the next-version plan so your next thread

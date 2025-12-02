@@ -140,6 +140,7 @@ def run_backtest(
         # v0.4.8: set per-symbol identity & scenario on the strategy
         try:  # v0.4.8
             strat.symbol = sym  # v0.4.8
+            strat.session_date = date_str  # v0.4.8 (lets the strategy convert 'HH:MM' to epoch)
             strat.scenario_id = scn  # v0.4.8
         except Exception:
             pass  # v0.4.8

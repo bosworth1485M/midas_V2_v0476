@@ -1,0 +1,288 @@
+1️⃣ Version summary — Midas_V2 v0.7.9.7.3 – MACD for UI (contd.)
+
+You can paste this into your session doc as:
+
+# Session Summary for Midas_V2 v0.7.9.7.3
+## Use this file at the start of the next session to restore context.
+
+Scope of this version
+
+Goal of this version:
+Finish wiring MACD gating for Scenario B into the local UI via the patch server, so you can:
+
+Toggle require_macd_rise from the website
+
+Adjust macd_rise_bars (e.g. 2, 3, 50, 999)
+
+See the effect directly in backtests (including “kill switch” behavior)
+
+No database changes, no candle snapshots yet — just MACD UI + behavior verification.
+
+Changes & confirmations in this thread
+A. Patch server & MACD parameters
+
+Scenario B now has MACD gating parameters living in the config and flowing into StrategyParams:
+
+require_macd_rise: bool
+
+macd_rise_bars: int
+
+You used the patch server to verify & control them:
+
+Dry-run:
+
+Invoke-WebRequest "http://127.0.0.1:5001/patch?dry_run=1&scenario=B" -Method POST -Headers @{ "Content-Type" = "application/json" } -Body '{ "require_macd_rise": true, "macd_rise_bars": 3 }'
+
+
+→ showed params_before and params_after for Scenario B.
+
+Apply:
+
+Invoke-WebRequest "http://127.0.0.1:5001/patch?apply=1&scenario=B" -Method POST -Headers @{ "Content-Type" = "application/json" } -Body '{ "require_macd_rise": true, "macd_rise_bars": 3 }'
+
+
+→ actually changed the Scenario B config and created a backup scenarios.YYYY-MM-DDTHH-MM-SS.bak.json.
+
+We confirmed from the backtester logs:
+
+[CFG] and [WHY] Using StrategyParams now show:
+
+require_macd_rise = True
+
+macd_rise_bars = 2 / 3 / 50 / 999 depending on what you set.
+
+B. MACD gating behavior (backtest verification)
+
+You ran multiple tests for Scenario B with:
+
+gate_minutes = 20
+
+min_rvol_open = 2.0 (15 minutes)
+
+sl_pct = 2.5, tp_pct = 2.0
+
+risk_usd = 35.00 per trade
+
+Key outcomes:
+
+require_macd_rise = True, macd_rise_bars = 3
+
+MACD gating was active (fewer trades than with MACD off), but results were still poor over 2025-08-01→05.
+
+require_macd_rise = True, macd_rise_bars = 999
+
+Range 2025-08-01→05 (B) produced 0 trades.
+
+That proved MACD gating is truly in the entry path and can act as a “kill switch.”
+
+require_macd_rise = True, macd_rise_bars = 2
+
+2025-08-04 Example: 5 trades, 2 wins, 3 losses, WR 40%, PnL ≈ −49.
+
+Confirmed MACD gating still allows trades with a more lenient rise requirement.
+
+So: MACD is now a proven, controllable gate — confirmed both via patch server and backtests.
+
+C. UI: MACD controls added to MidasLocalRunnerUI
+
+In midas-ui:
+
+File: src/pages/MidasLocalRunnerUI.tsx
+(modified by Claude according to your Phase 2c spec)
+
+New behavior in the UI:
+
+For the selected Scenario (B):
+
+A MACD Parameters card shows three columns:
+
+Current (read-only): require_macd_rise, macd_rise_bars
+
+Proposed (editable): checkbox + number input
+
+Preview After: what values would be after a dry-run patch
+
+Preview button:
+
+Sends POST /patch?dry_run=1&scenario=B with body like:
+
+{ "require_macd_rise": true, "macd_rise_bars": 3 }
+
+
+Updates “Preview After” from params_after.
+
+Apply button:
+
+Enabled only if:
+
+macd_rise_bars is a valid integer ≥ 0, and
+
+At least one MACD field differs from Current.
+
+Sends POST /patch?apply=1&scenario=B with same body.
+
+On success:
+
+Updates Current/Proposed/Preview to params_after.
+
+Shows backup filename from the response.
+
+Validation:
+
+If macd_rise_bars is invalid (< 0 or non-integer), Preview/Apply are disabled and a validation message is shown on the card.
+
+New UI component: Checkbox
+
+File: src/components/ui/checkbox.tsx 
+
+checkbox
+
+Simple React wrapper around <input type="checkbox">, with:
+
+checked?: boolean
+
+onCheckedChange?: (checked: boolean) => void
+
+disabled?: boolean
+
+className?: string
+
+Styled to match your Tailwind/shadcn-ish look.
+
+This resolved the Vite error about @/components/ui/checkbox not existing and allowed npm run dev to run cleanly.
+
+D. End-to-end MACD UI tests
+
+With param_helper (patch server) running and npm run dev running:
+
+You opened http://localhost:5173
+
+Chose Scenario B
+
+Clicked Load Current → saw MACD Current values match your config
+
+In MACD card:
+
+Set 3 bars → Apply → ran backtest → saw trades.
+
+Set 50 bars → Apply → ran backtest → saw no trades.
+
+Confirms UI → patch server → scenarios → backtester all in sync.
+
+At this point, Scenario B’s MACD gating is fully controllable from the UI, and behavior matches the earlier PowerShell tests.
+
+This is a very natural point to tag v0.7.7.2 as “MACD for UI contd.” and close this version thread.
+
+Suggested Git steps for v0.7.7.2
+
+(Assuming you’re in C:\Users\boydp\Desktop\midas_V2_v0.4.7.9_working and corresponding midas-ui repo; adjust paths as needed.)
+
+In the midas_V2 repo:
+
+git add -A
+git commit -m "v0.7.7.2: Wire MACD gating into UI via patch server (Scenario B)"
+git tag -a v0.7.7.2 -m "v0.7.7.2: MACD UI controls for Scenario B (require_macd_rise + macd_rise_bars)"
+git push
+git push --tags
+
+
+If you keep midas-ui as a separate repo, do a similar commit/tag there with a matching message like v0.7.7.2-midas-ui-macd.
+
+2️⃣ Should all MACD info be in the UI? (Design answer)
+
+You’re absolutely right that:
+
+MACD behavior is not just “rise bars”.
+
+There are other things hiding in the code/config:
+
+MACD fast/slow/signal periods (e.g. 12 / 26 / 9)
+
+Whether we use histogram vs line vs signal
+
+Whether we require MACD > 0 (above zero line)
+
+How MACD combines with EMA/VWAP, green streaks, etc.
+
+That’s why it feels confusing: only part of MACD is visible in the UI (rise bars + on/off), but MACD logic itself is richer.
+
+My view: don’t put everything in the UI — but document all of it clearly
+
+What the profitable teams usually do:
+
+Expose only the “high-leverage knobs” in the UI
+
+Things they tune frequently in experiments:
+
+MACD on/off
+
+Rise bars (2 vs 3 vs strict “kill switch”)
+
+Maybe presets (e.g. “Standard MACD 12/26/9” vs “Faster MACD 6/19/9”)
+
+Keep deeper technical details as config/constants + documentation
+
+Fast/slow/signal periods, curve types, internal filters
+
+Detailed entry logic:
+
+e.g. “Require MACD line above signal AND histogram > 0 AND rising for N bars”
+
+These are documented in a DEV_GUIDE or strategy section, not toggled daily in the UI.
+
+For this version, I’d do:
+
+UI controls (today):
+
+require_macd_rise (checkbox)
+
+macd_rise_bars (integer)
+
+Documentation (next doc refresh):
+
+Add a small section “MACD behavior at v0.7.7.2” to your DEV_GUIDE / session summary that says, in plain English:
+
+Which MACD periods you’re using (fast/slow/signal)
+
+How the MACD entry filter works:
+
+e.g. “To enter, we require MACD rising for N bars, plus XYZ”
+
+Which parts are controlled via UI (rise bars, on/off)
+
+Which are fixed constants (periods, line vs histogram choice)
+
+That way:
+
+The UI stays simple and focused on “what you actively tweak”.
+
+The confusion is reduced because the rest of MACD behavior is clearly described in one place, even if it’s not clickable.
+
+Later, once you’re comfortable:
+
+You can decide if another MACD parameter really needs a UI control (e.g. “MACD template: Standard vs Fast”), but you don’t have to do that now.
+
+Practical next move
+
+For the next version thread, I’d recommend:
+
+Title: something like
+“Midas_V2 v0.7.7.3 – Trade Logging & DB design (start)”
+
+Focus on:
+
+Designing the full trade record (date, scenario, symbol, entry/exit time & price, qty, PnL, MACD/EMA/VWAP context)
+
+Planning relational DB schema
+
+Planning integration of your candle script when trades fire
+
+And in parallel, in your docs for v0.7.7.2, add a tiny MACD section:
+
+“At v0.7.7.2, Scenario B MACD behavior:
+
+UI controls: require_macd_rise (on/off), macd_rise_bars (int)
+
+Internal MACD: fast/slow/signal = …; we use histogram/line; MACD filter combines with EMA/VWAP/green streak as follows: …”
+
+That should make MACD feel less “mystical” and more like a well-defined block with just a couple of knobs exposed to the UI.

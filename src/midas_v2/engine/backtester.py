@@ -21,6 +21,126 @@ try:  # v0.4.8
 except Exception:  # v0.4.8
     FeatureRegistry = None  # v0.4.8
 
+# Copilot: Define a dataclass called SimpleTradeSummary that captures the key fields
+# we need to explain a single completed trade in simple language.
+#
+# Fields:
+#   symbol: str
+#   scenario: str           # e.g. "B"
+#   side: str               # "long" or "short"
+#   entry_time: datetime
+#   exit_time: datetime
+#   entry_price: float
+#   exit_price: float
+#   shares: int
+#   gross_entry_value: float   # shares * entry_price
+#   gross_exit_value: float    # shares * exit_price
+#   pnl_usd: float             # gross_exit_value - gross_entry_value
+#   risk_usd: float            # e.g. 35
+#   stop_price: float
+#   tp_price: float
+#   sl_pct: float              # stop loss percent, e.g. 2.5
+#   tp_pct: float              # take profit percent, e.g. 2.0
+#   risk_per_share: float      # entry_price - stop_price (for long)
+#   exit_reason: str           # "stop_loss", "take_profit", etc.
+#
+# Use @dataclass and type hints.
+from dataclasses import dataclass
+from datetime import datetime
+
+@dataclass
+class SimpleTradeSummary:
+    symbol: str
+    scenario: str            # e.g. "B"
+    side: str                # "long" or "short"
+    entry_time: datetime     # when the trade was opened
+    exit_time: datetime      # when the trade was closed
+    entry_price: float
+    exit_price: float
+    shares: int
+    gross_entry_value: float   # shares * entry_price
+    gross_exit_value: float    # shares * exit_price
+    pnl_usd: float             # gross_exit_value - gross_entry_value
+    risk_usd: float            # e.g. 35
+    stop_price: float
+    tp_price: float
+    sl_pct: float              # stop loss percent, e.g. 2.5
+    tp_pct: float              # take profit percent, e.g. 2.0
+    risk_per_share: float      # entry_price - stop_price (for long)
+    exit_reason: str           # "stop_loss", "take_profit", etc.
+
+
+def format_simple_trade_calcs(summary: SimpleTradeSummary) -> str:
+    """
+    Returns a child-friendly multi-line string explaining one trade.
+    
+    Includes:
+    - Header with symbol, side, date, time, and scenario
+    - Scenario description (especially for Scenario B)
+    - Buy/sell explanation
+    - Trade results (dollars, shares, prices)
+    - Trading parameters (stop loss and take profit)
+    - Risk calculation breakdown
+    """
+    entry_date = summary.entry_time.strftime("%Y-%m-%d")
+    entry_time = summary.entry_time.strftime("%H:%M")
+    exit_date = summary.exit_time.strftime("%Y-%m-%d")
+    exit_time = summary.exit_time.strftime("%H:%M")
+    
+    # Clean up exit reason for display
+    exit_reason_display = summary.exit_reason.replace("_", " ").lower()
+    
+    lines = []
+    
+    # Header
+    lines.append(f"{'=' * 70}")
+    lines.append(f"TRADE: {summary.symbol} | Side: {summary.side.upper()} | Entry: {entry_date} {entry_time} | Scenario: {summary.scenario}")
+    lines.append(f"{'=' * 70}")
+    lines.append("")
+    
+    # Scenario description
+    if summary.scenario == "B":
+        lines.append("SCENARIO B – Gap-and-Go:")
+        lines.append("Buys small cheap stocks that gap up strongly before the market opens")
+        lines.append("and keep going up after the open, using simple trend and momentum rules.")
+        lines.append("")
+    
+    # Buy/Sell explanation
+    lines.append("WHY WE TRADED:")
+    lines.append("• We bought because the stock looked strong according to the rules.")
+    lines.append(f"• We sold because the {exit_reason_display} was hit.")
+    lines.append("")
+    
+    # Trade results
+    lines.append("RESULTS:")
+    lines.append(f"• Profit/Loss: ${summary.pnl_usd:,.2f}")
+    lines.append(f"• Number of shares: {summary.shares}")
+    lines.append(f"• Entry price: ${summary.entry_price:.2f}")
+    lines.append(f"• Exit price: ${summary.exit_price:.2f}")
+    lines.append(f"• Profit per share: ${(summary.exit_price - summary.entry_price):.2f}")
+    lines.append(f"• Sale time: {exit_date} {exit_time}")
+    lines.append("")
+    
+    # Trading parameters
+    lines.append("TRADING PARAMETERS:")
+    lines.append(f"• Stop loss: {summary.sl_pct:.1f}% (price: ${summary.stop_price:.2f})")
+    lines.append(f"• Take profit: {summary.tp_pct:.1f}% (price: ${summary.tp_price:.2f})")
+    lines.append("")
+    
+    # Risk section
+    lines.append("RISK CALCULATION:")
+    # Compute risk amount from risk per share and number of shares
+    risk_amount = summary.risk_per_share * summary.shares
+    lines.append(f"• Risk amount (USD): ${risk_amount:,.2f}")
+    lines.append(f"• Risk per share: ${summary.risk_per_share:.2f}")
+    if summary.risk_per_share > 0:
+        approx_shares = risk_amount / summary.risk_per_share
+        lines.append(f"• Approximate shares: {risk_amount:,.2f} ÷ {summary.risk_per_share:.2f} ≈ {approx_shares:.0f}")
+    lines.append("")
+    lines.append(f"{'=' * 70}")
+    
+    return "\n".join(lines)
+
 
 def _normalize_strategy_params(scenario_params: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -120,6 +240,8 @@ def run_backtest(
 
     # v0.4.8: derive scenario id/name from settings (best-effort)
     scn = getattr(settings, "scenario", None) or getattr(settings, "scenario_name", None) or "UNKNOWN"  # v0.4.8
+    if scn == "UNKNOWN":
+        scn = "B"
 
     # NEW: build adaptive sizer from full scenario params (not just normalized)
     sizer = build_sizer_from_config(scenario_params if isinstance(scenario_params, dict) else {})
@@ -199,6 +321,64 @@ def run_backtest(
                 if bar.h >= tp:
                     pnl = (tp - entry) * qty
                     trades.append((sym, "TP", pnl))
+                    # Build and print a SimpleTradeSummary for this closed trade
+                    try:
+                        entry_time_dt = datetime.strptime(f"{date_str} {bars[position['i']].ts}", "%Y-%m-%d %H:%M")
+                        exit_time_dt = datetime.strptime(f"{date_str} {bar.ts}", "%Y-%m-%d %H:%M")
+
+                        exit_price = tp
+                        gross_entry = qty * entry
+                        gross_exit = qty * exit_price
+                        # Resolve sl_pct and tp_pct with fallbacks (always float)
+                        if isinstance(scenario_params, dict):
+                            sl_candidate = scenario_params.get("sl_pct")
+                            tp_candidate = scenario_params.get("tp_pct")
+                        else:
+                            sl_candidate = None
+                            tp_candidate = None
+                        sl_val = sl_candidate if sl_candidate is not None else norm_params.get("stop_loss_pct")
+                        tp_val = tp_candidate if tp_candidate is not None else norm_params.get("take_profit_pct")
+                        try:
+                            sl_pct_final = float(sl_val) if sl_val is not None else 0.0
+                        except Exception:
+                            sl_pct_final = 0.0
+                        try:
+                            tp_pct_final = float(tp_val) if tp_val is not None else 0.0
+                        except Exception:
+                            tp_pct_final = 0.0
+
+                        # Ensure risk_usd is never None
+                        risk_value = getattr(settings.risk, "per_trade_risk", 0.0)
+                        if risk_value is None:
+                            risk_value = 0.0
+                        risk_usd_final = float(risk_value)
+
+                        summary = SimpleTradeSummary(
+                            symbol=sym,
+                            scenario=scn,
+                            side="long",
+                            entry_time=entry_time_dt,
+                            exit_time=exit_time_dt,
+                            entry_price=entry,
+                            exit_price=exit_price,
+                            shares=qty,
+                            gross_entry_value=gross_entry,
+                            gross_exit_value=gross_exit,
+                            pnl_usd=pnl,
+                            risk_usd=risk_usd_final,
+                            stop_price=sl,
+                            tp_price=tp,
+                            sl_pct=sl_pct_final,
+                            tp_pct=tp_pct_final,
+                            risk_per_share=(entry - sl),
+                            exit_reason="take_profit",
+                        )
+                        print()
+                        print(format_simple_trade_calcs(summary))
+                        print()
+                    except Exception as e:
+                        print(f"[SUMMARY_ERROR] {e}")
+
                     risk.on_trade_closed(pnl)
                     sizer.on_exit(pnl)  # NEW: update sizing state
                     trades_by_symbol[sym] += 1
@@ -207,6 +387,64 @@ def run_backtest(
                 elif bar.l <= sl:
                     pnl = (sl - entry) * qty
                     trades.append((sym, "SL", pnl))
+                    # Build and print a SimpleTradeSummary for this closed trade
+                    try:
+                        entry_time_dt = datetime.strptime(f"{date_str} {bars[position['i']].ts}", "%Y-%m-%d %H:%M")
+                        exit_time_dt = datetime.strptime(f"{date_str} {bar.ts}", "%Y-%m-%d %H:%M")
+
+                        exit_price = sl
+                        gross_entry = qty * entry
+                        gross_exit = qty * exit_price
+                        # Resolve sl_pct and tp_pct with fallbacks (always float)
+                        if isinstance(scenario_params, dict):
+                            sl_candidate = scenario_params.get("sl_pct")
+                            tp_candidate = scenario_params.get("tp_pct")
+                        else:
+                            sl_candidate = None
+                            tp_candidate = None
+                        sl_val = sl_candidate if sl_candidate is not None else norm_params.get("stop_loss_pct")
+                        tp_val = tp_candidate if tp_candidate is not None else norm_params.get("take_profit_pct")
+                        try:
+                            sl_pct_final = float(sl_val) if sl_val is not None else 0.0
+                        except Exception:
+                            sl_pct_final = 0.0
+                        try:
+                            tp_pct_final = float(tp_val) if tp_val is not None else 0.0
+                        except Exception:
+                            tp_pct_final = 0.0
+
+                        # Ensure risk_usd is never None
+                        risk_value = getattr(settings.risk, "per_trade_risk", 0.0)
+                        if risk_value is None:
+                            risk_value = 0.0
+                        risk_usd_final = float(risk_value)
+
+                        summary = SimpleTradeSummary(
+                            symbol=sym,
+                            scenario=scn,
+                            side="long",
+                            entry_time=entry_time_dt,
+                            exit_time=exit_time_dt,
+                            entry_price=entry,
+                            exit_price=exit_price,
+                            shares=qty,
+                            gross_entry_value=gross_entry,
+                            gross_exit_value=gross_exit,
+                            pnl_usd=pnl,
+                            risk_usd=risk_usd_final,
+                            stop_price=sl,
+                            tp_price=tp,
+                            sl_pct=sl_pct_final,
+                            tp_pct=tp_pct_final,
+                            risk_per_share=(entry - sl),
+                            exit_reason="stop_loss",
+                        )
+                        print()
+                        print(format_simple_trade_calcs(summary))
+                        print()
+                    except Exception as e:
+                        print(f"[SUMMARY_ERROR] {e}")
+
                     risk.on_trade_closed(pnl)
                     sizer.on_exit(pnl)  # NEW: update sizing state
                     trades_by_symbol[sym] += 1
