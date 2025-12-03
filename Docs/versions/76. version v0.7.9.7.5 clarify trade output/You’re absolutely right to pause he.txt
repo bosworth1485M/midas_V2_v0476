@@ -1,0 +1,273 @@
+You’re absolutely right to pause here and sort this out.
+Right now you have:
+
+A local website that talks to a JSON config (e.g. via the patch server)
+
+A Python strategy whose parameters are spread across JSON, Python defaults, scanner scripts, and risk config
+
+…and it feels like: “things are trading, but I’m not sure which knobs live where, or which ones I should be touching from the website vs freezing in config.”
+
+Let’s answer your neutral questions directly:
+
+What should be on the local website vs in the global config?
+
+Specifically, should green streak (rise_bars + green_body_min) be on the website?
+
+What do the “most profitable Cameron-style teams” do in this situation?
+1️⃣ Principle: one global source of truth, multiple views on it
+
+Given what you already have (website + JSON + patch server), I would not invent a completely new config format for this branch.
+
+Instead, the clean mental model is:
+
+Global config = your JSON + loader (and risk config) — one canonical place where all knobs live.
+
+This is what the strategy & scanner actually read.
+
+This is where version control lives.
+
+Local website = a safe control panel over a subset of those knobs.
+
+It edits certain fields in that JSON via the patch server.
+
+It may also show other fields read-only (“information only”).
+
+It does not expose every micro knob as a live slider.
+
+So we’re not switching from JSON to Python globals; we’re saying:
+
+“The JSON you already use is the global config. The Python code is just a loader/wrapper around it. The question is which config fields are UI-editable vs fixed in config.”
+
+2️⃣ Classify parameters: which belong on the website?
+
+Think in three tiers of knobs:
+
+🟦 Tier 1: “Operator knobs” – belong on the website
+
+These are things you might reasonably adjust per session or per experiment, and they are easy to reason about:
+
+Scanner / universe:
+
+top (Top-N by gap)
+
+Optional: “universe mode” (Standard vs Catalyst etc., in later versions)
+
+Strategy macro knobs:
+
+Scenario selection (A/B/C/D/E)
+
+A simple “aggressiveness” choice (e.g. normal vs strict profile) – this can internally map to sets of TP/SL, MACD, etc., instead of exposing each parameter separately.
+
+Risk (high-level):
+
+A risk tier selector (e.g. $25 / $35 / $50 per trade)
+→ this could map internally to per_trade_risk values, rather than the website directly editing the raw number.
+
+MACD gate (if you want direct control):
+
+require_macd_rise toggle (ON/OFF)
+
+macd_rise_bars small integer (0–3)
+
+These are intuitive: “top”, “MACD strictness”, “risk per trade”, “scenario”.
+Very natural to expose on the website.
+
+🟨 Tier 2: “Advanced knobs” – maybe on website in advanced panel or read-only
+
+These are important, but easy to overfit or misuse if someone drags them casually:
+
+gate_minutes (5 vs 20 vs 30)
+
+min_rvol_open, rvol_open_minutes
+
+min_pm_vol
+
+tp_pct, sl_pct
+
+The “most profitable teams” pattern (see below) is:
+
+They do offline research to pick good defaults for these.
+
+They rarely change them day-to-day.
+
+They may expose them in a separate “Advanced / read-only” panel so the operator can see them, but they’re not meant for constant fiddling.
+
+For you, given how much time we’ve spent tuning B & D / E in later branches, I’d say:
+
+Keep these mostly in global config (JSON)
+
+Optionally show them on the website read-only (as “current settings”), not as widely editable fields.
+
+🟥 Tier 3: “Microstructure knobs” – not website, stay in global config
+
+This is where green streak lives:
+
+rise_bars (number of consecutive green candles)
+
+green_body_min (body strength threshold)
+
+Dip-reclaim fine settings (min_dip_pct, min_reclaim_pct, reclaim_buffer_bps etc.)
+
+These are incredibly sensitive and cross-coupled: small changes can quietly destroy performance.
+
+What profitable teams do not do is let someone casually change:
+
+“Number of green candles: 2→5, body ≥ 0.22→0.05”
+
+from a web UI on a live system.
+
+Instead:
+
+They run research and decide:
+
+scenario B uses (rise_bars=3, green_body_min=0.22),
+
+scenario C might use (rise_bars=2, green_body_min=0.15), etc.
+
+They bake those into scenario definitions in the global config, and possibly let the operator choose between tested scenarios, not arbitrary values.
+
+So for your direct question:
+
+“Should green streak and all the associated parameters be on the local website?”
+
+My neutral recommendation:
+
+No as free sliders.
+
+At most, include them as read-only values in an “Advanced details” area:
+
+“We currently require 3 green candles, body ≥ 0.22”
+
+If you really want to change them, you do it via:
+
+new version / scenario in config,
+
+then adjust the website to select that scenario, not tweak raw numbers.
+
+This matches how serious teams use microstructure rules.
+
+3️⃣ What do the “most profitable Cameron teams” do?
+
+We obviously don’t have access to a secret Cameron bot, but if you look at how profitable systematic teams generally operate (and what we’ve been modeling Midas on), the pattern is:
+
+1. Single, versioned global config
+
+One place (JSON/TOML/Python module) defines:
+
+Universe rules (price, gap, Top-N, catalysts)
+
+Strategy rules (MACD, green streak, VWAP, gates)
+
+Risk rules (per-trade risk, daily cap, symbol caps)
+
+Changes here are done deliberately and tracked (git, tags, version numbers).
+
+2. Small, safe set of UI controls
+
+UI typically allows:
+
+Choosing dates / ranges
+
+Choosing scenarios / profiles
+
+A few safe toggles (e.g. “strict vs relaxed MACD”, “Top-3 vs Top-5”)
+
+Risk tier (low / normal / high, mapped to safe preset numbers)
+
+They do not let the operator freely twiddle:
+
+number of green candles from 0–7
+
+MACD fast/slow window parameters
+
+hyper-granular thresholds like green_body_min = 0.21 vs 0.23
+
+Those are handled in research, not from the control panel.
+
+3. Microstructure tuned offline, frozen in scenarios
+
+Micro rules like:
+
+rise_bars
+
+green_body_min
+
+specific MACD gates
+
+VWAP slope thresholds
+
+…are tuned and then frozen into a small number of scenario definitions, e.g.:
+
+Scenario B: baseline breakout
+
+Scenario D: strict momentum
+
+Scenario E: dip-reclaim
+
+The operator can choose which scenario to run, but not random values for every knob.
+
+4. UI reflects config, not the other way round
+
+Best teams treat the config as the master, and the UI is a view/patcher for a subset of that config. That’s exactly what your local website + JSON + patch server is already aiming at. We just have to be selective about which fields we expose.
+
+4️⃣ So concretely for you right now
+
+Given:
+
+You already have top, MACD rise bars, etc. being patched via JSON for the website.
+
+You don’t want to rewrite that logic (good instinct).
+
+I’d propose this split:
+
+On the website (editable)
+
+Date range / single date
+
+Scenario (A/B/C/D/E)
+
+Top (Top-N gappers)
+
+MACD gate:
+
+require_macd_rise (on/off)
+
+macd_rise_bars (0–3)
+
+A high-level risk tier that maps to per-trade risk (e.g. 25 / 35 / 50)
+
+On the website (read-only info)
+
+gate_minutes
+
+min_pm_vol
+
+min_rvol_open, rvol_open_minutes
+
+rise_bars, green_body_min
+
+tp_pct, sl_pct
+
+daily_max_loss, max_trades_per_symbol
+
+In the global JSON only (not UI-editable)
+
+All the Tier 2 & Tier 3 knobs above.
+
+Full scenario definitions.
+
+That way:
+
+You don’t break existing JSON/website wiring.
+
+You get the Cameron-style discipline: only a few safe knobs are exposed to the operator.
+
+You still see everything (via the summaries & possibly a “details” page), but you don’t thrash the microstructure from the front end.
+
+If you’d like, next step I can:
+
+Sketch a “Scenario B config JSON” that matches this layout and your current numbers (top=5, gate=20, pm_vol=30k, RVOL=2.0, rise_bars=3, green_body_min=0.22, MACD 2 bars, TP/SL 2.0/2.5, daily_max_loss=1000, etc.),
+
+In a way that you can hand to Claude or Copilot as:
+
+“Use this as the canonical config structure, and update the website to treat some fields as editable, others read-only.”

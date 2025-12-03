@@ -1,0 +1,81 @@
+Yes — you should paste BOTH:
+
+The Version Handover Packet (the summary for v0.7.9.7.6), and
+
+The Atlas document (Scenario B v0.7.9.7.5).
+
+Why both?
+
+Because:
+
+The Handover Packet tells ChatGPT what we are doing next and what was completed.
+
+The Atlas tells ChatGPT exactly what Scenario B currently is.
+
+The Atlas is the truth-source:
+It ensures the new thread starts with a correct mental model of:
+
+Scanner rules
+
+Strategy rules
+
+Risk rules
+
+Entry/exit logic
+
+Green streak
+
+MACD histogram bars
+
+RVOL logic
+
+TP/SL
+
+And everything we froze in v0.7.9.7.5
+
+Without the Atlas, I would reconstruct everything manually again and you’d waste time.
+
+🔥 Here’s how you should paste them in the new thread:
+Step 1 — New thread title:
+
+“Midas V2 – v0.7.9.7.6 – Config Unification (Scanner → Strategy → Risk)”
+
+Step 2 — Paste the Handover Packet
+
+This tells me:
+
+Which version we are starting from
+
+What the goals of the new version are
+
+What to do next
+
+Step 3 — Paste the Atlas document under it
+
+This gives me:
+
+The entire specification of Scenario B
+
+All rules, all parameters, all defaults
+
+A full understanding of what the next version must preserve
+
+Step 4 — After pasting both, write:
+
+“Please confirm full understanding and begin Step 1: move scanner knobs (price_min, price_max, min_gap_pct, top) into JSON without changing behavior.”
+
+Then the new thread will start perfectly aligned, with:
+
+No confusion
+
+No lost context
+
+No arguments
+
+No delays
+
+And every step of v0.7.9.7.6 (scanner → strategy → risk JSON unification) will work smoothly.
+
+🚀 Ready to proceed?
+
+If you want, I can reformat the Handover Packet + Atlas together as a single paste block so you don’t have to scroll and copy.

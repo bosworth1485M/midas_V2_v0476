@@ -1,0 +1,60 @@
+The heading entitled Exact settings for reference: make upper case i.e. EXACT SETTIINGS FOR REFERENCE:
+Also put after RISK CALCULATUION block.
+remove the following line from where it is  We stop trading for the day if total losses reach $1,000.
+and place in the RISK block.
+Under RESULTS please calculate exactly what the loss is or the profit is.
+
+
+
+
+
+
+======================================================================
+TRADE: MWYN | Side: LONG | Entry: 2025-08-01 10:06 | Scenario: B
+======================================================================
+
+SCENARIO B – Gap-and-Go:
+Buys small cheap stocks that gap up strongly before the market opens
+and keep going up after the open, using simple trend and momentum rules.
+
+CONTEXT BEFORE TRADE:
+• Gap % at open: 91.11%
+
+RULES WE USED BEFORE TAKING THIS TRADE:
+• We waited 20 minutes after the open before entering any trades.
+• Before the market opened, the stock needed at least 30,000 shares of activity.
+• In the first 15 minutes, today's volume needed to be at least 2.00× yesterday's volume.
+• We required 3 recent green candles in a row, each with a strong body (≥ 0.22 of the bar).
+• The MACD histogram had to be above zero and rising for 2 bars.
+• Take-profit was set at +2.0% and stop-loss was set at –2.5%.
+• We only take 1 trade per symbol.
+• We stop trading for the day if total losses reach $1,000.
+
+Exact settings for reference:
+• Strategy settings: {"dip_reclaim": false, "gate_minutes": 20, "green_body_min": 0.22, "macd_rise_bars": 2, "min_pm_vol": 30000, "min_rvol_open": 2.0, "require_macd_rise": true, "rise_bars": 3, "rvol_open_minutes": 15, "sl_pct": 2.5, "tp_pct": 2.0}
+• Risk configuration: {"daily_max_loss": 1000.0, "max_trades_per_symbol": 1}
+
+WHY WE TRADED:
+• We bought because the stock looked strong according to the rules.
+• We sold because the stop loss was hit.
+
+RESULTS:
+• Profit/Loss: $-35.00
+• Number of shares: 1000
+• Entry price: $1.40
+• Exit price: $1.36
+• Profit per share: $-0.03
+• Sale time: 2025-08-01 10:09
+
+TRADING PARAMETERS:
+• Stop loss: 2.5% (price: $1.36)
+• Take profit: 2.0% (price: $1.43)
+
+RISK CALCULATION:
+• Risk amount (USD): $35.00
+• Risk per share: $0.03
+• Approximate shares: 35.00 ÷ 0.03 ≈ 1000
+
+======================================================================
+
+2025-12-03 09:54:26,887 [INFO] [SIZE] NAMM tier=B risk_usd=35.00 entry=4.7300 sl=4.6118 qty=295

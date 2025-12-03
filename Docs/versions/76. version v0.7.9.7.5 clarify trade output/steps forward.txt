@@ -1,0 +1,316 @@
+You’re right to be uneasy, and you’re also closer than it feels.
+
+Right now you’re thinking:
+
+“The system is trading with some set of rules and I don’t fully know where they’re defined. How can we move forward towards DB logging and candle printouts without stepping into fog?”
+
+So let’s answer very concretely:
+
+What we already know for sure.
+
+How to move forward today without a big refactor.
+
+How to line things up for the relational DB + candle snapshots.
+
+1️⃣ What we do know right now (even if the config sources are messy)
+
+For this v0.4.7.9_working branch + Scenario B, we now know, from:
+
+strategy.py 
+
+strategy
+
+backtester.py (the updated one)
+
+Your console summaries
+
+exactly which runtime parameters govern each trade:
+
+Scanner / universe (from topgappers & logs)
+
+Price band: price=[1.0..20.0]
+
+Min gap: min_gap=10%
+
+Top-N: top=5 (Trimmed to Top-5 symbols)
+
+Strategy (from StrategyParams / summary)
+
+gate_minutes = 20
+
+min_pm_vol = 30,000
+
+min_rvol_open = 2.0, rvol_open_minutes = 15
+
+rise_bars = 3, green_body_min = 0.22
+→ 3 consecutive green candles, strong bodies
+
+require_macd_rise = True, macd_rise_bars = 2
+→ MACD histogram > 0 and rising for 2 bars
+
+tp_pct = 2.0, sl_pct = 2.5
+
+dip_reclaim = False
+
+Risk (from sizer + risk snapshot)
+
+Actual risk per trade around $35 in this profile.
+
+max_trades_per_symbol = 1
+
+daily_max_loss = 1000.0
+
+Even if the sources are scattered (JSON + Python defaults + scripts), every trade now has a full snapshot of what actually mattered, printed and available:
+
+“RULES WE USED BEFORE TAKING THIS TRADE”
+
+Per-trade PnL
+
+Full strategy + risk dicts
+
+So from the point of view of “what are we trading?”, we actually have the effective answer — per trade.
+
+That’s enough to:
+
+Design the DB schema.
+
+Design candle snapshots.
+
+Start profit-tuning safely on top of what we’ve logged.
+
+We don’t need to fix all config plumbing first to move forward.
+
+2️⃣ How to advance right now without getting lost
+
+Given:
+
+Copilot is being slow/glitchy.
+
+You don’t want to rip out the existing website/JSON logic.
+
+You want to keep DB + candles in mind.
+
+I’d suggest this very specific 3-step plan:
+
+Step 1 — Write down the “Parameter Atlas v0.7.9.7.5” (one-page truth)
+
+We don’t touch code. We just document what we already know.
+
+Create a Markdown file in your repo, e.g.:
+
+Docs/PARAMETER_ATLAS_v0.7.9.7.5.md
+
+I’ll outline the content, you can paste/save it:
+
+# Parameter Atlas – Scenario B (v0.7.9.7.5)
+## Use this to understand exactly what we are trading.
+
+## 1. Scanner / Universe (topgappers)
+
+- price_min: 1.0
+- price_max: 20.0
+- min_gap_pct: 10.0
+- top: 5
+
+Where it lives today:
+- Implemented in scripts/topgappers.py and related scanner logic.
+- Logged as `price=[1.0..20.0]  min_gap=10.0%` and “Trimmed to Top-5 symbols”.
+
+## 2. Strategy (SimpleBreakoutStrategy – Scenario B)
+
+- gate_minutes: 20
+    - Must wait 20 minutes after open before any entry.
+- min_pm_vol: 30,000
+    - At least 30k shares traded premarket.
+- min_rvol_open: 2.0
+- rvol_open_minutes: 15
+    - In first 15 minutes, today’s volume ≥ 2× yesterday’s volume.
+- rise_bars: 3
+- green_body_min: 0.22
+    - Require 3 consecutive green candles, each with strong body (≥ 22% of the bar).
+- require_macd_rise: true
+- macd_rise_bars: 2
+    - MACD histogram > 0 and rising for the last 2 bars.
+- tp_pct: 2.0
+- sl_pct: 2.5
+    - Take profit at +2.0%, stop loss at –2.5%.
+- dip_reclaim: false
+    - Dip-reclaim mode off in this profile.
+
+Where it lives today:
+- strategy.py → StrategyParams, loaded via norm_params.
+- Values confirmed in the “RULES WE USED BEFORE TAKING THIS TRADE” block and the strategy_params snapshot.
+
+## 3. Risk / Safety
+
+- per_trade_risk (effective): ≈ 35 USD (for B-tier in this branch)
+- max_trades_per_symbol: 1
+- daily_max_loss: 1000.0
+
+Where it lives today:
+- Risk sizing / settings passed into backtester.
+- Observed through SIZE logs and risk_snapshot.
+- Daily cap shown in “RISK CALCULATION” and in risk_snapshot.
+
+## 4. Summary – What we are trading (Scenario B, v0.7.9.7.5)
+
+Scenario B currently trades:
+- Small-cap gappers priced between $1 and $20, with at least 10% gap, Top-5 by gap.
+- Waits 20 minutes after open, and requires strong premarket activity (≥ 30k shares).
+- Requires strong opening volume (RVOL ≥ 2.0 in first 15 minutes).
+- Requires 3 consecutive strong green candles before entry.
+- Requires MACD histogram above zero and rising for 2 bars.
+- Uses TP +2.0% and SL –2.5%.
+- Risks around $35 per trade, with 1 trade per symbol and a $1000 daily max loss.
+
+
+Once this file exists, you have a human-readable global profile — even before we centralize the implementation.
+
+Step 2 — Design the DB schema around the runtime snapshot, not the config plumbing
+
+While configs are still scattered, the runtime snapshot is actually more reliable for analysis.
+
+Sketch a trades table (or ORM model) like:
+
+id
+
+date
+
+symbol
+
+scenario
+
+side
+
+entry_time
+
+exit_time
+
+entry_price
+
+exit_price
+
+shares
+
+pnl_usd
+
+stop_loss_pct
+
+take_profit_pct
+
+risk_usd
+
+risk_per_share
+
+daily_max_loss (from risk snapshot)
+
+max_trades_per_symbol
+
+scanner_top
+
+scanner_min_gap_pct
+
+scanner_price_min
+
+scanner_price_max
+
+gate_minutes
+
+min_pm_vol
+
+min_rvol_open
+
+rvol_open_minutes
+
+rise_bars
+
+green_body_min
+
+require_macd_rise
+
+macd_rise_bars
+
+tp_pct
+
+sl_pct
+
+strategy_params_json (full dict)
+
+risk_snapshot_json (full dict)
+
+You already compute all of these in SimpleTradeSummary + snapshots — so even before we unify configs, the DB will store what really happened per trade.
+
+That means:
+
+When you later tune knobs for profit, your analysis will read from the DB, not from config assumptions.
+
+When you add candle snapshots, you can tie them to these trades via symbol, date, entry_time, exit_time.
+
+Step 3 — Plan candle snapshot logging against this schema
+
+Because each trade already has:
+
+entry_time
+
+exit_time
+
+symbol
+
+date
+
+and soon a DB row,
+
+you can design a simple candle snapshot scheme:
+
+For each trade, save:
+
+minute bars from, say, 10 minutes before entry to 10 minutes after exit;
+
+second bars from, say, 60 seconds before entry to 60 seconds after entry.
+
+Store:
+
+Either the bars in a trade_candles table, or
+
+PNG files with filenames like:
+candles/minute/2025-08-01_B_MWYN_entry.png
+candles/second/2025-08-01_B_MWYN_entry.png
+
+and keep paths/keys in the DB row.
+
+Because the DB knows the exact rules used for each trade, you’ll later be able to ask:
+
+“Show me candle snapshots for losing trades where macd_rise_bars=2, rise_bars=3, TP/SL=2.0/2.5…”
+
+and adjust knobs with eyes open.
+
+3️⃣ How this lets us advance even though sources are still scattered
+
+Your worry is:
+
+“We have definitions used in trading and don’t know where.”
+
+The key is:
+for analysis and future profit-tuning, we don’t actually need to untangle where they came from right away — as long as we:
+
+Capture the runtime truth per trade (which we now do), and
+
+Write down the profile in one document (the Parameter Atlas), and
+
+Design the DB schema around that snapshot.
+
+Later, when you move back to your newer Midas_V2 branch:
+
+We can unify configs into a single JSON/scenario file.
+
+The website will continue to edit that JSON.
+
+The DB & summaries will still align with the scenario structure.
+
+But you don’t have to solve all that plumbing now just to start logging trades and printing candles.
+
+If you’d like, next I can:
+
+Take the Atlas outline above and refine it into a polished Markdown you can drop straight into Docs/ (no extra work for you), or
+
+Sketch the actual trades table layout for your future relational DB using the current SimpleTradeSummary fields + snapshots.

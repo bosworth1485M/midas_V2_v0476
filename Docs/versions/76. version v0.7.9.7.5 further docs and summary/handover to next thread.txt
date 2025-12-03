@@ -1,0 +1,173 @@
+erfect, that ordering makes a lot of sense:
+
+Next version: get all trading parameters in one place (JSON + website + engine all aligned).
+
+Later versions: candle printing + relational database on top of a clean, central config.
+
+So we freeze v0.7.9.7.5 as “Atlas + honest summaries”, and the next version (let’s call it v0.7.9.7.6) is the “config unification” version.
+
+Below is exactly what you asked for:
+
+A clear description of what we just finished.
+
+A handover plan for the next version, focused only on “all parameters in one place”, no DB/candles yet.
+
+You can treat this as your handover packet for the next thread.
+
+📦 Version Handover Packet — for v0.7.9.7.6
+
+(Paste this at the top of the new thread when you start it.)
+
+1. Current version just completed
+
+Project: midas_V2_v0.4.7.9_working
+
+Scenario: B
+
+Version completed: v0.7.9.7.5
+
+In v0.7.9.7.5 we:
+
+Implemented child-friendly, truthful trade summaries that explain:
+
+Gap % at open
+
+Pre-market volume requirement
+
+Green candle (green streak) rule
+
+MACD histogram rule
+
+Opening RVOL rule
+
+Gate minutes
+
+TP/SL
+
+Risk guardrails (max trades per symbol, daily loss limit)
+
+For each trade, we now also store:
+
+A full snapshot of strategy parameters (strategy_params)
+
+A full snapshot of risk settings (risk_snapshot)
+
+The Parameter Atlas – Scenario B (v0.7.9.7.5) is written and describes exactly:
+
+Scanner rules (price 1–20, gap ≥10%, Top-5)
+
+Strategy rules (gate=20, PM vol 30k, RVOL ≥2.0 in 15m, 3 green candles, MACD 2 histogram bars, TP 2%, SL 2.5%)
+
+Risk rules (≈$35 per trade, 1 trade per symbol, $1,000 daily loss cap)
+
+This version is now the frozen truth for “what Scenario B is trading right now”.
+
+2. Next version goal (v0.7.9.7.6)
+
+Main goal:
+Bring all trading parameters into one coherent configuration, so we always know where each knob lives and can tweak safely.
+
+We will not do candles or DB in this version.
+
+We will only focus on config unification.
+
+Concretely, for Scenario B:
+
+Scanner knobs (currently in topgappers.py + logs):
+
+price_min, price_max (currently 1.0–20.0)
+
+min_gap_pct (currently 10.0)
+
+top = 5
+→ Move these into the Scenario B JSON config and have topgappers.py read them from JSON.
+
+Strategy knobs (currently in StrategyParams defaults + norm_params):
+
+gate_minutes
+
+min_pm_vol
+
+min_rvol_open, rvol_open_minutes
+
+rise_bars, green_body_min (green streak)
+
+require_macd_rise, macd_rise_bars (MACD histogram)
+
+tp_pct, sl_pct
+
+dip_reclaim and related fields (even if False)
+→ Add these to Scenario B’s JSON entry and load StrategyParams only from JSON.
+
+Risk knobs:
+
+per_trade_risk (we’ll confirm the actual value in this branch: ~35 or 50)
+
+daily_max_loss = 1000.0
+
+max_trades_per_symbol = 1
+→ Move/confirm these in a clear risk section in JSON and have the backtester/risk manager read them from there.
+
+Important:
+We will not change how the local website works fundamentally.
+Instead:
+
+The website continues to talk to the same JSON config via the patch server.
+
+We decide which fields:
+
+Are UI-editable (e.g. top, require_macd_rise, macd_rise_bars, maybe a risk tier),
+
+Which are read-only visible, and
+
+Which are internal-only (not exposed at all).
+
+3. How we’ll advance safely (no regressions)
+
+For v0.7.9.7.6, every change we make to move knobs into JSON will be tested using the same known scenario/day:
+
+Test command:
+
+python scripts\run_range_and_summarize.py --start 2025-08-01 --end 2025-08-02 --scenario B
+
+
+After each small change (scanner → strategy → risk), we will:
+
+Compare the log output vs the Atlas.
+
+Compare the summary blocks vs the Atlas.
+
+Confirm:
+
+Universe is still 1–20, gap ≥10%, Top-5
+
+Rules in “RULES WE USED BEFORE TAKING THIS TRADE” are unchanged
+
+Risk amounts and caps are unchanged (unless we intentionally adjust).
+
+If anything drifts from the Atlas, we know exactly which config change caused it and we can correct it before moving on.
+
+4. Candle printing and database (for later versions, not v0.7.9.7.6)
+
+We will not design DB tables or candle printing logic in v0.7.9.7.6.
+But we will keep in mind:
+
+Each trade already has a per-trade snapshot (suitable for DB rows).
+
+Once configs are unified, it will be much easier to:
+
+Design a trades table, and
+
+Add minute / second candle snapshots around each trade.
+
+Those will be the focus of after v0.7.9.7.6.
+
+5. What you should tell ChatGPT at the start of the new thread
+
+When you open your new thread for v0.7.9.7.6, paste this packet and then say something like:
+
+“This is the handover from v0.7.9.7.5.
+Next version v0.7.9.7.6 is about moving all Scenario B trading parameters into JSON (scanner, strategy, risk), one group at a time, testing against 2025-08-01 so nothing changes.
+Please start by helping me plan Step 1: move scanner knobs (price_min, price_max, min_gap_pct, top) into JSON without changing behavior.”
+
+That way, I’ll start the new thread fully “remembering” everything you’ve just documented here, and we can move forward cleanly.

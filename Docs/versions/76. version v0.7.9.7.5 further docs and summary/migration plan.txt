@@ -1,0 +1,195 @@
+I’d say yes, we should move everything into JSON — but very slowly and in small, testable steps, not a big bang.
+
+Think of it like this:
+
+The Atlas you just created = the specification of Scenario B.
+
+The JSON will become the single config implementation of that spec.
+
+The per-trade summaries are our safety harness — they tell us if anything changed.
+
+So the plan is: move knobs from “scattered code” → JSON one group at a time, and after each tiny move, we run tests and check that the printed rules still match the Atlas.
+
+1️⃣ What “everything in JSON” actually means
+
+For Scenario B, “everything in JSON” doesn’t mean everything is editable in the website. It means:
+
+All scanner, strategy, and risk knobs for Scenario B live in a single JSON structure (likely the one your local website already uses: scenarios.json + patch server).
+
+The website edits only a safe subset (top, MACD bars, maybe risk tier).
+
+The rest are stored in JSON but treated as:
+
+Fixed per scenario, or
+
+Advanced (read-only in UI).
+
+So long term:
+
+Atlas ⇔ JSON config ⇔ StrategyParams + scanner + risk
+
+All three match.
+
+2️⃣ How to migrate into JSON “little by little” without breaking things
+
+Here’s a concrete incremental plan you can follow.
+
+Step 0 – Pick the JSON home
+
+Decide which JSON file is going to be the canonical home for Scenario B’s knobs in this branch. Probably:
+
+Your existing scenarios JSON used by the local website (whatever the patch server already reads/writes).
+
+We won’t change how the website works — we’ll just add more fields for B into that same JSON and start reading them from Python.
+
+Step 1 – Scanner knobs → JSON
+
+Goal: Move these into JSON and have topgappers.py read them:
+
+price_min, price_max
+
+min_gap_pct (and max_gap_pct later if you add it)
+
+top (Top-N by gap)
+
+Process:
+
+Add them to Scenario B in JSON (values matching the Atlas: 1.0, 20.0, 10.0, 5).
+
+Update topgappers.py so that, for Scenario B, it reads these values from the JSON instead of hard-coded numbers / CLI defaults.
+
+Run:
+
+python scripts\run_range_and_summarize.py --start 2025-08-01 --end 2025-08-02 --scenario B
+
+
+Compare:
+
+The scanner log (price=[1.0..20.0] min_gap=10.0%, “Trimmed to Top-5 symbols”).
+
+The new run vs old run: they should be identical.
+
+If the behavior/logs match the Atlas and nothing changed, scanner migration is good.
+
+Step 2 – Strategy knobs → JSON
+
+Next group: strategy knobs used in StrategyParams:
+
+gate_minutes
+
+min_pm_vol
+
+min_rvol_open, rvol_open_minutes
+
+rise_bars, green_body_min
+
+require_macd_rise, macd_rise_bars
+
+tp_pct, sl_pct
+
+dip_reclaim (even if False)
+
+Process:
+
+Add these keys under Scenario B’s JSON entry with the values from the Atlas.
+
+In whatever code builds StrategyParams (the norm_params loader / scenarios loader), change it so that it fills StrategyParams from the JSON fields instead of hard-coded defaults.
+
+Run the same test (Aug 1 B).
+
+Check the summary block:
+
+RULES WE USED BEFORE TAKING THIS TRADE:
+...
+
+
+It should still say:
+
+Wait 20 minutes
+
+Min PM vol 30k
+
+RVOL 2.0 / 15 min
+
+3 green candles (0.22 body)
+
+MACD histogram 2 bars
+
+TP 2.0% / SL 2.5%
+
+If any line changed unexpectedly, you know exactly which knob moved and can adjust.
+
+Step 3 – Risk knobs → JSON
+
+Finally, risk:
+
+per_trade_risk (set to 35 or 50 — but from JSON now)
+
+daily_max_loss = 1000.0
+
+max_trades_per_symbol = 1
+
+Process:
+
+Add a risk block under Scenario B in the JSON (or in your existing risk JSON if you already have one).
+
+Update your risk manager / backtester settings loader so it reads:
+
+per_trade_risk from JSON,
+
+daily_max_loss from JSON,
+
+max_trades_per_symbol from JSON.
+
+Run the same test again.
+
+Check:
+
+RISK CALCULATION section:
+
+“Risk amount (USD): …” should still be around 35 (or whatever the cap is).
+
+“Daily loss limit: $1,000.”
+
+SIZE logs: per-trade risk still what you expect.
+
+Once that matches the Atlas, your risk is fully under JSON control too.
+
+3️⃣ How this plays nicely with DB logging and candles
+
+The nice bit is:
+while we’re doing this, we’re not touching the summary and Atlas — they’re our correctness oracle.
+
+That means:
+
+You can start designing/logging to the relational DB right now based on SimpleTradeSummary + snapshots.
+
+Candle snapshot code (minute/second bars) can be added now too, keyed by:
+
+date, symbol, entry_time, exit_time, scenario.
+
+As you gradually move more knobs into JSON, your DB rows and candle snapshots still reflect the same effective runtime behavior — we’re changing where the input values come from, not what the strategy does.
+
+4️⃣ So, yes: move everything into JSON — but one cluster at a time
+
+So my answer to your question:
+
+“Now do you suggest moving everything into json little by little?”
+
+Yes, but:
+
+Do it by knob cluster (scanner → strategy → risk),
+
+After each small change, run the same day (like 2025-08-01 B) and compare output vs the Atlas,
+
+Only move on once you’re sure nothing changed.
+
+That way:
+
+You don’t break your local website logic,
+
+You end up with a single JSON truth for Scenario B,
+
+And your DB + candle printout plan stays completely aligned with the real behavior.
+
+When you’re ready to start with Step 1 (scanner knobs to JSON), I can help draft the exact JSON shape and a small Copilot spec to make the minimal code change, then you run your test and we confirm nothing broke.

@@ -1,0 +1,79 @@
+I’d lean strongly toward keeping those global parameters in JSON, not a separate Python file — especially in your setup. Let me explain neutrally and then give you a recommendation.
+
+1️⃣ What changes if you use JSON vs Python?
+JSON config (what your website already uses)
+
+Single source of truth:
+One scenarios.json / profile.json can hold all knobs:
+
+Some are editable by the website (e.g. top, macd_rise_bars).
+
+Others are left alone by the website but still live in the same file (e.g. rise_bars, green_body_min, gate_minutes, min_rvol_open, daily_max_loss).
+
+UI + engine share the same object:
+The patch server and the Python backtester both point at the same config structure.
+For “hidden” globals, the UI just doesn’t show them, but they’re still in JSON.
+
+Easy to show read-only advanced details later:
+Because the website already speaks JSON, you can have an “Advanced (read-only)” panel that just displays whatever extra fields are in the JSON.
+
+No rebuild for config tweaks:
+Changing a value in JSON doesn’t require code changes, just restart/reload.
+
+Python module (a separate globals.py)
+
+Types / dataclasses are nice, but:
+Now you have two configs:
+
+JSON that the website edits
+
+Python that the strategy reads
+
+Very easy for them to drift:
+
+You change something in Python but forget to adjust JSON.
+
+Or the website shows values that don’t actually match what the engine is using.
+
+Every change to a “hidden” global becomes a code change, not just a config tweak.
+
+For your current architecture (website → JSON → patch server → engine), bringing in a parallel Python-only config for hidden parameters is likely to recreate the same confusion you’re trying to get rid of.
+
+2️⃣ So where should the “global but not UI-editable” knobs live?
+
+Given your setup and goals, the cleanest model is:
+
+Everything for Scenario B lives in JSON (or scenarios.json).
+
+The website:
+
+Edits a subset of that JSON (operator knobs, like top, macd_rise_bars, maybe risk tier).
+
+Displays some advanced ones read-only (e.g. rise_bars, green_body_min, gate_minutes).
+
+Ignores the rest.
+
+From the Python side:
+
+The backtester and scanner just load the same JSON and interpret it into StrategyParams, scanner config, and risk config.
+
+The “hidden globals” (like green streak, RVOL thresholds, etc.) are simply JSON keys that the UI doesn’t expose as form controls.
+
+So for your neutral question:
+
+Should the global parameters that are not accessible via the website be in JSON or a Python file?
+
+Given your current architecture:
+👉 I would keep them in JSON, in the same scenario/global config the website already uses.
+
+Treat JSON as the master config, and use Python just to load and apply it.
+
+If you like, next step we can sketch a concrete JSON structure for Scenario B that includes:
+
+top, price_min, price_max, min_gap_pct
+
+gate_minutes, min_pm_vol, min_rvol_open, rvol_open_minutes, rise_bars, green_body_min, require_macd_rise, macd_rise_bars, tp_pct, sl_pct
+
+per_trade_risk, daily_max_loss, max_trades_per_symbol
+
+…with a clear plan for which keys are UI-editable, which are read-only in UI, and which are purely internal.
