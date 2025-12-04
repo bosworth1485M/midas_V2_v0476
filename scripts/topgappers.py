@@ -26,6 +26,8 @@ except Exception as e:
 
 # NEW: import validated config models (does not affect Polygon key handling)
 from midas_v2.config_models import ScannerConfig, ScenariosConfig, merge_scanner
+# v0.7.9.7.6: config unification – import scenario params loader.
+from midas_v2.config_models import load_scenario_params
 
 DEF_OUT = ROOT / "data" / "samples" / "universe_sample.txt"
 
@@ -118,6 +120,33 @@ def main():
     # max_gap_pct = scanner.max_gap_pct
     # === End config load ===
 
+    # v0.7.9.7.6: use scenario JSON params for scanner knobs when --scenario is provided.
+    params = None
+    if getattr(args, "scenario", None):
+        try:
+            params = load_scenario_params(args.scenario, str(scn_path))
+        except Exception:
+            params = None  # fail safe: fall back to scanner/CLI defaults if something goes wrong
+
+    def get_param(name, default):
+        """
+        v0.7.9.7.6: Resolve a scanner parameter from scenario params (if available),
+        otherwise fall back to the existing scanner/CLI default value.
+        """
+        if params is None:
+            return default
+        # Support dict-style access (Scenario.params is a dict)
+        if isinstance(params, dict) and name in params:
+            return params[name]
+        return default
+
+    # v0.7.9.7.6: resolve scanner knobs from scenario params when available.
+    price_min   = get_param("min_price", price_min)
+    price_max   = get_param("max_price", price_max)
+    min_gap_pct = get_param("min_gap_pct", min_gap_pct)
+    # top is now resolved from scenario params if available; otherwise use CLI args.top
+    top_n = get_param("top", args.top)
+
     key = load_key()
     today_iso = args.date
     prev_iso  = prev_trading_day_for(today_iso)
@@ -167,12 +196,12 @@ def main():
 
     rows.sort(key=lambda x: x[1], reverse=True)
 
+    # v0.7.9.7.6: log effective scanner knobs from JSON/CLI.
     print(f"Open-gap gappers (open vs prev close)  price=[{price_min}..{price_max}]  min_gap={min_gap_pct}%")
     if rows:
         print(f"{'SYMBOL':<8} {'GAP%':>7} {'PRICE':>8}")
-        # Respect preview to Top-N for the on-screen list as well
-        # v0.7.9.6.5: use scanner.top_n (fed from Scenario.params['top']) instead of CLI args.top
-        preview_n = scanner.top_n if isinstance(getattr(scanner, "top_n", None), int) and scanner.top_n > 0 else len(rows)
+        # v0.7.9.7.6: use resolved top_n from scenario params or CLI default.
+        preview_n = top_n if isinstance(top_n, int) and top_n > 0 else len(rows)
         for t, g, p in rows[:preview_n]:
             print(f"{t:<8} {g:>7.2f} {p:>8.4f}")
     else:
@@ -183,15 +212,14 @@ def main():
 
     if not args.no_write:
         # Determine final list to write
-        # v0.7.9.6.5: use scanner.top_n (fed from Scenario.params['top']) instead of CLI args.top
-        top_n_val = scanner.top_n if isinstance(getattr(scanner, "top_n", None), int) else None
-        if isinstance(top_n_val, int) and top_n_val > 0:
-            symbols_trimmed = [t for (t, _, _) in rows[:top_n_val]]
+        # v0.7.9.7.6: use resolved top_n from scenario params or CLI default.
+        if isinstance(top_n, int) and top_n > 0:
+            symbols_trimmed = [t for (t, _, _) in rows[:top_n]]
             # Clear & truthful logging
-            if len(rows) > top_n_val:
-                print(f"[UNIVERSE] Trimmed to Top-{top_n_val} symbols (from {len(rows)})")
+            if len(rows) > top_n:
+                print(f"[UNIVERSE] Trimmed to Top-{top_n} symbols (from {len(rows)})")
             else:
-                print(f"[UNIVERSE] Using all {len(symbols_trimmed)} symbols (list shorter than Top-{top_n_val})")
+                print(f"[UNIVERSE] Using all {len(symbols_trimmed)} symbols (list shorter than Top-{top_n})")
         else:
             symbols_trimmed = [t for (t, _, _) in rows]
             print(f"[UNIVERSE] Using full list (no trim). Count={len(symbols_trimmed)}")

@@ -7,7 +7,7 @@ from collections import defaultdict
 from ..utils_logging import setup_logging
 from ..settings import Settings
 from ..dataprov.csv_local import CsvLocalProvider
-from ..strategy import SimpleBreakoutStrategy, StrategyParams
+from ..strategy import SimpleBreakoutStrategy, StrategyParams, create_strategy_params  # v0.7.9.7.6: import factory
 from ..risk import RiskManager
 from ..broker.alpaca_stub import AlpacaBrokerStub
 
@@ -501,6 +501,7 @@ def run_backtest(
     scenario_params: dict,
     settings: Settings,
     out_dir: str,
+    scenario_name: Optional[str] = None,  # v0.7.9.7.6: scenario name for strategy config loading
     max_trades_per_symbol: int = 1,
     daily_max_loss: float = 1000.0,
 ):
@@ -532,7 +533,8 @@ def run_backtest(
     # Strategy
     norm_params = _normalize_strategy_params(scenario_params)
     log.info(f"[WHY] Using StrategyParams: {norm_params}")
-    strat = SimpleBreakoutStrategy(StrategyParams(**norm_params))
+    # v0.7.9.7.6: use factory to create StrategyParams with scenario-aware defaults; norm_params still override.
+    strat = SimpleBreakoutStrategy(create_strategy_params(scenario_name=scenario_name, **norm_params))
     # Load scanner context for this run (safe no-op if missing)
     symbol_ctx = _load_symbol_context_from_gapmap(date_str, out_dir, log)
 

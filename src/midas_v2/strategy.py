@@ -1,12 +1,15 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import math
 
 # v0.4.8: Sidecar-driven feature hook (generic, OFF by default)
 # This v0.4.8 update adds a minimal import and a tiny guarded call into the external
 # micro plug-in. Behavior is unchanged unless config/features/micro.json enables it.  # v0.4.8
 from midas_v2.features.micro_feature import should_block_entry  # v0.4.8
+
+# v0.7.9.7.6: config unification – import scenario params loader for strategy config.
+from midas_v2.config_models import load_scenario_params
 
 
 @dataclass
@@ -53,6 +56,92 @@ class StrategyParams:
     # ========== MACD Rising Filter (v0.4.x) ==========
     require_macd_rise: bool = False         # Enable explicit MACD histogram rising requirement
     macd_rise_bars: int = 0                 # Number of consecutive rising MACD histogram bars required
+
+
+# v0.7.9.7.6: config unification – factory to create StrategyParams with scenario-aware defaults.
+def create_strategy_params(scenario_name: Optional[str] = None, **override_kwargs) -> StrategyParams:
+    """
+    Factory function to create StrategyParams with optional scenario-backed defaults.
+    
+    When scenario_name is provided, loads strategy parameters from scenarios.json
+    (via load_scenario_params helper) and uses them as defaults. Any fields not
+    provided in the scenario fall back to StrategyParams dataclass defaults.
+    Override kwargs always take precedence over scenario values.
+    
+    Args:
+        scenario_name: Name of scenario (e.g., 'B') to load params from JSON
+        **override_kwargs: Explicit overrides that take precedence over scenario/defaults
+    
+    Returns:
+        A configured StrategyParams instance with scenario-aware values.
+    
+    Example:
+        # Load Scenario B params from JSON, use those as base, then override tp_pct if provided
+        params = create_strategy_params(scenario_name="B", tp_pct=2.5)
+    """
+    # v0.7.9.7.6: load scenario params for strategy config.
+    scenario_params = None
+    if scenario_name:
+        try:
+            scenario_params = load_scenario_params(scenario_name)
+        except Exception:
+            scenario_params = None  # fail safe: fall back to defaults if something goes wrong
+    
+    def _get_strategy_param(name: str, default: Any) -> Any:
+        """
+        v0.7.9.7.6: Resolve a strategy parameter from scenario params (if available),
+        otherwise return the provided default value.
+        """
+        if scenario_params is None:
+            return default
+        # Support dict-style access (Scenario.params is a dict)
+        if isinstance(scenario_params, dict) and name in scenario_params:
+            return scenario_params[name]
+        return default
+    
+    # v0.7.9.7.6: build param dict from scenario or defaults; override_kwargs always win.
+    param_dict = {
+        # Basic entry timing and risk management
+        "gate_minutes": _get_strategy_param("gate_minutes", 5),
+        "tp_pct": _get_strategy_param("tp_pct", 1.2),
+        "sl_pct": _get_strategy_param("sl_pct", 2.7),
+        
+        # Confirmation indicators
+        "vwap_confirm": _get_strategy_param("vwap_confirm", False),
+        "ema_confirm": _get_strategy_param("ema_confirm", True),
+        "macd_confirm": _get_strategy_param("macd_confirm", False),
+        
+        # Price action requirements
+        "rise_bars": _get_strategy_param("rise_bars", 2),
+        "green_body_min": _get_strategy_param("green_body_min", 0.0),
+        
+        # Pre-market filters
+        "min_pm_vol": _get_strategy_param("min_pm_vol", None),
+        "reclaim_pmh": _get_strategy_param("reclaim_pmh", None),
+        
+        # Dip Reclaim Strategy Parameters
+        "dip_reclaim": _get_strategy_param("dip_reclaim", False),
+        "reclaim_ref": _get_strategy_param("reclaim_ref", "ema"),
+        "min_dip_pct": _get_strategy_param("min_dip_pct", 2.0),
+        "min_reclaim_pct": _get_strategy_param("min_reclaim_pct", 0.5),
+        "ema_period": _get_strategy_param("ema_period", 5),
+        "reclaim_buffer_bps": _get_strategy_param("reclaim_buffer_bps", 0.0),
+        "vwap_slope_bps": _get_strategy_param("vwap_slope_bps", None),
+        "vwap_period_min": _get_strategy_param("vwap_period_min", 1),
+        
+        # Opening Relative Volume Filter
+        "min_rvol_open": _get_strategy_param("min_rvol_open", None),
+        "rvol_open_minutes": _get_strategy_param("rvol_open_minutes", 15),
+        
+        # MACD Rising Filter
+        "require_macd_rise": _get_strategy_param("require_macd_rise", False),
+        "macd_rise_bars": _get_strategy_param("macd_rise_bars", 0),
+    }
+    
+    # Apply any explicit overrides (these always win)
+    param_dict.update(override_kwargs)
+    
+    return StrategyParams(**param_dict)
 
 
 class Bar:

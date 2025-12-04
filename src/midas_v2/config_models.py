@@ -119,3 +119,39 @@ def merge_scanner(global_scanner: ScannerConfig, scenario: Optional[Scenario]) -
             # ignore non-int convertible values
             pass
     return ScannerConfig.model_validate(base)
+
+
+# v0.7.9.7.6: config unification – shared scenario params loader for scanner/strategy.
+def load_scenario_params(scenario_name: str, scenarios_path: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """
+    Load and return the params dict for a given scenario name.
+    
+    Args:
+        scenario_name: Name of the scenario (e.g., 'B')
+        scenarios_path: Path to scenarios.json; if None, uses default "config/scenarios.json"
+    
+    Returns:
+        The params dict or None if not found or on error.
+    """
+    from pathlib import Path
+    
+    if scenarios_path is None:
+        scenarios_path = Path("config") / "scenarios.json"
+    else:
+        scenarios_path = Path(scenarios_path)
+    
+    if not scenarios_path.exists():
+        return None
+    
+    try:
+        scenarios_map = ScenariosConfig.model_validate_json(
+            scenarios_path.read_text(encoding="utf-8")
+        ).root
+        scenario = scenarios_map.get(scenario_name)
+        if scenario and scenario.params:
+            # Return the params dict
+            return scenario.params if isinstance(scenario.params, dict) else dict(scenario.params)
+    except Exception:
+        pass
+    
+    return None

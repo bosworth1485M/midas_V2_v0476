@@ -1,0 +1,157 @@
+Given where you are now (config unified, Scenario B frozen, MACD + RVOL + green streak stable), the next changes that should get priority for profitability are:
+
+1. Candle Snapshot System before anything fancy with the DB
+
+Priority #1: TWCS v0.8.0 – get the candle prints themselves.
+
+You don’t need a full relational database first. You need ground truth:
+
+For every trade, save:
+
+Pre-trade window (10 min 1-min bars + 60–120 sec 1-sec bars)
+
+Post-trade window (3–5 min 1-min bars + 60–180 sec 1-sec bars)
+
+Indicators: VWAP, MACD, volume, green streak stats
+
+Save them as:
+
+entry_snapshot.png, exit_snapshot.png
+
+trade_snapshot_meta.json (or CSV row)
+
+Once those files exist per trade, you have the raw material that the most profitable Cameron projects use to tune everything else.
+
+👉 Reason it’s top priority:
+Without these snapshots, you’re guessing. With them, you can see exactly what your losers and winners looked like, and every future change (filters, DB schema, UI) becomes data-driven.
+
+2. Minimal local DB schema – only what’s needed to index snapshots
+
+Priority #2: “DB v0.1” – indexing, not full analytics.
+
+After snapshots exist on disk, you can design a simple SQLite schema whose job is:
+
+Track:
+
+trade_id
+
+date, symbol, scenario
+
+entry_time, exit_time
+
+pnl, tp/sl
+
+File paths to entry_snapshot.png, exit_snapshot.png
+
+Key pre-trade metrics (VWAP slope, wick/body ratios, MACD hist, RVOL, etc.)
+
+Think: “catalog of trades + pointers to snapshots”, not a giant candle warehouse yet.
+
+👉 Reason this is second:
+You want somewhere to query and filter trades (“show me all SL trades where upper wick > 40%”) without re-parsing files every time.
+
+3. First high-impact candle filters (small, surgical, measurable)
+
+Priority #3: Add a few candle-based filters that we already know are high-ROI.
+
+Start with 2–3 changes, each behind a flag in scenarios.json and tested via A/B:
+
+Upper-wick rejection filter
+
+Reject entries where the last green candle before entry has upper wick > ~40% of the bar.
+
+Weak 3rd green filter
+
+Reject when the 3rd green candle has body < ~20% of range.
+
+VWAP slope floor
+
+Require VWAP slope ≥ 2–4 bps at entry.
+
+Each one:
+
+Gets a clear toggle in Scenario B (enable_wick_filter, enable_weak_third_filter, min_vwap_slope_bps, etc.).
+
+Is tested via your profitability workflow:
+
+Same dates/symbols, feature OFF vs ON.
+
+Keep only if WR or expectancy improves.
+
+👉 Reason this is third:
+These are exactly the kind of filters that profitable Cameron bots report as giving +5–10% WR and much cleaner entries, and they’re easy to control from JSON + UI.
+
+4. Wire the most important knobs into the local website (not all of them)
+
+Priority #4: Make the website a safe, high-leverage control panel for Scenario B.
+
+Once JSON is the truth and candle filters exist, extend the UI (via Claude) to show:
+
+Read/Write:
+
+top
+
+gate_minutes
+
+min_rvol_open, rvol_open_minutes
+
+MACD toggle + macd_rise_bars
+
+New wick/body/VWAP filter toggles and thresholds
+
+Read-only (for now):
+
+daily_max_loss
+
+max_trades_per_symbol
+
+Base risk per trade (from sizing)
+
+👉 Principle:
+The UI should expose only the knobs that actually relate to profitability and that we’ve already unified in JSON. No random extra sliders.
+
+5. Only after that: richer DB + more advanced modules
+
+Once:
+
+Snapshots (PNG+JSON) exist ✅
+
+A minimal DB indexes trades + snapshots ✅
+
+A couple of candle filters are proven profitable ✅
+
+UI is reflecting the same JSON the engine uses ✅
+
+Then it makes sense to:
+
+Expand DB schema for:
+
+Full candle storage (1-sec sequences)
+
+Performance analytics per pattern
+
+Add:
+
+Adaptive sizing module (Module A)
+
+Catalyst refinements (A-grade vs B-grade days)
+
+More advanced candle rules (micro higher-lows, 1-sec EMA reclaim)
+
+And later: all the bigger roadmap stuff (Bollinger bands, microstructure gateway, regime awareness, etc.).
+
+Simple priority list (in order)
+
+TWCS (candle snapshot system) – PNG + JSON around each trade.
+
+Minimal SQLite DB – trade index + snapshot metadata (no overkill).
+
+2–3 high-impact candle filters – wick/body/VWAP, tested via A/B.
+
+Website alignment with JSON – expose the profitable knobs, not everything.
+
+DB expansion + advanced modules – only after we see measurable lift.
+
+If you like, next step I can:
+
+Turn this into a versioned roadmap (v0.8.0 → v0.8.5) with 1–2 concrete tasks per version, so you can literally tag each stage as you implement candle prints and DB.

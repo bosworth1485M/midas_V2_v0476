@@ -1,0 +1,141 @@
+Nice question, and very much the kind of thing that keeps Midas tidy instead of turning into spaghetti 😊
+
+Short answer:
+Yes, there are likely some variables / constants / paths that are now redundant or half-redundant since JSON is the source of truth — but we should be very selective about what we remove and do it with Copilot, not by hand.
+
+Let me break it into clear buckets.
+
+1. Things we probably should keep (even with JSON as source of truth)
+
+These are not clutter; they still serve a purpose:
+
+Fallback defaults inside code
+
+Example: the max_trades_per_symbol = 1 and daily_max_loss = 1000.0 fallback logic (now with “Error: fallback used”).
+
+These are still valuable because:
+
+They protect you if a scenario is incomplete.
+
+They make tests still run in “non-scenario” modes.
+
+We do not want to delete them yet; they are part of your safety net.
+
+Environment variable overrides
+
+MIDAS_MIN_RVOL_OPEN, MIDAS_RVOL_OPEN_MINUTES, MIDAS_MACD_RISE_BARS, etc.
+
+Even though JSON is primary, env overrides are useful for temporary experiments without touching files.
+
+These are OK to keep; they don’t fight the JSON design.
+
+Normalization helpers
+
+_normalize_strategy_params in backtester.py
+
+Any helpers that take “loose” JSON and convert to StrategyParams.
+
+These are part of the JSON→engine bridge and are still needed.
+
+So we are not aiming to strip every constant or default from the code. JSON is the source of truth, but we still want guardrails and compatibility.
+
+2. Things that might be redundant or confusing now
+
+These are the places worth auditing (with Copilot, in a future cleanup step):
+
+Old, unused config files
+
+You already handled:
+
+config/config_models.py → renamed UNUSED
+
+config/topgappers.json → renamed UNUSED
+
+Get-TopGappers.ps1 → renamed UNUSED
+
+That’s exactly the right kind of cleanup: old config paths that are no longer part of the JSON-driven pipeline.
+
+Legacy CLI args that no longer drive behavior
+
+Example (historically): --top when Top-N comes from Scenario["B"].params.top.
+
+In some scripts, arguments are left for backward compatibility but ignored.
+
+Eventually, we can:
+
+Remove unused args, or
+
+Mark them as deprecated (e.g. “ignored; use scenario JSON instead”).
+
+Duplicate configuration sources inside code
+
+Things like “default strategy settings dict” plus scenarios.json plus CLI flags.
+
+Now that Scenario B is fully JSON-driven and we have a clean resolution order (JSON → CLI → defaults), we can:
+
+Remove any unused “hard-coded Scenario B” profiles in Python files.
+
+Ensure there is only one place that defines a given scenario.
+
+Dead branches that predate scenario_name / create_strategy_params
+
+Any code that builds StrategyParams without going through create_strategy_params(...).
+
+If there are old helper functions that construct StrategyParams in a parallel way, they are candidates to remove after we confirm they are unused.
+
+3. How to handle this safely (no regressions, no Pydantic pain)
+
+Given your history (Pydantic errors, manual edit hell, long debugging), the right approach is:
+
+We do this as a dedicated “cleanup” version, not inside v0.7.9.7.6.
+
+For example: v0.7.9.7.7-cleanup-config-paths.
+
+We use Copilot for every removal/refactor.
+
+Open one file at a time.
+
+Paste a very specific prompt like:
+
+“Please remove unused CLI argument X if it is truly no longer used anywhere. If it is referenced, do not change anything.”
+
+Let Copilot propose minimal diffs.
+
+We run the standard test after each tiny cleanup:
+
+python scripts\run_range_and_summarize.py --start 2025-08-01 --end 2025-08-02 --scenario B
+
+
+If behavior changes unexpectedly → rollback that tiny cleanup.
+
+We prioritize the highest confusion items first:
+
+Already UNUSED files (you’ve mostly done this).
+
+Duplicated config sources (e.g. an old “Scenario B settings” dict if it exists).
+
+CLI args that are clearly ignored.
+
+4. So, are there variables to delete right now?
+
+Conceptually: yes, there are likely some no-longer-needed knobs and paths from the pre-JSON days.
+
+Practically, with your current setup:
+
+Nothing is obviously dangerous or screaming “delete me immediately”.
+
+You’ve already handled the biggest stale items (extra config_models, topgappers.json, old drill scripts).
+
+For the rest, we should treat cleanup as its own small, versioned project and use Copilot to do each removal/refactor one at a time, with tests.
+
+If you’d like, in a future step I can:
+
+Draft a “v0.7.9.7.7 Config Cleanup Plan” listing:
+
+Candidate variables/args/files to remove or mark deprecated.
+
+The exact Copilot prompts for each file.
+
+The tests to run after each change.
+
+But there’s nothing obviously broken or dangerous right now; we’re clean from a behavior standpoint.

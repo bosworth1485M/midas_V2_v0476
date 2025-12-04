@@ -1,0 +1,57 @@
+Summary: v0.7.9.7.6 Config Unification Implementation
+I've successfully implemented config unification for the Scenario B scanner knobs. Here's what was completed:
+
+Changes Made
+1. config_models.py — New Helper Function
+Added load_scenario_params(scenario_name, scenarios_path=None) tagged with v0.7.9.7.6
+Safely loads a scenario's params dict from scenarios.json
+Returns None on error (defensive)
+Example: load_scenario_params("B") returns the params dict with min_price, max_price, min_gap_pct, top, etc.
+
+2. topgappers.py — Scenario-Aware Parameter Resolution
+Import: Added from midas_v2.config_models import load_scenario_params (v0.7.9.7.6)
+
+New Logic (after config load):
+
+Load scenario params when --scenario is provided (v0.7.9.7.6)
+Define get_param() helper to resolve knobs with fallback to CLI/defaults (v0.7.9.7.6)
+Resolve min_price, max_price, min_gap_pct, top from scenario params (v0.7.9.7.6)
+Updated Logging:
+
+Price/gap line now uses resolved values (with v0.7.9.7.6 comment)
+Universe trimming messages use resolved top_n variable (with v0.7.9.7.6 comment)
+
+Behavior
+When --scenario B is passed:
+
+Scanner reads min_price, max_price, min_gap_pct, top from Scenario B params in scenarios.json:
+min_price: 1
+max_price: 20
+min_gap_pct: 10
+top: 5
+Logs show: price=[1.0..20.0] min_gap=10.0% and [UNIVERSE] Trimmed to Top-5 symbols
+When --scenario is not passed or field is missing:
+
+Falls back to CLI arguments or defaults (existing behavior preserved)
+Example output from verification test:
+
+[TEST] v0.7.9.7.6: load_scenario_params() from scenarios.json
+  Loaded params type: <class 'dict'>
+  • min_price: 1 ✓
+  • max_price: 20 ✓
+  • min_gap_pct: 10 ✓
+  • top: 5 ✓
+  PASS: All required fields present with correct values
+
+Files Modified
+✅ config_models.py — Added helper function
+✅ topgappers.py — Wired scenario params resolution with v0.7.9.7.6 comments
+✅ Syntax checks: both files compile without errors
+Backward Compatibility
+✅ No breaking changes
+
+Pydantic models unchanged
+JSON schema unchanged
+CLI arguments still work as fallback
+Non-scenario runs use CLI defaults unchanged
+All new code is marked with v0.7.9.7.6 comments for easy identification in code reviews.

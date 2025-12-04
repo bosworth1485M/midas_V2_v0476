@@ -36,10 +36,12 @@ def main():
     p_bt.add_argument("--out", default=None, help="Output directory")
 
     # Guardrails
-    p_bt.add_argument("--max-trades-per-symbol", type=int, default=1,
-                      help="Max trades allowed per symbol for this session (default 1).")
-    p_bt.add_argument("--daily-max-loss", type=float, default=1000.0,
-                      help="Stop opening NEW trades once cumulative PnL reaches -X (default 1000).")
+    # v0.7.9.7.6: Make these None by default so scenario JSON supplies them
+    # and the CLI only overrides when explicitly provided.
+    p_bt.add_argument("--max-trades-per-symbol", type=int, default=None,
+                      help="Max trades allowed per symbol for this session (overrides scenario when provided).")
+    p_bt.add_argument("--daily-max-loss", type=float, default=None,
+                      help="Stop opening NEW trades once cumulative PnL reaches -X (overrides scenario when provided).")
 
     # Opening RVOL gate
     p_bt.add_argument("--min-rvol-open", type=float, default=None,
@@ -58,9 +60,45 @@ def main():
         scenarios = load_scenarios()
         sc = dict(scenarios[args.scenario]["params"])
 
-        # Guardrails
-        sc["max_trades_per_symbol"] = args.max_trades_per_symbol
-        sc["daily_max_loss"] = args.daily_max_loss
+        # Guardrails: Resolve in precedence order: scenario.json -> CLI (if provided) -> hard-coded default
+        # v0.7.9.7.6: allow scenarios.json to be the authoritative source; CLI only overrides when explicit
+        # v0.7.9.7.6: detailed error message when fallback defaults are used.
+        max_trades_per_symbol = sc.get("max_trades_per_symbol")
+        daily_max_loss = sc.get("daily_max_loss")
+
+        if args.max_trades_per_symbol is not None:
+            max_trades_per_symbol = int(args.max_trades_per_symbol)
+        if args.daily_max_loss is not None:
+            daily_max_loss = float(args.daily_max_loss)
+
+        # Final fallbacks if still None
+        fallback_errors = []
+        if max_trades_per_symbol is None:
+            max_trades_per_symbol = 1
+            fallback_errors.append({
+                "key": "max_trades_per_symbol",
+                "default_value": 1,
+                "scenario": args.scenario
+            })
+        if daily_max_loss is None:
+            daily_max_loss = 1000.0
+            fallback_errors.append({
+                "key": "daily_max_loss",
+                "default_value": 1000.0,
+                "scenario": args.scenario
+            })
+
+        sc["max_trades_per_symbol"] = max_trades_per_symbol
+        sc["daily_max_loss"] = daily_max_loss
+
+        # Report fallback errors to stderr
+        for error in fallback_errors:
+            print(f"""Error: fallback used  (v0.7.9.7.6)
+  • Key: {error["key"]}
+  • Scenario: {error["scenario"]}
+  • Default value used: {error["default_value"]}
+  • Reason: Neither scenario JSON nor CLI provided a value.
+  • Action: Fix config/scenarios.json or pass an explicit CLI override.""", file=sys.stderr)
 
         # --- RVOL gate precedence: CLI > ENV > scenario/default ---
         min_rvol_open = sc.get("min_rvol_open")
@@ -126,7 +164,14 @@ def main():
               " daily_max_loss=", sc.get("daily_max_loss"),
               file=sys.stderr)
 
-        out_csv = run_backtest(args.date, args.universe, sc, cfg, out_dir)
+        # v0.7.9.7.6: pass scenario_name to run_backtest for strategy config loading.
+        # v0.7.9.7.6: pass resolved risk guardrails from scenario JSON (not defaults)
+        out_csv = run_backtest(
+            args.date, args.universe, sc, cfg, out_dir,
+            scenario_name=args.scenario,
+            max_trades_per_symbol=sc.get("max_trades_per_symbol", 1),  # v0.7.9.7.6
+            daily_max_loss=sc.get("daily_max_loss", 1000.0),  # v0.7.9.7.6
+        )
         print(f"[OK] Backtest complete -> {out_csv}")
 
 if __name__ == "__main__":
