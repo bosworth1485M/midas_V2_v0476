@@ -7,7 +7,7 @@ from collections import defaultdict
 from ..utils_logging import setup_logging
 from ..settings import Settings
 from ..dataprov.csv_local import CsvLocalProvider
-from ..strategy import SimpleBreakoutStrategy, StrategyParams
+from ..strategy import SimpleBreakoutStrategy, StrategyParams, create_strategy_params  # v0.7.9.7.6: import factory
 from ..risk import RiskManager
 from ..broker.alpaca_stub import AlpacaBrokerStub
 
@@ -68,6 +68,32 @@ class SimpleTradeSummary:
     tp_pct: float              # take profit percent, e.g. 2.0
     risk_per_share: float      # entry_price - stop_price (for long)
     exit_reason: str           # "stop_loss", "take_profit", etc.
+    gap_pct: float | None = None
+    top_rank: int | None = None
+    universe_size: int | None = None
+    open_price: float | None = None
+    pm_volume: float | None = None
+    price_band_passed: bool | None = None
+    gap_band_passed: bool | None = None
+    pm_volume_passed: bool | None = None
+    # Key scenario knobs (friendly)
+    top: int | None = None
+    price_min: float | None = None
+    price_max: float | None = None
+    min_gap_pct: float | None = None
+    max_gap_pct: float | None = None
+    min_pm_vol: float | None = None
+    min_rvol_open: float | None = None
+    rvol_open_minutes: int | None = None
+    gate_minutes: int | None = None
+    macd_rise_bars: int | None = None
+    require_macd_rise: bool | None = None
+    rise_bars: int | None = None
+    green_body_min: float | None = None
+
+    # Raw snapshots for completeness
+    strategy_params: dict[str, Any] | None = None
+    risk_snapshot: dict[str, Any] | None = None
 
 
 def format_simple_trade_calcs(summary: SimpleTradeSummary) -> str:
@@ -104,6 +130,137 @@ def format_simple_trade_calcs(summary: SimpleTradeSummary) -> str:
         lines.append("Buys small cheap stocks that gap up strongly before the market opens")
         lines.append("and keep going up after the open, using simple trend and momentum rules.")
         lines.append("")
+
+        # CONTEXT BEFORE TRADE (show if any context is available)
+        has_ctx = any(
+            v is not None
+            for v in (
+                summary.gap_pct,
+                summary.open_price,
+                summary.pm_volume,
+                summary.top_rank,
+                summary.universe_size,
+            )
+        )
+        if has_ctx:
+            lines.append("CONTEXT BEFORE TRADE:")
+            # Gap
+            if summary.gap_pct is not None:
+                if summary.gap_band_passed is not None:
+                    status = "PASSED" if summary.gap_band_passed else "FAILED"
+                    lines.append(f"• Gap % at open: {summary.gap_pct:.2f}% ({status} gap band)")
+                else:
+                    lines.append(f"• Gap % at open: {summary.gap_pct:.2f}%")
+
+            # Pre-market volume
+            if summary.pm_volume is not None:
+                if summary.pm_volume_passed is not None:
+                    status = "PASSED" if summary.pm_volume_passed else "FAILED"
+                    lines.append(f"• Pre-market volume: {summary.pm_volume:,.0f} ({status} minimum volume)")
+                else:
+                    lines.append(f"• Pre-market volume: {summary.pm_volume:,.0f}")
+
+            # Price at open
+            if summary.open_price is not None:
+                if summary.price_band_passed is not None:
+                    status = "PASSED" if summary.price_band_passed else "FAILED"
+                    lines.append(f"• Price at open: ${summary.open_price:.2f} ({status} price band)")
+                else:
+                    lines.append(f"• Price at open: ${summary.open_price:.2f}")
+
+            # Rank among gappers
+            if summary.top_rank is not None and summary.universe_size is not None:
+                lines.append(f"• Rank among gappers: #{summary.top_rank} of {summary.universe_size}")
+
+            lines.append("")
+
+
+        # RULES WE USED BEFORE TAKING THIS TRADE (friendly explanation + raw)
+        try:
+            have_rules = any([
+                summary.gate_minutes is not None,
+                summary.min_pm_vol is not None,
+                summary.min_rvol_open is not None,
+                summary.rise_bars is not None,
+                summary.macd_rise_bars is not None,
+                summary.tp_pct is not None,
+                summary.sl_pct is not None,
+                bool(summary.risk_snapshot),
+                bool(summary.strategy_params),
+            ])
+        except Exception:
+            have_rules = False
+
+        if have_rules:
+            lines.append("RULES WE USED BEFORE TAKING THIS TRADE:")
+
+            # Entry gate timing
+            if summary.gate_minutes is not None:
+                try:
+                    lines.append(f"• We waited {int(summary.gate_minutes)} minutes after the open before entering any trades.")
+                except Exception:
+                    pass
+
+            # Pre-market volume requirement
+            if summary.min_pm_vol is not None:
+                try:
+                    lines.append(f"• Before the market opened, the stock needed at least {int(summary.min_pm_vol):,} shares of activity.")
+                except Exception:
+                    pass
+
+            # Opening RVOL gate
+            if summary.min_rvol_open is not None:
+                try:
+                    mins_text = f"{int(summary.rvol_open_minutes)} minutes" if summary.rvol_open_minutes is not None else "the opening minutes"
+                    lines.append(f"• In the first {mins_text}, today's volume needed to be at least {float(summary.min_rvol_open):.2f}× yesterday's volume.")
+                except Exception:
+                    pass
+
+            # Green candles requirement (from earlier section, but summarize here)
+            if summary.rise_bars is not None or summary.green_body_min is not None:
+                try:
+                    rb = int(summary.rise_bars) if summary.rise_bars is not None else None
+                    gb = float(summary.green_body_min) if summary.green_body_min is not None else None
+                    if rb is not None and gb is not None:
+                        lines.append(f"• We required {rb} recent green candles in a row, each with a strong body (≥ {gb:.2f} of the bar).")
+                    elif rb is not None:
+                        lines.append(f"• We required {rb} recent green candles in a row, each closing higher than the previous.")
+                    elif gb is not None:
+                        lines.append(f"• Each candle had to have a strong body (≥ {gb:.2f} of the bar).")
+                except Exception:
+                    pass
+
+            # MACD requirement
+            if summary.macd_rise_bars is not None or summary.require_macd_rise is not None:
+                try:
+                    if summary.require_macd_rise is True and summary.macd_rise_bars is not None:
+                        lines.append(f"• The MACD histogram had to be above zero and rising for {int(summary.macd_rise_bars)} bars.")
+                    elif summary.require_macd_rise is True:
+                        lines.append("• The MACD histogram had to be above zero and rising.")
+                    elif summary.macd_rise_bars is not None:
+                        lines.append(f"• The MACD histogram had to be rising for {int(summary.macd_rise_bars)} bars.")
+                except Exception:
+                    pass
+
+            # Take-profit and stop-loss
+            if summary.tp_pct is not None and summary.sl_pct is not None:
+                try:
+                    lines.append(f"• Take-profit was set at +{float(summary.tp_pct):.1f}% and stop-loss was set at –{float(summary.sl_pct):.1f}%.")
+                except Exception:
+                    pass
+
+            # Risk limits
+            try:
+                if summary.risk_snapshot:
+                    max_trades = summary.risk_snapshot.get("max_trades_per_symbol")
+                    if max_trades is not None:
+                        lines.append(f"• We only take {int(max_trades)} trade per symbol.")
+            except Exception:
+                pass
+
+            lines.append("")
+
+            # (Moved exact-settings block to the end under RISK CALCULATION.)
     
     # Buy/Sell explanation
     lines.append("WHY WE TRADED:")
@@ -114,6 +271,18 @@ def format_simple_trade_calcs(summary: SimpleTradeSummary) -> str:
     # Trade results
     lines.append("RESULTS:")
     lines.append(f"• Profit/Loss: ${summary.pnl_usd:,.2f}")
+    # Plain English P/L sentence for clarity
+    try:
+        pnl_val = getattr(summary, "pnl_usd", None)
+        if pnl_val is not None:
+            if pnl_val > 0:
+                lines.append(f"• This trade made a profit of ${pnl_val:.2f}.")
+            elif pnl_val < 0:
+                lines.append(f"• This trade lost ${abs(pnl_val):.2f}.")
+            else:
+                lines.append("• This trade broke even.")
+    except Exception:
+        pass
     lines.append(f"• Number of shares: {summary.shares}")
     lines.append(f"• Entry price: ${summary.entry_price:.2f}")
     lines.append(f"• Exit price: ${summary.exit_price:.2f}")
@@ -136,6 +305,41 @@ def format_simple_trade_calcs(summary: SimpleTradeSummary) -> str:
     if summary.risk_per_share > 0:
         approx_shares = risk_amount / summary.risk_per_share
         lines.append(f"• Approximate shares: {risk_amount:,.2f} ÷ {summary.risk_per_share:.2f} ≈ {approx_shares:.0f}")
+    # Daily loss (from risk snapshot) — show here as part of risk calculation
+    try:
+        daily_max_loss = None
+        risk_cfg = getattr(summary, "risk_snapshot", None)
+        if isinstance(risk_cfg, dict):
+            daily_max_loss = risk_cfg.get("daily_max_loss")
+        if daily_max_loss is not None:
+            lines.append(f"• Daily loss limit: we stop trading for the day if total losses reach ${float(daily_max_loss):,.0f}.")
+    except Exception:
+        pass
+
+    lines.append("")
+
+    # EXACT SETTINGS FOR REFERENCE: (raw snapshots for debugging / record)
+    try:
+        have_raw = bool(summary.strategy_params) or bool(summary.risk_snapshot)
+    except Exception:
+        have_raw = False
+
+    if have_raw:
+        import json
+        lines.append("EXACT SETTINGS FOR REFERENCE:")
+        try:
+            if summary.strategy_params:
+                s_str = json.dumps(summary.strategy_params, sort_keys=True)
+                lines.append(f"• Strategy settings: {s_str}")
+            if summary.risk_snapshot:
+                r_str = json.dumps(summary.risk_snapshot, sort_keys=True)
+                lines.append(f"• Risk configuration: {r_str}")
+        except Exception:
+            if summary.strategy_params:
+                lines.append(f"• Strategy settings: {repr(summary.strategy_params)}")
+            if summary.risk_snapshot:
+                lines.append(f"• Risk configuration: {repr(summary.risk_snapshot)}")
+
     lines.append("")
     lines.append(f"{'=' * 70}")
     
@@ -199,12 +403,105 @@ def _normalize_strategy_params(scenario_params: Dict[str, Any]) -> Dict[str, Any
     return params
 
 
+def _load_symbol_context_from_gapmap(date_str: str, out_dir: str, log) -> Dict[str, Dict[str, Any]]:
+    """Load scanner gap-map context for symbols for a given date.
+
+    Returns a dict mapping symbol -> context dict with keys:
+      gap_pct, open_price, pm_volume, top_rank, universe_size
+    """
+    from pathlib import Path
+    import json
+
+    try:
+        out_path = Path(out_dir).resolve()
+        date_root = out_path.parent
+        scanner_dir = date_root / "scanner"
+        gap_map_path = scanner_dir / f"gap_map_{date_str}.json"
+    except Exception as e:
+        log.debug(f"[CTX] failed to derive gap_map path: {e}")
+        return {}
+
+    if not gap_map_path.exists():
+        log.debug("[CTX] gap_map file missing, skipping context.")
+        return {}
+
+    try:
+        with gap_map_path.open("r", encoding="utf-8") as fh:
+            data = json.load(fh)
+    except Exception as e:
+        log.debug(f"[CTX] failed to load gap context: {e}")
+        return {}
+
+    # Collect numeric gap entries for ranking
+    gap_rows: List[tuple] = []
+    ctx_map: Dict[str, Dict[str, Any]] = {}
+    for sym, info in (data or {}).items():
+        try:
+            gap_val = None
+
+            # If the JSON uses flat mapping like {"SYM": 123.45} treat that numeric
+            if isinstance(info, (int, float)):
+                try:
+                    gap_val = float(info)
+                except Exception:
+                    gap_val = None
+            else:
+                # Also handle numeric strings if present
+                if isinstance(info, str):
+                    try:
+                        gap_val = float(info)
+                    except Exception:
+                        gap_val = None
+                else:
+                    # Fallback: original behavior for dict-like entries
+                    try:
+                        for k in ("gap_pct", "gap", "gap_percent"):
+                            if isinstance(info, dict) and k in info:
+                                try:
+                                    gap_val = float(info.get(k))
+                                    break
+                                except Exception:
+                                    gap_val = None
+                    except Exception:
+                        gap_val = None
+
+            # Per spec: third element is unused but preserve tuple shape for downstream code
+            if gap_val is not None:
+                gap_rows.append((sym, float(gap_val), None))
+
+            # Only populate gap_pct here; leave open_price and pm_volume as None
+            ctx_map[sym] = {
+                "gap_pct": float(gap_val) if gap_val is not None else None,
+                "open_price": None,
+                "pm_volume": None,
+            }
+        except Exception:
+            # be defensive per spec
+            continue
+
+    # compute rankings
+    try:
+        valid = [r for r in gap_rows if r[1] is not None]
+        valid.sort(key=lambda x: x[1], reverse=True)
+        universe_size = len(valid)
+        for idx, (sym, _) in enumerate(valid, start=1):
+            if sym in ctx_map:
+                ctx_map[sym]["top_rank"] = idx
+                ctx_map[sym]["universe_size"] = universe_size
+    except Exception:
+        # if ranking fails, leave ctx_map as-is
+        pass
+
+    return ctx_map
+
+
 def run_backtest(
     date_str: str,
     universe_path: str,
     scenario_params: dict,
     settings: Settings,
     out_dir: str,
+    scenario_name: Optional[str] = None,  # v0.7.9.7.6: scenario name for strategy config loading
     max_trades_per_symbol: int = 1,
     daily_max_loss: float = 1000.0,
 ):
@@ -236,7 +533,36 @@ def run_backtest(
     # Strategy
     norm_params = _normalize_strategy_params(scenario_params)
     log.info(f"[WHY] Using StrategyParams: {norm_params}")
-    strat = SimpleBreakoutStrategy(StrategyParams(**norm_params))
+    # v0.7.9.7.6: use factory to create StrategyParams with scenario-aware defaults; norm_params still override.
+    strat = SimpleBreakoutStrategy(create_strategy_params(scenario_name=scenario_name, **norm_params))
+    # Load scanner context for this run (safe no-op if missing)
+    symbol_ctx = _load_symbol_context_from_gapmap(date_str, out_dir, log)
+
+    # Snapshot the normalized strategy params for inclusion in summaries
+    try:
+        strategy_snapshot: dict[str, Any] = dict(norm_params) if isinstance(norm_params, dict) else dict()
+    except Exception:
+        strategy_snapshot = dict()
+
+    # Snapshot risk/safety knobs (best-effort, defensive)
+    risk_snapshot: dict[str, Any] = {}
+    try:
+        risk_cfg = getattr(settings, "risk", None)
+        if risk_cfg is not None:
+            per_trade_risk = getattr(risk_cfg, "per_trade_risk", None)
+            if per_trade_risk is not None:
+                risk_snapshot["per_trade_risk"] = per_trade_risk
+    except Exception as e:
+        log.debug(f"[RISK] unable to snapshot risk settings: {e}")
+
+    try:
+        # include the run-level knobs too
+        if max_trades_per_symbol is not None:
+            risk_snapshot["max_trades_per_symbol"] = max_trades_per_symbol
+        if daily_max_loss is not None:
+            risk_snapshot["daily_max_loss"] = daily_max_loss
+    except Exception:
+        pass
 
     # v0.4.8: derive scenario id/name from settings (best-effort)
     scn = getattr(settings, "scenario", None) or getattr(settings, "scenario_name", None) or "UNKNOWN"  # v0.4.8
@@ -353,6 +679,57 @@ def run_backtest(
                             risk_value = 0.0
                         risk_usd_final = float(risk_value)
 
+                        # enrich with scanner context when available
+                        ctx = symbol_ctx.get(sym, {}) if isinstance(symbol_ctx, dict) else {}
+                        gap_pct = ctx.get("gap_pct")
+                        top_rank = ctx.get("top_rank")
+                        universe_size = ctx.get("universe_size")
+                        open_price = ctx.get("open_price")
+                        pm_volume = ctx.get("pm_volume")
+
+                        # params for pass/fail flags
+                        min_price = norm_params.get("min_price")
+                        max_price = norm_params.get("max_price")
+                        min_gap = norm_params.get("min_gap_pct")
+                        max_gap = norm_params.get("max_gap_pct")
+                        min_pm_vol = norm_params.get("min_pm_vol")
+
+                        price_band_passed = None
+                        if open_price is not None and min_price is not None and max_price is not None:
+                            try:
+                                price_band_passed = (float(min_price) <= float(open_price) <= float(max_price))
+                            except Exception:
+                                price_band_passed = None
+
+                        gap_band_passed = None
+                        if gap_pct is not None and min_gap is not None and max_gap is not None:
+                            try:
+                                gap_band_passed = (float(min_gap) <= float(gap_pct) <= float(max_gap))
+                            except Exception:
+                                gap_band_passed = None
+
+                        pm_volume_passed = None
+                        if pm_volume is not None and min_pm_vol is not None:
+                            try:
+                                pm_volume_passed = (float(pm_volume) >= float(min_pm_vol))
+                            except Exception:
+                                pm_volume_passed = None
+
+                        # Read friendly knobs from normalized params
+                        top = norm_params.get("top")
+                        price_min = norm_params.get("min_price") or norm_params.get("price_min")
+                        price_max = norm_params.get("max_price") or norm_params.get("price_max")
+                        min_gap_pct = norm_params.get("min_gap_pct")
+                        max_gap_pct = norm_params.get("max_gap_pct")
+                        min_pm_vol = norm_params.get("min_pm_vol")
+                        min_rvol_open = norm_params.get("min_rvol_open")
+                        rvol_open_minutes = norm_params.get("rvol_open_minutes")
+                        gate_minutes = norm_params.get("gate_minutes")
+                        macd_rise_bars = norm_params.get("macd_rise_bars")
+                        require_macd_rise = norm_params.get("require_macd_rise")
+                        rise_bars = norm_params.get("rise_bars")
+                        green_body_min = norm_params.get("green_body_min")
+
                         summary = SimpleTradeSummary(
                             symbol=sym,
                             scenario=scn,
@@ -370,8 +747,31 @@ def run_backtest(
                             tp_price=tp,
                             sl_pct=sl_pct_final,
                             tp_pct=tp_pct_final,
+                            gap_pct=gap_pct,
+                            top_rank=top_rank,
+                            universe_size=universe_size,
+                            open_price=open_price,
+                            pm_volume=pm_volume,
+                            price_band_passed=price_band_passed,
+                            gap_band_passed=gap_band_passed,
+                            pm_volume_passed=pm_volume_passed,
                             risk_per_share=(entry - sl),
                             exit_reason="take_profit",
+                            top=top,
+                            price_min=price_min,
+                            price_max=price_max,
+                            min_gap_pct=min_gap_pct,
+                            max_gap_pct=max_gap_pct,
+                            min_pm_vol=min_pm_vol,
+                            min_rvol_open=min_rvol_open,
+                            rvol_open_minutes=rvol_open_minutes,
+                            gate_minutes=gate_minutes,
+                            macd_rise_bars=macd_rise_bars,
+                            require_macd_rise=require_macd_rise,
+                            rise_bars=rise_bars,
+                            green_body_min=green_body_min,
+                            strategy_params=strategy_snapshot,
+                            risk_snapshot=risk_snapshot or None,
                         )
                         print()
                         print(format_simple_trade_calcs(summary))
@@ -419,6 +819,57 @@ def run_backtest(
                             risk_value = 0.0
                         risk_usd_final = float(risk_value)
 
+                        # enrich with scanner context when available
+                        ctx = symbol_ctx.get(sym, {}) if isinstance(symbol_ctx, dict) else {}
+                        gap_pct = ctx.get("gap_pct")
+                        top_rank = ctx.get("top_rank")
+                        universe_size = ctx.get("universe_size")
+                        open_price = ctx.get("open_price")
+                        pm_volume = ctx.get("pm_volume")
+
+                        # params for pass/fail flags
+                        min_price = norm_params.get("min_price")
+                        max_price = norm_params.get("max_price")
+                        min_gap = norm_params.get("min_gap_pct")
+                        max_gap = norm_params.get("max_gap_pct")
+                        min_pm_vol = norm_params.get("min_pm_vol")
+
+                        price_band_passed = None
+                        if open_price is not None and min_price is not None and max_price is not None:
+                            try:
+                                price_band_passed = (float(min_price) <= float(open_price) <= float(max_price))
+                            except Exception:
+                                price_band_passed = None
+
+                        gap_band_passed = None
+                        if gap_pct is not None and min_gap is not None and max_gap is not None:
+                            try:
+                                gap_band_passed = (float(min_gap) <= float(gap_pct) <= float(max_gap))
+                            except Exception:
+                                gap_band_passed = None
+
+                        pm_volume_passed = None
+                        if pm_volume is not None and min_pm_vol is not None:
+                            try:
+                                pm_volume_passed = (float(pm_volume) >= float(min_pm_vol))
+                            except Exception:
+                                pm_volume_passed = None
+
+                        # Read friendly knobs from normalized params
+                        top = norm_params.get("top")
+                        price_min = norm_params.get("min_price") or norm_params.get("price_min")
+                        price_max = norm_params.get("max_price") or norm_params.get("price_max")
+                        min_gap_pct = norm_params.get("min_gap_pct")
+                        max_gap_pct = norm_params.get("max_gap_pct")
+                        min_pm_vol = norm_params.get("min_pm_vol")
+                        min_rvol_open = norm_params.get("min_rvol_open")
+                        rvol_open_minutes = norm_params.get("rvol_open_minutes")
+                        gate_minutes = norm_params.get("gate_minutes")
+                        macd_rise_bars = norm_params.get("macd_rise_bars")
+                        require_macd_rise = norm_params.get("require_macd_rise")
+                        rise_bars = norm_params.get("rise_bars")
+                        green_body_min = norm_params.get("green_body_min")
+
                         summary = SimpleTradeSummary(
                             symbol=sym,
                             scenario=scn,
@@ -436,8 +887,31 @@ def run_backtest(
                             tp_price=tp,
                             sl_pct=sl_pct_final,
                             tp_pct=tp_pct_final,
+                            gap_pct=gap_pct,
+                            top_rank=top_rank,
+                            universe_size=universe_size,
+                            open_price=open_price,
+                            pm_volume=pm_volume,
+                            price_band_passed=price_band_passed,
+                            gap_band_passed=gap_band_passed,
+                            pm_volume_passed=pm_volume_passed,
                             risk_per_share=(entry - sl),
                             exit_reason="stop_loss",
+                            top=top,
+                            price_min=price_min,
+                            price_max=price_max,
+                            min_gap_pct=min_gap_pct,
+                            max_gap_pct=max_gap_pct,
+                            min_pm_vol=min_pm_vol,
+                            min_rvol_open=min_rvol_open,
+                            rvol_open_minutes=rvol_open_minutes,
+                            gate_minutes=gate_minutes,
+                            macd_rise_bars=macd_rise_bars,
+                            require_macd_rise=require_macd_rise,
+                            rise_bars=rise_bars,
+                            green_body_min=green_body_min,
+                            strategy_params=strategy_snapshot,
+                            risk_snapshot=risk_snapshot or None,
                         )
                         print()
                         print(format_simple_trade_calcs(summary))

@@ -1,0 +1,16 @@
+{
+  "symbol": "MWYN",
+  "scenario": "B",
+  "trade_id": "MWYN_2025-08-01_1006",
+  "date": "2025-08-01",
+  "exit_time": "2025-08-01 10:09",
+  "window_type": "exit",
+  "candles_1m": [],
+  "candles_1s": [],
+  "indicators": {},
+  "mfe": null,
+  "mae": null,
+  "pnl_raw": -34.99999999999992,
+  "pnl_pct": -2.4999999999999947,
+  "outcome": "SL"
+}

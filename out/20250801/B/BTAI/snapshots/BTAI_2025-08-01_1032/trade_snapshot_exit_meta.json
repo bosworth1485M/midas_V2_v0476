@@ -1,0 +1,16 @@
+{
+  "symbol": "BTAI",
+  "scenario": "B",
+  "trade_id": "BTAI_2025-08-01_1032",
+  "date": "2025-08-01",
+  "exit_time": "2025-08-01 10:32",
+  "window_type": "exit",
+  "candles_1m": [],
+  "candles_1s": [],
+  "indicators": {},
+  "mfe": null,
+  "mae": null,
+  "pnl_raw": -34.99450000000005,
+  "pnl_pct": -2.5000000000000036,
+  "outcome": "SL"
+}

@@ -1,0 +1,11 @@
+{
+  "symbol": "NAMM",
+  "scenario": "B",
+  "trade_id": "NAMM_2025-08-01_1003",
+  "date": "2025-08-01",
+  "entry_time": "2025-08-01 10:03",
+  "window_type": "entry",
+  "candles_1m": [],
+  "candles_1s": [],
+  "indicators": {}
+}

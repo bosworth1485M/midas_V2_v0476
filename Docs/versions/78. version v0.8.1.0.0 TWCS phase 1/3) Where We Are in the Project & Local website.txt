@@ -1,0 +1,197 @@
+3) Where We Are in the Project & Local Website
+
+Title:
+Midas_V2 – Project & Local Website Status at v0.8.1.0.0 (TWCS Phase 1)
+
+1. High-Level Project Status
+
+Midas_V2 is a Cameron-style small-cap gap-and-go trading system with:
+
+A Python backtester + engine.
+
+A strictly JSON-driven config system (config/scenarios.json).
+
+A local React UI (midas-ui) for controlling scenario parameters via a patch server.
+
+A long-term roadmap that includes:
+
+TWCS (candle snapshots).
+
+Microstructure analysis.
+
+Catalyst scoring.
+
+Adaptive sizing.
+
+Relational database.
+
+Visual dashboards.
+
+As of v0.8.1.0.0, the system is in a stable state:
+
+Scenario B is fully configured and JSON-driven.
+
+TWCS Phase 1 is implemented and working.
+
+Backtester and range runner workflows remain unchanged and reliable.
+
+2. Config & Backtester Pipeline (Current Reality)
+
+Current pipeline (for Scenario B):
+
+Config: config/scenarios.json
+
+Contains scenario entries "A", "B", "C", "D", "E" and variants ("B_backup", "B_safe", "D_backup").
+
+Scenario B’s params define:
+
+Price band, gap band, volume thresholds, MACD, green streak, RVOL gate.
+
+Sizing config (enabled).
+
+Risk config (max_trades_per_symbol, daily_max_loss).
+
+TWCS toggle ("twcs_enabled": true). 
+
+scenarios
+
+Runner: scripts/run_range_and_summarize.py
+
+Uses Scenario B’s params to:
+
+Run scripts/topgappers.py with the scenario.
+
+Generate data/samples/universe_sample.txt.
+
+Fetch minute data via scripts/fetch_minutes_polygon.py.
+
+Call the main backtest via python -m midas_v2.cli backtest ....
+
+Backtester: src/midas_v2/engine/backtester.py
+
+Loads scenario params.
+
+Builds StrategyParams.
+
+Applies risk/sizing.
+
+Runs the strategy over minute data.
+
+Logs trades with child-friendly explanation blocks.
+
+Now also:
+
+Checks twcs_enabled.
+
+Calls TWCS entry/exit hooks to generate snapshot JSONs.
+
+3. Local Website (midas-ui) Status
+
+From previous handover: the local UI (midas-ui) is a React app (Vite + Tailwind) generated/maintained by Claude. 
+
+handover
+
+Key status points:
+
+The UI can:
+
+Select date.
+
+Choose scenario (e.g. B).
+
+Adjust top-N, price bands, MACD rise bars, etc.
+
+Interact with a patch server that:
+
+Updates config/scenarios.json based on UI inputs.
+
+We previously wired a MACD rise bars slider and confirmed:
+
+Setting rise_bars to 3 gave trades.
+
+Setting it to 50 eliminated trades.
+
+The UI does not yet have explicit controls for:
+
+twcs_enabled (TWCS toggle).
+
+However, it already uses the general patch mechanism that could easily be extended with:
+
+A “TWCS enabled” checkbox → patch "twcs_enabled": true/false.
+
+At this version:
+
+We are not changing the UI.
+
+We can treat TWCS as always-on for Scenario B via scenarios.json.
+
+UI integration for TWCS (checkbox, status badge, etc.) is a future enhancement once we are happy with TWCS Phase 2+.
+
+4. Where This Fits in the Roadmap
+
+TWCS is part of the wider roadmap you’ve defined:
+
+Phase 1 (current):
+
+Directory + metadata structure + wiring (done).
+
+Phase 2 (next):
+
+Populate 1-minute and 1-second candles, plus basic indicators.
+
+Future phases:
+
+PNG rendering (candle charts).
+
+Relational database:
+
+Store trade snapshots, candle windows, indicators.
+
+Run queries on patterns (wick length, VWAP slope, MACD behavior).
+
+Adaptive sizing and candle-aware filters built on TWCS data.
+
+UI enhancements:
+
+Snapshot browsing.
+
+Trade-by-trade micro analysis from the web panel.
+
+Your local website remains in a good place:
+
+It can already adjust core Scenario B parameters.
+
+It can be extended later to:
+
+Show whether TWCS is on.
+
+Possibly trigger snapshot views.
+
+Later, display summary stats derived from the DB.
+
+5. Recommended Next Immediate Actions
+
+Before starting the next thread:
+
+Tag and push v0.8.1.0.0 using the Git commands above.
+
+Save these three documents:
+
+Session summary (Doc 1).
+
+Handover (Doc 2).
+
+Project + UI status (Doc 3).
+Into something like:
+
+Docs/versions/Midas_V2_v0.8.1.0.0_TWCS_Phase1.md.
+
+Start a new ChatGPT thread for v0.8.1.1.0 (TWCS Phase 2).
+
+Paste:
+
+The Handover (Doc 2) first.
+
+Then, optionally, Doc 1 and Doc 3.
+
+That will give the next thread maximum context and let it “proceed at speed” without re-deriving what we already established today.

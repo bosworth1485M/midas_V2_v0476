@@ -1,6 +1,7 @@
-# src/midas_v2/engine/backtester.py
+# v0.8.1.0.0: TWCS core (snapshots)
 from __future__ import annotations
 import os
+import sys  # v0.8.1.0.0: needed for stderr messages from TWCS hooks
 from typing import List, Dict, Any
 from collections import defaultdict
 
@@ -20,6 +21,9 @@ try:  # v0.4.8
     from midas_v2.features.registry import FeatureRegistry  # v0.4.8
 except Exception:  # v0.4.8
     FeatureRegistry = None  # v0.4.8
+
+# v0.8.1.0.0: TWCS core (snapshots)
+from midas_v2.snapshots import twcs  # v0.8.1.0.0: TWCS core (snapshots)
 
 # Copilot: Define a dataclass called SimpleTradeSummary that captures the key fields
 # we need to explain a single completed trade in simple language.
@@ -533,6 +537,16 @@ def run_backtest(
     # Strategy
     norm_params = _normalize_strategy_params(scenario_params)
     log.info(f"[WHY] Using StrategyParams: {norm_params}")
+
+    # v0.8.1.0.0: TWCS enable flag from scenario params.
+    twcs_enabled = False
+    try:
+        params_dict = scenario_params if isinstance(scenario_params, dict) else {}
+        twcs_enabled = bool(params_dict.get("twcs_enabled", False))
+    except Exception as exc:
+        print(f"[WARN] v0.8.1.0.0: Failed to read twcs_enabled from params: {exc}", file=sys.stderr)
+        twcs_enabled = False
+
     # v0.7.9.7.6: use factory to create StrategyParams with scenario-aware defaults; norm_params still override.
     strat = SimpleBreakoutStrategy(create_strategy_params(scenario_name=scenario_name, **norm_params))
     # Load scanner context for this run (safe no-op if missing)
@@ -638,6 +652,50 @@ def run_backtest(
                     log.debug(f"[SIZE] fallback to legacy qty for {sym}: {e}")
 
                 position = {"symbol": sym, "entry": entry, "i": i, "tp": tp, "sl": sl, "qty": qty}
+
+                # v0.8.1.0.0: build trade_id and attach minimal identifiers to the position
+                try:
+                    entry_time_iso = bars[i].ts  # expected "HH:MM"
+                    trade_id = f"{sym}_{date_str}_{entry_time_iso.replace(':','')}"
+                except Exception:
+                    entry_time_iso = bars[i].ts if i < len(bars) else ""
+                    trade_id = f"{sym}_{date_str}_{i}"
+                # attach to position for later use
+                if isinstance(position, dict):
+                    position["trade_id"] = trade_id  # v0.8.1.0.0
+                    position["entry_time_iso"] = entry_time_iso  # v0.8.1.0.0
+
+                # v0.8.1.0.0: TWCS entry snapshot hook (non-blocking, best-effort)
+                if twcs_enabled:
+                    try:
+                        root_out = Path(settings.out_root) if hasattr(settings, "out_root") else Path("out")  # v0.8.1.0.0
+                        snapshot_dir = twcs.build_snapshot_dir(
+                            root_out=root_out,
+                            date_str=date_str,
+                            scenario=(scenario_name or scn),
+                            symbol=sym,
+                            trade_id=trade_id,
+                        )  # v0.8.1.0.0
+
+                        entry_window_1m: list[Any] = []  # v0.8.1.0.0: placeholder
+                        entry_window_1s: list[Any] = []  # v0.8.1.0.0: placeholder
+                        entry_indicators: Dict[str, Any] = {}  # v0.8.1.0.0: placeholder
+
+                        entry_meta: Dict[str, Any] = {
+                            "symbol": sym,
+                            "scenario": (scenario_name or scn),
+                            "trade_id": trade_id,
+                            "date": date_str,
+                            "entry_time": f"{date_str} {entry_time_iso}",
+                            "window_type": "entry",
+                            "candles_1m": entry_window_1m,
+                            "candles_1s": entry_window_1s,
+                            "indicators": entry_indicators,
+                        }  # v0.8.1.0.0
+
+                        twcs.save_entry_snapshot(snapshot_dir, entry_meta)  # v0.8.1.0.0
+                    except Exception as exc:
+                        print(f"[WARN] v0.8.1.0.0: Failed to save TWCS entry snapshot for {sym}: {exc}", file=sys.stderr)
 
             # manage open position
             if position is not None:
@@ -779,6 +837,53 @@ def run_backtest(
                     except Exception as e:
                         print(f"[SUMMARY_ERROR] {e}")
 
+                    # v0.8.1.0.0: TWCS exit snapshot hook (non-blocking, best-effort)
+                    if twcs_enabled:
+                        try:
+                            trade_id = position.get("trade_id") if isinstance(position, dict) else None
+                            entry_time_iso = position.get("entry_time_iso") if isinstance(position, dict) else None
+                            exit_time_iso = bar.ts
+                            mfe_value = None  # v0.8.1.0.0: placeholder
+                            mae_value = None  # v0.8.1.0.0: placeholder
+                            pnl_raw = pnl
+                            gross_entry_val = gross_entry if 'gross_entry' in locals() else (qty * entry if entry else 0.0)
+                            pnl_pct = (pnl / gross_entry_val * 100.0) if gross_entry_val else None
+                            outcome_label = "TP"
+
+                            root_out = Path(settings.out_root) if hasattr(settings, "out_root") else Path("out")
+                            snapshot_dir = twcs.build_snapshot_dir(
+                                root_out=root_out,
+                                date_str=date_str,
+                                scenario=(scenario_name or scn),
+                                symbol=sym,
+                                trade_id=trade_id or f"{sym}_{date_str}_{exit_time_iso.replace(':','')}",
+                            )  # v0.8.1.0.0
+
+                            exit_window_1m: list[Any] = []  # v0.8.1.0.0: placeholder
+                            exit_window_1s: list[Any] = []  # v0.8.1.0.0: placeholder
+                            exit_indicators: Dict[str, Any] = {}
+
+                            exit_meta: Dict[str, Any] = {
+                                "symbol": sym,
+                                "scenario": (scenario_name or scn),
+                                "trade_id": trade_id,
+                                "date": date_str,
+                                "exit_time": f"{date_str} {exit_time_iso}",
+                                "window_type": "exit",
+                                "candles_1m": exit_window_1m,
+                                "candles_1s": exit_window_1s,
+                                "indicators": exit_indicators,
+                                "mfe": mfe_value,
+                                "mae": mae_value,
+                                "pnl_raw": pnl_raw,
+                                "pnl_pct": pnl_pct,
+                                "outcome": outcome_label,
+                            }  # v0.8.1.0.0
+
+                            twcs.save_exit_snapshot(snapshot_dir, exit_meta)  # v0.8.1.0.0
+                        except Exception as exc:
+                            print(f"[WARN] v0.8.1.0.0: Failed to save TWCS exit snapshot for {sym}: {exc}", file=sys.stderr)
+
                     risk.on_trade_closed(pnl)
                     sizer.on_exit(pnl)  # NEW: update sizing state
                     trades_by_symbol[sym] += 1
@@ -918,6 +1023,53 @@ def run_backtest(
                         print()
                     except Exception as e:
                         print(f"[SUMMARY_ERROR] {e}")
+
+                    # v0.8.1.0.0: TWCS exit snapshot hook for stop-loss (non-blocking)
+                    if twcs_enabled:
+                        try:
+                            trade_id = position.get("trade_id") if isinstance(position, dict) else None
+                            entry_time_iso = position.get("entry_time_iso") if isinstance(position, dict) else None
+                            exit_time_iso = bar.ts
+                            mfe_value = None
+                            mae_value = None
+                            pnl_raw = pnl
+                            gross_entry_val = gross_entry if 'gross_entry' in locals() else (qty * entry if entry else 0.0)
+                            pnl_pct = (pnl / gross_entry_val * 100.0) if gross_entry_val else None
+                            outcome_label = "SL"
+
+                            root_out = Path(settings.out_root) if hasattr(settings, "out_root") else Path("out")
+                            snapshot_dir = twcs.build_snapshot_dir(
+                                root_out=root_out,
+                                date_str=date_str,
+                                scenario=(scenario_name or scn),
+                                symbol=sym,
+                                trade_id=trade_id or f"{sym}_{date_str}_{exit_time_iso.replace(':','')}",
+                            )  # v0.8.1.0.0
+
+                            exit_window_1m: list[Any] = []  # v0.8.1.0.0: placeholder
+                            exit_window_1s: list[Any] = []  # v0.8.1.0.0: placeholder
+                            exit_indicators: Dict[str, Any] = {}
+
+                            exit_meta: Dict[str, Any] = {
+                                "symbol": sym,
+                                "scenario": (scenario_name or scn),
+                                "trade_id": trade_id,
+                                "date": date_str,
+                                "exit_time": f"{date_str} {exit_time_iso}",
+                                "window_type": "exit",
+                                "candles_1m": exit_window_1m,
+                                "candles_1s": exit_window_1s,
+                                "indicators": exit_indicators,
+                                "mfe": mfe_value,
+                                "mae": mae_value,
+                                "pnl_raw": pnl_raw,
+                                "pnl_pct": pnl_pct,
+                                "outcome": outcome_label,
+                            }  # v0.8.1.0.0
+
+                            twcs.save_exit_snapshot(snapshot_dir, exit_meta)  # v0.8.1.0.0
+                        except Exception as exc:
+                            print(f"[WARN] v0.8.1.0.0: Failed to save TWCS exit snapshot for {sym}: {exc}", file=sys.stderr)
 
                     risk.on_trade_closed(pnl)
                     sizer.on_exit(pnl)  # NEW: update sizing state

@@ -1,0 +1,16 @@
+{
+  "symbol": "NAMM",
+  "scenario": "B",
+  "trade_id": "NAMM_2025-08-01_1003",
+  "date": "2025-08-01",
+  "exit_time": "2025-08-01 10:05",
+  "window_type": "exit",
+  "candles_1m": [],
+  "candles_1s": [],
+  "indicators": {},
+  "mfe": null,
+  "mae": null,
+  "pnl_raw": -34.88374999999992,
+  "pnl_pct": -2.4999999999999942,
+  "outcome": "SL"
+}

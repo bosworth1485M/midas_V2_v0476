@@ -1,0 +1,11 @@
+{
+  "symbol": "PHLT",
+  "scenario": "B",
+  "trade_id": "PHLT_2025-08-01_1046",
+  "date": "2025-08-01",
+  "entry_time": "2025-08-01 10:46",
+  "window_type": "entry",
+  "candles_1m": [],
+  "candles_1s": [],
+  "indicators": {}
+}
