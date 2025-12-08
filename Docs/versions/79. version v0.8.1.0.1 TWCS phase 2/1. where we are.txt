@@ -1,0 +1,313 @@
+Below is a unified expert-level synthesis document that integrates all three files you uploaded:
+
+What Was Done in the Previous Version Thread (v0.8.1.0.0 — TWCS Phase 1) → 
+
+1. what was done this version
+
+Goals for This Version Thread (TWCS Phase 2) → 
+
+2. goals for phase 2
+
+Where We Are in the Project & Local Website → 
+
+3) Where We Are in the Project …
+
+This single document is designed so that your next thread can run at full speed with zero loss of context.
+
+**Midas_V2 – Unified Context Handover for v0.8.1.0.1
+
+TWCS Phase 2 (Candle Windows + Indicators)**
+
+1. Summary of What Was Completed in the Previous Version (v0.8.1.0.0 – TWCS Phase 1)
+
+(From: “what was done this version” 
+
+1. what was done this version
+
+)
+
+1.1 Objectives of Phase 1
+
+TWCS Phase 1 successfully implemented the infrastructure for the Trade Window Candle Snapshot system:
+
+A directory structure for storing trade snapshots.
+
+JSON metadata dumps for entry and exit events.
+
+A config-driven flag (twcs_enabled) controlling the entire system.
+
+Zero changes to strategy behavior, PnL, entries, exits, or risk logic.
+
+Full compatibility with the existing workflow, runners, and UI.
+
+This phase was intentionally "scaffolding only" — no candles or indicators yet.
+
+1.2 New Modules Implemented
+polygon_loader.py
+
+Centralized Polygon API key handling.
+
+Replicates exact key semantics of topgappers.py (Bearer token, no URL key).
+
+Provides helpers for fetching minute and second bars (not yet used by TWCS).
+
+twcs.py
+
+Creates snapshot directory for each trade.
+
+Writes:
+
+trade_snapshot_entry_meta.json
+
+trade_snapshot_exit_meta.json
+
+Includes stubs for PNG rendering for later TWCS phases.
+
+Backtester Integration
+
+Backtester now:
+
+Reads twcs_enabled from scenario params.
+
+On entry: constructs metadata, writes entry snapshot.
+
+On exit: constructs exit metadata, writes snapshot.
+
+Always wrapped in try/except → non-invasive, never breaks trades.
+
+Config Updates
+
+Scenario B now includes "twcs_enabled": true.
+
+1.3 Validation
+
+Your run on 2025-08-01, Scenario B:
+
+Backtest executed with identical behavior to pre-TWCS.
+
+Snapshot JSONs were successfully written for MWYN, NAMM, BTAI, and PHLT (entry only).
+
+Directory structure validated as correct.
+
+1.4 Copilot Tooling Restored
+
+Copilot Pro enabled → editing and "apply to file" works again.
+
+This enables TWCS Phase 2 to be implemented cleanly.
+
+2. Goals for This Thread – v0.8.1.0.1, TWCS Phase 2
+
+(From: “goals for phase 2” 
+
+2. goals for phase 2
+
+)
+
+TWCS Phase 2 shifts from structure → data population.
+
+2.1 Populate candles_1m (Highest Priority)
+
+Using minute CSVs from data/samples/...:
+
+Extract N minutes before entry (e.g., last 10).
+
+Extract M minutes after exit (e.g., next 10).
+
+Store each bar with:
+
+timestamp
+
+OHLCV
+
+body %
+
+upper/lower wick %
+
+This becomes the foundation for:
+
+Candle geometry analysis
+
+Green streak validation
+
+Momentum characterization
+
+Microstructure module later
+
+2.2 Populate candles_1s (Optional in same version)
+
+Using polygon_loader or cached CSVs.
+
+Extract 1–2 minutes around entry/exit.
+
+Helps diagnose:
+
+micro pullbacks
+
+stall candles
+
+second-by-second liquidity behavior
+
+If too heavy, carry into v0.8.1.0.2.
+
+2.3 Add Basic Indicators
+
+Attach to entry/exit:
+
+VWAP at entry bar
+
+VWAP slope over last N minutes
+
+MACD histogram & slope
+
+Green streak count
+
+Simple candle descriptors
+(All fields purely diagnostic — no effect on strategy decisions yet)
+
+2.4 Implementation Order
+
+Helper to load and window minute candles
+
+Populate candles_1m in TWCS entry/exit
+
+Add light indicators using existing strategy logic
+
+Test on 2025-08-01
+
+Confirm no change in trade results
+
+3. Where We Are in the Project (Project + Local Website Status)
+
+(From: “Where we are in the project & local website” 
+
+3) Where We Are in the Project …
+
+)
+
+3.1 High-Level System State
+
+The system currently includes:
+
+A reliable Cameron-style backtester
+
+JSON-driven configuration
+
+Working React (Vite/Tailwind) UI
+
+A patch server that modifies config/scenarios.json
+
+A stable strategy + risk engine
+
+TWCS Phase 1 wired in and enabled for Scenario B
+
+Everything is stable and ready for Phase 2.
+
+3.2 Current Backtest Pipeline
+
+(Summarized from your document)
+
+Scenario config drives everything
+
+topgappers.py produces the universe
+
+Minute data fetched via Polygon
+
+Backtester runs strategy
+
+TWCS (if enabled) produces snapshot JSONs
+
+This pipeline will not change in Phase 2.
+
+3.3 Local Website (midas-ui) Status
+
+UI currently supports:
+
+Selecting date
+
+Choosing scenario
+
+Editing rise bars, top-N, price bands
+
+Live patching to scenarios.json
+
+Not yet supporting:
+
+twcs_enabled toggle
+
+Snapshot browsing
+
+Visualization of candles (future DB phase)
+
+UI remains stable and unaffected by Phase 2.
+
+3.4 Position in the Long-Term Roadmap
+
+TWCS Phase 2 is the gateway to:
+
+PNG rendering
+
+Relational DB
+
+Microstructure pattern detection
+
+Adaptive sizing improvements
+
+Automated parameter discovery
+
+Dashboarding and visualization
+
+Phase 1 = Scaffolding
+Phase 2 = Real candle data
+Phase 3 = Rendering + DB
+Phase 4 = Analysis + profitability lift
+Phase 5 = UI visualization
+
+We are currently entering Phase 2.
+
+4. Are These Three Documents Sufficient for a Full Handover?
+
+YES — absolutely.
+With the three documents combined here, a new thread can immediately:
+
+Understand the architecture
+
+See exactly what Phase 1 implemented
+
+Know what Phase 2 must deliver
+
+Understand the full project and UI status
+
+Follow your strict workflow (Copilot/Claude separation, versioning rules, non-invasive logic constraints)
+
+There is zero missing context.
+This unified document is enough for a new thread to continue at maximum speed.
+
+5. If You Want, I Can Produce:
+
+A single DOCX or single Markdown file combining everything
+
+A PDF version
+
+A Copilot implementation spec for TWCS Phase 2
+
+A Claude UI spec for future snapshot browsing
+
+A schema proposal for the future relational database
+
+A TWCS design diagram
+
+Just say the word.
+
+If you'd like, I can now generate:
+
+✅ “TWCS Phase 2 Copilot Specification Document”
+
+(for your next thread to paste into Copilot)
+
+or
+
+✅ “TWCS Phase 2 End-to-End Implementation Plan”
+
+Which one do you want next?
+
+Sources

@@ -24,6 +24,8 @@ except Exception:  # v0.4.8
 
 # v0.8.1.0.0: TWCS core (snapshots)
 from midas_v2.snapshots import twcs  # v0.8.1.0.0: TWCS core (snapshots)
+# v0.8.1.0.1: TWCS minute window loader
+from midas_v2.dataio.twcs_minute_loader import load_twcs_minute_window  # v0.8.1.0.1
 
 # Copilot: Define a dataclass called SimpleTradeSummary that captures the key fields
 # we need to explain a single completed trade in simple language.
@@ -505,7 +507,7 @@ def run_backtest(
     scenario_params: dict,
     settings: Settings,
     out_dir: str,
-    scenario_name: Optional[str] = None,  # v0.7.9.7.6: scenario name for strategy config loading
+    scenario_name: Optional[str] = None,
     max_trades_per_symbol: int = 1,
     daily_max_loss: float = 1000.0,
 ):
@@ -677,9 +679,17 @@ def run_backtest(
                             trade_id=trade_id,
                         )  # v0.8.1.0.0
 
-                        entry_window_1m: list[Any] = []  # v0.8.1.0.0: placeholder
-                        entry_window_1s: list[Any] = []  # v0.8.1.0.0: placeholder
-                        entry_indicators: Dict[str, Any] = {}  # v0.8.1.0.0: placeholder
+                        # v0.8.1.0.1: Load TWCS 1-minute window around entry.
+                        candles_1m, window_meta_1m = load_twcs_minute_window(
+                            symbol=sym,
+                            date_str=date_str,
+                            target_time_str=entry_time_iso,
+                            window_before=10,
+                            window_after=0,
+                        )
+
+                        entry_window_1s: list[Any] = []  # v0.8.1.0.1: placeholder (Phase 3+)
+                        entry_indicators: Dict[str, Any] = {}  # v0.8.1.0.1: placeholder (Phase 3+)
 
                         entry_meta: Dict[str, Any] = {
                             "symbol": sym,
@@ -688,14 +698,17 @@ def run_backtest(
                             "date": date_str,
                             "entry_time": f"{date_str} {entry_time_iso}",
                             "window_type": "entry",
-                            "candles_1m": entry_window_1m,
+                            "candles_1m": candles_1m,  # v0.8.1.0.1: populated from loader
+                            "window_size_1m": window_meta_1m.get("window_size_1m", 0),  # v0.8.1.0.1
+                            "window_before_1m": window_meta_1m.get("window_before_1m", 10),  # v0.8.1.0.1
+                            "window_after_1m": window_meta_1m.get("window_after_1m", 0),  # v0.8.1.0.1
                             "candles_1s": entry_window_1s,
                             "indicators": entry_indicators,
                         }  # v0.8.1.0.0
 
                         twcs.save_entry_snapshot(snapshot_dir, entry_meta)  # v0.8.1.0.0
                     except Exception as exc:
-                        print(f"[WARN] v0.8.1.0.0: Failed to save TWCS entry snapshot for {sym}: {exc}", file=sys.stderr)
+                        print(f"[WARN] v0.8.1.0.1: Failed to save TWCS entry snapshot for {sym}: {exc}", file=sys.stderr)
 
             # manage open position
             if position is not None:
@@ -840,9 +853,17 @@ def run_backtest(
                     # v0.8.1.0.0: TWCS exit snapshot hook (non-blocking, best-effort)
                     if twcs_enabled:
                         try:
-                            trade_id = position.get("trade_id") if isinstance(position, dict) else None
+                            raw_trade_id = position.get("trade_id") if isinstance(position, dict) else None
                             entry_time_iso = position.get("entry_time_iso") if isinstance(position, dict) else None
                             exit_time_iso = bar.ts
+                            
+                            # v0.8.1.0.1: Ensure a stable TWCS trade_id for exit snapshots.
+                            if raw_trade_id:
+                                trade_id_for_twcs = str(raw_trade_id)
+                            else:
+                                trade_id_for_twcs = f"{sym}_{date_str}_{exit_time_iso.replace(':', '')}"
+                            
+
                             mfe_value = None  # v0.8.1.0.0: placeholder
                             mae_value = None  # v0.8.1.0.0: placeholder
                             pnl_raw = pnl
@@ -856,21 +877,32 @@ def run_backtest(
                                 date_str=date_str,
                                 scenario=(scenario_name or scn),
                                 symbol=sym,
-                                trade_id=trade_id or f"{sym}_{date_str}_{exit_time_iso.replace(':','')}",
+                                trade_id=trade_id_for_twcs,  # v0.8.1.0.1: use normalized trade_id
                             )  # v0.8.1.0.0
 
-                            exit_window_1m: list[Any] = []  # v0.8.1.0.0: placeholder
-                            exit_window_1s: list[Any] = []  # v0.8.1.0.0: placeholder
-                            exit_indicators: Dict[str, Any] = {}
+                            # v0.8.1.0.1: Load TWCS 1-minute window around exit.
+                            candles_1m_exit, window_meta_1m_exit = load_twcs_minute_window(
+                                symbol=sym,
+                                date_str=date_str,
+                                target_time_str=exit_time_iso,
+                                window_before=10,
+                                window_after=0,
+                            )
+
+                            exit_window_1s: list[Any] = []  # v0.8.1.0.1: placeholder (Phase 3+)
+                            exit_indicators: Dict[str, Any] = {}  # v0.8.1.0.1: placeholder (Phase 3+)
 
                             exit_meta: Dict[str, Any] = {
                                 "symbol": sym,
                                 "scenario": (scenario_name or scn),
-                                "trade_id": trade_id,
+                                "trade_id": trade_id_for_twcs,  # v0.8.1.0.1: use normalized trade_id
                                 "date": date_str,
                                 "exit_time": f"{date_str} {exit_time_iso}",
                                 "window_type": "exit",
-                                "candles_1m": exit_window_1m,
+                                "candles_1m": candles_1m_exit,  # v0.8.1.0.1: populated from loader
+                                "window_size_1m": window_meta_1m_exit.get("window_size_1m", 0),  # v0.8.1.0.1
+                                "window_before_1m": window_meta_1m_exit.get("window_before_1m", 10),  # v0.8.1.0.1
+                                "window_after_1m": window_meta_1m_exit.get("window_after_1m", 0),  # v0.8.1.0.1
                                 "candles_1s": exit_window_1s,
                                 "indicators": exit_indicators,
                                 "mfe": mfe_value,
@@ -882,7 +914,7 @@ def run_backtest(
 
                             twcs.save_exit_snapshot(snapshot_dir, exit_meta)  # v0.8.1.0.0
                         except Exception as exc:
-                            print(f"[WARN] v0.8.1.0.0: Failed to save TWCS exit snapshot for {sym}: {exc}", file=sys.stderr)
+                            print(f"[WARN] v0.8.1.0.1: Failed to save TWCS exit snapshot for {sym}: {exc}", file=sys.stderr)
 
                     risk.on_trade_closed(pnl)
                     sizer.on_exit(pnl)  # NEW: update sizing state
@@ -1027,9 +1059,17 @@ def run_backtest(
                     # v0.8.1.0.0: TWCS exit snapshot hook for stop-loss (non-blocking)
                     if twcs_enabled:
                         try:
-                            trade_id = position.get("trade_id") if isinstance(position, dict) else None
+                            raw_trade_id = position.get("trade_id") if isinstance(position, dict) else None
                             entry_time_iso = position.get("entry_time_iso") if isinstance(position, dict) else None
                             exit_time_iso = bar.ts
+                            
+                            # v0.8.1.0.1: Ensure a stable TWCS trade_id for exit snapshots.
+                            if raw_trade_id:
+                                trade_id_for_twcs = str(raw_trade_id)
+                            else:
+                                trade_id_for_twcs = f"{sym}_{date_str}_{exit_time_iso.replace(':', '')}"
+                            
+
                             mfe_value = None
                             mae_value = None
                             pnl_raw = pnl
@@ -1043,21 +1083,32 @@ def run_backtest(
                                 date_str=date_str,
                                 scenario=(scenario_name or scn),
                                 symbol=sym,
-                                trade_id=trade_id or f"{sym}_{date_str}_{exit_time_iso.replace(':','')}",
+                                trade_id=trade_id_for_twcs,  # v0.8.1.0.1: use normalized trade_id
                             )  # v0.8.1.0.0
 
-                            exit_window_1m: list[Any] = []  # v0.8.1.0.0: placeholder
-                            exit_window_1s: list[Any] = []  # v0.8.1.0.0: placeholder
-                            exit_indicators: Dict[str, Any] = {}
+                            # v0.8.1.0.1: Load TWCS 1-minute window around exit.
+                            candles_1m_exit, window_meta_1m_exit = load_twcs_minute_window(
+                                symbol=sym,
+                                date_str=date_str,
+                                target_time_str=exit_time_iso,
+                                window_before=10,
+                                window_after=0,
+                            )
+
+                            exit_window_1s: list[Any] = []  # v0.8.1.0.1: placeholder (Phase 3+)
+                            exit_indicators: Dict[str, Any] = {}  # v0.8.1.0.1: placeholder (Phase 3+)
 
                             exit_meta: Dict[str, Any] = {
                                 "symbol": sym,
                                 "scenario": (scenario_name or scn),
-                                "trade_id": trade_id,
+                                "trade_id": trade_id_for_twcs,  # v0.8.1.0.1: use normalized trade_id
                                 "date": date_str,
                                 "exit_time": f"{date_str} {exit_time_iso}",
                                 "window_type": "exit",
-                                "candles_1m": exit_window_1m,
+                                "candles_1m": candles_1m_exit,  # v0.8.1.0.1: populated from loader
+                                "window_size_1m": window_meta_1m_exit.get("window_size_1m", 0),  # v0.8.1.0.1
+                                "window_before_1m": window_meta_1m_exit.get("window_before_1m", 10),  # v0.8.1.0.1
+                                "window_after_1m": window_meta_1m_exit.get("window_after_1m", 0),  # v0.8.1.0.1
                                 "candles_1s": exit_window_1s,
                                 "indicators": exit_indicators,
                                 "mfe": mfe_value,
@@ -1069,7 +1120,7 @@ def run_backtest(
 
                             twcs.save_exit_snapshot(snapshot_dir, exit_meta)  # v0.8.1.0.0
                         except Exception as exc:
-                            print(f"[WARN] v0.8.1.0.0: Failed to save TWCS exit snapshot for {sym}: {exc}", file=sys.stderr)
+                            print(f"[WARN] v0.8.1.0.1: Failed to save TWCS exit snapshot for {sym}: {exc}", file=sys.stderr)
 
                     risk.on_trade_closed(pnl)
                     sizer.on_exit(pnl)  # NEW: update sizing state

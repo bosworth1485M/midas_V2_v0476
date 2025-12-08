@@ -1,0 +1,80 @@
+Got it — we’ll stay firmly in Phase 2 land and park all the PNG/graphical stuff for later. 👍
+
+Here’s how to think about Phase 2 only, in very concrete terms:
+
+What Phase 2 actually does (and doesn’t do)
+
+Does:
+
+Reads minute bars from your existing CSVs
+From data/samples/sample_YYYY-MM-DD_SYMBOL.csv (or equivalent) and lines them up with the backtester’s timeline. 
+
+2. goals for phase 2
+
+Builds the entry/exit “windows” of 1-minute candles
+
+Entry snapshot: last N minutes before the entry candle (e.g. 10 bars).
+
+Exit snapshot: N minutes around/after the exit.
+
+Stores those bars as structured JSON in candles_1m
+Things like:
+
+{
+  "t": "2025-08-01T10:00:00",
+  "o": 1.23,
+  "h": 1.30,
+  "l": 1.20,
+  "c": 1.28,
+  "v": 123456,
+  "body_pct": 0.6,
+  "upper_wick_pct": 0.2,
+  "lower_wick_pct": 0.2
+}
+
+
+for each bar in the window. 
+
+2. goals for phase 2
+
+Optionally adds simple indicator fields (still Phase 2):
+
+VWAP at entry/exit bar
+
+VWAP slope over last few bars
+
+MACD histogram value & slope
+
+Green streak count, etc.
+
+Does not change trading decisions or PnL
+It’s still a pure observer: just richer JSON, same trades.
+
+Does not (yet):
+
+Does not draw any PNGs or charts.
+
+Does not touch the relational DB.
+
+Does not add new filters or gates based on those candles.
+
+All that waits for Phase 3+. Right now we are just recording what really happened, in a way that will be easy to analyze later.
+
+A clean way to proceed inside Phase 2
+
+If you’d like, next I can do one of these Phase-2-only tasks for you:
+
+Design the exact candles_1m JSON schema + window rules
+(e.g. N=10 before/after, how we align timestamps, how we compute body/wick percentages).
+
+Write a Copilot-ready spec for a helper like load_minute_window_for_twcs(symbol, date_str, entry_time) that:
+
+Reads the minute CSV
+
+Returns a list of candle dicts ready to drop straight into entry_meta["candles_1m"].
+
+Write a Copilot-ready patch description for backtester.py to call that helper and pass the candles into TWCS, without touching any trading logic.
+
+No PNGs, no DB, just getting the minute windows wired in correctly.
+
+Tell me which of those you want to do first (1, 2, or 3), and I’ll stay strictly inside Phase 2.
