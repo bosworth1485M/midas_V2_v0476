@@ -1,0 +1,141 @@
+Document 2 — Handover Document for Next Version (v0.8.1.0.4)
+
+(Save as: handover_v0.8.1.0.4.md)
+
+# Handover to Midas_V2 v0.8.1.0.4
+TWCS Phase 3 (Part 2): Wire 1-Second Candles into Snapshots
+1. Starting Context
+
+As of v0.8.1.0.3:
+
+The system has a fully working, safe, standalone 1-second loader.
+
+No wiring exists yet into:
+
+Entry TWCS block
+
+TP exit TWCS block
+
+SL exit TWCS block
+
+This version (v0.8.1.0.4) will attach 1-second candles into actual TWCS snapshots.
+
+We must keep this version as small and controlled as v0.8.1.0.3.
+
+2. Objective of v0.8.1.0.4
+✔ Modify backtester TWCS blocks to include 1-second windows
+
+Specifically:
+
+A. Entry Snapshot
+
+Inside the existing TWCS entry snapshot logic, add:
+
+from midas_v2.dataio.twcs_second_loader import load_twcs_second_window
+
+candles_1s, meta_1s = load_twcs_second_window(
+    symbol=sym,
+    date_str=date_str,
+    target_time_str=entry_time_iso,
+    window_before_seconds=60,
+    window_after_seconds=0,
+)
+
+snapshot["candles_1s"] = candles_1s
+snapshot["window_size_1s"] = meta_1s["window_size_1s"]
+snapshot["window_before_1s"] = meta_1s["window_before_1s"]
+snapshot["window_after_1s"] = meta_1s["window_after_1s"]
+
+B. TP Exit Snapshot
+
+Add the identical block using:
+
+exit_time_iso
+
+candles_1m_exit context if needed
+
+C. SL Exit Snapshot
+
+Same as TP block but in the SL code path.
+
+3. Constraints (Very Important)
+❗ Do NOT:
+
+Modify any trading logic
+
+Modify indicators
+
+Modify scenario configuration
+
+Add any new fields except candles_1s + metadata
+
+Change strategy behavior
+
+Introduce PNG rendering
+
+v0.8.1.0.4 must be purely wiring, no functional logic changes.
+
+4. Expected Snapshot Output After v0.8.1.0.4
+
+Every entry/TP/SL snapshot JSON will now include:
+
+"candles_1s": [...],
+"window_size_1s": 67,
+"window_before_1s": 60,
+"window_after_1s": 0
+
+
+In early tests, expect:
+
+candles_1s: []
+
+window_size_1s: 0
+
+because the 1-second CSV files don’t exist yet — this is correct.
+
+5. After v0.8.1.0.4
+
+The next versions will be:
+
+v0.8.1.0.5 — PNG Renderer
+
+Generate 1m + 1s TWCS PNGs
+
+Visualize:
+
+micro pullbacks
+
+micro breakouts
+
+VWAP line
+
+entry point
+
+v0.8.1.0.6 — Auto PNG Generation
+
+After backtests:
+
+auto-produce TWCS PNGs
+
+optional via flag --plot-twcs
+
+v0.8.2.x — Database Integration
+
+Ingest TWCS data
+
+Build queries to detect patterns in winners vs losers
+
+v0.8.3.x — Momentum Score
+
+⚡ This is the major profitability unlock.
+
+6. Summary of What to Do in v0.8.1.0.4
+✔ Edit backtester.py
+
+Add 1-second loader calls into all TWCS snapshot sections.
+
+✔ Verify by running one trade day
+
+Check JSON snapshot files include "candles_1s".
+
+✔ Keep version small and clean
