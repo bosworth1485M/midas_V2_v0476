@@ -1,0 +1,283 @@
+📘 Midas_V2 Roadmap — Incremental, Fully-Wired, Version-Per-Thread Workflow
+(Core principles now stored in permanent memory)
+1. Philosophy of Development (New Canon)
+
+You have adopted a new, extremely effective methodology:
+
+1. Add features incrementally, one slice at a time.
+
+Each slice must be:
+
+Fully wired end-to-end
+
+Testable
+
+Measurable
+
+Reversible
+
+2. Every version = 1 ChatGPT thread + 1 clear version number.
+
+This keeps context intact and prevents mixing feature stages.
+
+3. Use the ecosystem to speed up AND improve quality:
+Component	Purpose
+Local Website (midas-ui)	Fast parameter tuning. Avoid editing JSON/Python manually.
+Graphical Candle Analysis (TWCS + PNGs)	Visual understanding of good/bad trades.
+Relational Database	Queryable history → pattern recognition → profitable filters.
+Copilot	Code generation for Python (modules, wiring, repetitive tasks).
+Claude	UI components + website workflows + readability passes.
+4. Never again ship partially implemented features.
+
+Each feature must:
+
+Work at its intended level before moving on
+
+Be testable immediately
+
+Be safe to enable or disable
+
+5. Only measure profitability once the filtering layers exist.
+
+Losses now do not matter.
+Profitability emerges only after:
+
+Indicators
+
+Gating logic
+
+Catalyst quality scoring
+
+VWAP/MACD/streak filters
+
+Microstructure candles
+
+Adaptive sizing
+
+2. The Roadmap: Feature Layers in the Order They Should Be Built
+
+This roadmap respects your new development rules and uses incremental vertical slices.
+
+Phase 0 — Current Foundation (v0.8.x)
+
+Backtester stable
+
+Scenario B stable
+
+TWCS scaffolding complete
+
+1m candles captured
+
+Indicators stub created
+
+Local website functional
+
+Copilot & Claude integrated
+
+Versions tracked per thread
+
+Goal: Build the infrastructure for profitable tuning.
+
+Phase 1 — Indicators (TWCS Phase 2)
+
+(This is the phase you are in now.)
+
+1. Add indicator values into TWCS snapshots:
+
+VWAP value
+
+VWAP slope
+
+MACD histogram
+
+MACD slope
+
+Green streak
+
+Opening RVOL
+
+Each is implemented one tiny slice per version, fully tested.
+
+2. Use indicators in the UI later for display, not logic yet.
+
+Outcome:
+You collect the truth of “what the system actually saw” at entry/exit.
+
+Phase 2 — 1-Second Candles (TWCS Phase 3)
+1. Capture:
+
+60–120 seconds before entry
+
+60–120 seconds before exit
+
+2. Store as JSON under snapshots.
+3. Render basic PNG graphics.
+
+Outcome:
+You gain microstructure visibility:
+
+Hesitation candles
+
+Power continuation
+
+Micro fake-outs
+
+Micro pullbacks
+
+Phase 3 — Candle Graphics & Visual Insights
+1. Generate PNGs for:
+
+1m context windows
+
+1s windows
+
+2. Add UI panels:
+
+“Entry snapshot viewer”
+
+“Exit snapshot viewer”
+
+Overlay indicators on candles
+
+Outcome:
+You see good vs bad trades visually.
+This is where tuning becomes fast and intuitive.
+
+Phase 4 — Relational Database Integration
+1. Add DB tables:
+
+Trades
+
+TWCS snapshots
+
+Indicators
+
+1m & 1s candles
+
+2. Use SQL to answer questions like:
+
+“Show me all losing trades with negative VWAP slope at entry.”
+
+“Show me winners where green streak was 3+.”
+
+“Show me losers with large upper wicks.”
+
+Outcome:
+Evidence-based tuning becomes possible.
+This is the profitability engine.
+
+Phase 5 — Adaptive Sizing (Risk Intelligence)
+
+Using DB insights + indicators + candles:
+
+Increase size on A+ quality setups
+
+Reduce size on marginal ones
+
+Add rules based on:
+
+VWAP alignment
+
+Microstructure continuation
+
+MACD trend strength
+
+Catalyst score
+
+Outcome:
+Expectancy increases even if win rate stays constant.
+
+Phase 6 — Catalyst Intelligence 2.0
+
+Higher-quality news scoring
+
+Exclusion lists
+
+Contextual news filters
+
+Multi-source catalyst scoring (Benzinga, Finnhub, Polygon news)
+
+Outcome:
+A powerful jump in WR on volatile days.
+
+Phase 7 — Scenario Refinement Loop
+
+Using:
+
+TWCS indicators
+
+Candle graphics
+
+DB queries
+
+UI visualization
+
+Iteratively:
+
+Identify losing patterns
+
+Introduce filters
+
+Re-run ranges
+
+Evaluate
+
+Keep only profitable changes
+
+This is the loop used by the most profitable Cameron-style projects.
+
+3. Continuous Workflow Rules (Permanent)
+Rule 1 — One version per thread
+
+Each ChatGPT thread = one version (e.g., v0.8.1.0.3).
+This preserves perfect context.
+
+Rule 2 — Only fully wired features
+
+No half-built logic.
+No leftover flags.
+Every version must work, be testable, and produce clean backtests.
+
+Rule 3 — Use the tools
+
+Copilot for Python code generation
+
+Claude for UI, readability, and component generation
+
+Local website for tuning
+
+PNG graphics for visual debugging
+
+Database for truth-based filtering
+
+Rule 4 — Never optimize without visibility
+
+You must:
+
+See what the system saw
+
+Understand why the loser lost
+
+Understand why the winner won
+
+This is why TWCS and graphics matter so much.
+
+4. The Roadmap in One Sentence (Stored in Memory)
+
+Incrementally build Midas_V2 with fully-wired vertical slices, using UI, candle graphics, a relational database, and AI tools (Copilot + Claude), with one version per ChatGPT thread, ensuring no partial features and clean measurable progress at each step.
+
+5. If you'd like…
+
+I can also create:
+
+A PDF roadmap
+
+A versioned DOCX you can hand to future threads
+
+A visual diagram of the phases
+
+A README update for your GitHub repo
+
+Just say “Yes, create the PDF” or “Give me the diagram”.
+
+Let me know when you want the next tiny step for v0.8.1.0.2.

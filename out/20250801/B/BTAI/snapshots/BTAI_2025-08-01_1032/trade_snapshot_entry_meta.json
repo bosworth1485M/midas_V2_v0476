@@ -165,5 +165,7 @@
   "window_before_1m": 10,
   "window_after_1m": 0,
   "candles_1s": [],
-  "indicators": {}
+  "indicators": {
+    "green_streak": 3
+  }
 }

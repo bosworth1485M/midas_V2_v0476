@@ -1,0 +1,216 @@
+Understood — you want a developer-grade, file-level change log that precisely documents every file that was added, modified, or left unchanged in v0.8.1.0.2, in a way that a future version thread (or a human developer) could reconstruct all changes with perfect clarity.
+
+Here is that missing section, written in the format used by elite software teams.
+
+You can append this to your v0.8.1.0.2 summary document or replace the previous “summary” section.
+
+🔧 v0.8.1.0.2 — File-Level Change Summary (Fully Detailed)
+
+(This section describes exactly which files were created or modified in this version.)
+
+🆕 1. New File Created
+src/midas_v2/indicators/twcs_indicators.py
+
+Purpose: Central indicator computation engine for TWCS snapshots.
+
+Key contents added:
+
+build_twcs_indicators(...)
+
+_compute_green_streak(...)
+
+_compute_vwap(...)
+
+_compute_vwap_slope_bps(...)
+
+_compute_macd_hist(...) (short-window)
+
+_compute_macd_slope(...) (short-window)
+
+_compute_rvol_open(...) (schema-level passthrough)
+
+Characteristics:
+
+Fully typed
+
+Pure logic (no trading decisions)
+
+Defensive try/except blocks
+
+Read-only; returns indicator dicts
+
+Version-tagged (v0.8.1.0.2) for traceability
+
+Zero coupling with strategy logic
+
+This is the primary file added in this release.
+
+✏️ 2. File Modified
+src/midas_v2/engine/backtester.py
+
+This file was modified in three specific TWCS blocks:
+
+A. Entry TWCS Snapshot Block — Modified
+
+Changes:
+
+Added import:
+
+from midas_v2.indicators.twcs_indicators import build_twcs_indicators
+
+
+After TWCS minute window loading, added:
+
+entry_window_1s = []
+entry_indicators = {}
+
+try:
+    entry_when = datetime.fromisoformat(f"{date_str}T{entry_time_iso}".replace("Z", ""))
+    entry_indicators = build_twcs_indicators(
+        symbol=sym,
+        date_str=date_str,
+        when=entry_when,
+        candles_1m=candles_1m,
+        strategy_state=None,
+    )
+except Exception as exc:
+    print(f"[WARN] v0.8.1.0.2: Failed to build TWCS entry indicators for {sym}: {exc}", file=sys.stderr)
+    entry_indicators = {}
+
+
+Injected into the snapshot:
+
+"indicators": entry_indicators,
+
+B. TP Exit TWCS Snapshot Block — Modified
+
+Changes mirror entry block:
+
+Introduced:
+
+exit_window_1s = []
+exit_indicators = {}
+
+
+Added try/except:
+
+try:
+    exit_when = datetime.fromisoformat(f"{date_str}T{exit_time_iso}".replace("Z", ""))
+    exit_indicators = build_twcs_indicators(
+        symbol=sym,
+        date_str=date_str,
+        when=exit_when,
+        candles_1m=candles_1m_exit,
+        strategy_state=None,
+    )
+except Exception as exc:
+    print(f"[WARN] v0.8.1.0.2: Failed to build TWCS exit indicators for {sym}: {exc}", file=sys.stderr)
+    exit_indicators = {}
+
+
+Snapshot now includes:
+
+"indicators": exit_indicators,
+
+C. SL Exit TWCS Snapshot Block — Modified
+
+Same pattern as TP block, but applied to SL logic path.
+
+This ensures full symmetry across:
+
+entry
+
+TP exit
+
+SL exit
+
+No branch is left incomplete.
+
+🆕 3. New File Created (Indicators Package Init)
+src/midas_v2/indicators/__init__.py
+
+This file was corrected to:
+
+from __future__ import annotations
+
+"""
+Indicators package for Midas_V2.
+
+v0.8.1.0.2: This __init__ is intentionally minimal.
+TWCS indicator helpers (e.g., build_twcs_indicators) live in
+src/midas_v2/indicators/twcs_indicators.py.
+"""
+
+__all__: list[str] = []
+
+
+Corrected issues:
+
+Removed Copilot-added invalid import:
+
+from .csv_local import CsvLocalProvider
+
+
+Ensured the package imports cleanly
+
+No side effects
+
+📁 4. Files That Were Not Modified, But Are Depended On
+Unchanged but used by indicators:
+
+src/midas_v2/dataio/twcs_minute_loader.py
+(Provides the minute-level TWCS window consumed by indicators)
+
+Unchanged but used during backtests:
+
+src/midas_v2/strategy/strategy.py
+
+src/midas_v2/dataio/csv_local.py (if present)
+
+src/midas_v2/engine/broker_adapter.py
+
+etc.
+
+Unchanged UI Code
+
+Nothing in midas-ui/ was changed in this version.
+
+🔍 5. Files That Should Be Mentioned for Context (But Unmodified)
+
+These files are important because they rely on TWCS snapshots and will use indicators later:
+
+scripts/run_range_and_summarize.py
+
+scripts/run_day_simple.py
+
+midas_v2/cli.py
+
+tools/plotting (future PNG work)
+
+📦 Complete Summary of File Changes (One Glance)
+File	Action	Description
+src/midas_v2/indicators/twcs_indicators.py	Added	Full TWCS indicator engine
+src/midas_v2/engine/backtester.py	Modified	Added indicator wiring in 3 TWCS blocks
+src/midas_v2/indicators/__init__.py	Modified	Clean minimal file; removed invalid import
+(all other files)	Unchanged	No edits made
+
+This is now extremely clear for any future version or developer.
+
+🎯 If you want, I can now generate:
+✔ A printable PDF version containing:
+
+Full v0.8.1.0.2 summary
+
+File-level change log
+
+Roadmap
+
+Handover for v0.8.1.0.3
+
+Momentum score specification
+
+✔ A DOCX version for long-term archival
+✔ A GitHub-ready CHANGELOG.md entry
+
+Just say:
+“PDF please” or “DOCX please” or “CHANGELOG please”

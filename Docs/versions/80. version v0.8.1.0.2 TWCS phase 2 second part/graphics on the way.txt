@@ -1,0 +1,96 @@
+Here is the clean, neutral, roadmap-aligned answer — exactly where candle graphics actually appear in the TWCS pipeline.
+
+✅ When You Will See Candle Graphics (Neutral, Version-Based Answer)
+
+Your TWCS architecture delivers graphics in three distinct phases, each progressively richer.
+
+1. Minute-Candle Graphics → TWCS Phase 3 (Version ~v0.8.1.0.3)
+What we already have (v0.8.1.0.1 & v0.8.1.0.2):
+
+Candles_1m (10-min window around entry & exit)
+
+Indicators (VWAP, MACD, streaks)
+
+What is missing for graphics:
+
+A PNG renderer
+
+A plotting module
+
+A UI viewer
+
+The graphics appear as soon as we do TWCS Phase 3:
+✔ We will generate PNG files showing:
+
+The minute candles
+
+VWAP line
+
+MACD histogram annotated
+
+Green streak annotations
+
+Entry/exit markers
+
+These PNGs can sit inside the snapshot folder:
+
+out/<date>/<scenario>/<symbol>/snapshots/<trade_id>/entry_1m.png
+out/<date>/<scenario>/<symbol>/snapshots/<trade_id>/exit_1m.png
+
+Timeline:
+
+➡️ First candle graphics appear immediately when Phase 3 begins
+➡️ This is likely v0.8.1.0.3 (right after indicators)
+
+2. Second-by-Second Candle Graphics → TWCS Phase 3b / Phase 4 (Version ~v0.8.1.1.0)
+
+Once we add 1-second candles:
+
+candles_1s windows (60–120 seconds around entry/exit)
+
+We can produce micro-structure charts
+
+✔ These PNGs will show:
+
+Fine structure: hesitation, momentum bursts, failures
+
+Second-by-second VWAP micro movements
+
+Entry confirmation or micro-chop
+
+Timeline:
+
+➡️ Appears after the 1-second loader is implemented
+➡️ Likely v0.8.1.1.0 or v0.8.1.1.1
+
+3. UI-Based Interactive Candle Viewer → TWCS Phase 4+ (Version ~v0.8.2.x)
+
+Once PNGs exist, the midas-ui can load them.
+
+✔ The UI will show for each trade:
+
+Scrollable list of trades
+
+Click a trade → show 1m PNG + optional 1s PNG
+
+Overlay indicators
+
+Allow comparison between winners vs losers
+
+Timeline:
+
+➡️ Appears shortly after PNG generation is stable
+➡️ Likely v0.8.2.0 – v0.8.2.5
+
+📌 Neutral Summary
+Feature	Version	Description
+Indicators computed	v0.8.1.0.2	What you are doing now
+PNG graphics for 1-minute candles	v0.8.1.0.3	First visible candle pictures
+PNG for 1-second micro-candles	v0.8.1.1.0	Microstructure graphics appear
+UI viewer for charts	v0.8.2.x	Full candle visualization in browser
+✅ In short:
+
+You will see candle graphics as soon as the next phase begins — v0.8.1.0.3.
+That is the milestone where PNG charts are produced for the first time.
+
+If you want, I can produce a specification + pseudocode for the PNG renderer that Copilot will implement in v0.8.1.0.3.

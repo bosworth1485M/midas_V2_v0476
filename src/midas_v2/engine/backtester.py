@@ -26,6 +26,8 @@ except Exception:  # v0.4.8
 from midas_v2.snapshots import twcs  # v0.8.1.0.0: TWCS core (snapshots)
 # v0.8.1.0.1: TWCS minute window loader
 from midas_v2.dataio.twcs_minute_loader import load_twcs_minute_window  # v0.8.1.0.1
+# v0.8.1.0.2: TWCS indicators stub
+from midas_v2.indicators.twcs_indicators import build_twcs_indicators  # v0.8.1.0.2: TWCS indicators stub
 
 # Copilot: Define a dataclass called SimpleTradeSummary that captures the key fields
 # we need to explain a single completed trade in simple language.
@@ -689,7 +691,21 @@ def run_backtest(
                         )
 
                         entry_window_1s: list[Any] = []  # v0.8.1.0.1: placeholder (Phase 3+)
-                        entry_indicators: Dict[str, Any] = {}  # v0.8.1.0.1: placeholder (Phase 3+)
+                        entry_indicators: Dict[str, Any] = {}  # default
+
+                        # v0.8.1.0.2: attempt to build TWCS entry indicators (non-blocking)
+                        try:
+                            entry_when = datetime.fromisoformat(f"{date_str}T{entry_time_iso}".replace("Z", ""))
+                            entry_indicators = build_twcs_indicators(
+                                symbol=sym,
+                                date_str=date_str,
+                                when=entry_when,
+                                candles_1m=candles_1m,
+                                strategy_state=None,
+                            )
+                        except Exception as exc:
+                            print(f"[WARN] v0.8.1.0.2: Failed to build TWCS entry indicators for {sym}: {exc}", file=sys.stderr)
+                            entry_indicators = {}
 
                         entry_meta: Dict[str, Any] = {
                             "symbol": sym,
@@ -862,7 +878,6 @@ def run_backtest(
                                 trade_id_for_twcs = str(raw_trade_id)
                             else:
                                 trade_id_for_twcs = f"{sym}_{date_str}_{exit_time_iso.replace(':', '')}"
-                            
 
                             mfe_value = None  # v0.8.1.0.0: placeholder
                             mae_value = None  # v0.8.1.0.0: placeholder
@@ -890,7 +905,21 @@ def run_backtest(
                             )
 
                             exit_window_1s: list[Any] = []  # v0.8.1.0.1: placeholder (Phase 3+)
-                            exit_indicators: Dict[str, Any] = {}  # v0.8.1.0.1: placeholder (Phase 3+)
+                            exit_indicators: Dict[str, Any] = {}  # default
+
+                            # v0.8.1.0.2: attempt to build TWCS exit indicators (non-blocking)
+                            try:
+                                exit_when = datetime.fromisoformat(f"{date_str}T{exit_time_iso}".replace("Z", ""))
+                                exit_indicators = build_twcs_indicators(
+                                    symbol=sym,
+                                    date_str=date_str,
+                                    when=exit_when,
+                                    candles_1m=candles_1m_exit,
+                                    strategy_state=None,
+                                )
+                            except Exception as exc:
+                                print(f"[WARN] v0.8.1.0.2: Failed to build TWCS exit indicators for {sym}: {exc}", file=sys.stderr)
+                                exit_indicators = {}
 
                             exit_meta: Dict[str, Any] = {
                                 "symbol": sym,
@@ -1068,7 +1097,6 @@ def run_backtest(
                                 trade_id_for_twcs = str(raw_trade_id)
                             else:
                                 trade_id_for_twcs = f"{sym}_{date_str}_{exit_time_iso.replace(':', '')}"
-                            
 
                             mfe_value = None
                             mae_value = None
@@ -1096,7 +1124,21 @@ def run_backtest(
                             )
 
                             exit_window_1s: list[Any] = []  # v0.8.1.0.1: placeholder (Phase 3+)
-                            exit_indicators: Dict[str, Any] = {}  # v0.8.1.0.1: placeholder (Phase 3+)
+                            exit_indicators: Dict[str, Any] = {}  # default
+
+                            # v0.8.1.0.2: attempt to build TWCS exit indicators (non-blocking)
+                            try:
+                                exit_when = datetime.fromisoformat(f"{date_str}T{exit_time_iso}".replace("Z", ""))
+                                exit_indicators = build_twcs_indicators(
+                                    symbol=sym,
+                                    date_str=date_str,
+                                    when=exit_when,
+                                    candles_1m=candles_1m_exit,
+                                    strategy_state=None,
+                                )
+                            except Exception as exc:
+                                print(f"[WARN] v0.8.1.0.2: Failed to build TWCS exit indicators for {sym}: {exc}", file=sys.stderr)
+                                exit_indicators = {}
 
                             exit_meta: Dict[str, Any] = {
                                 "symbol": sym,

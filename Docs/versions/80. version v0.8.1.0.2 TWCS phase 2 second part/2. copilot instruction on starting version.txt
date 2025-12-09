@@ -1,0 +1,184 @@
+BEGIN COPILOT
+You are editing the Midas_V2 project, starting version v0.8.1.0.3 (TWCS Phase 3 – 1-Second Windows).
+
+Goal of this small step:
+- Create a new data loader module for 1-second TWCS windows.
+- The loader must be **read-only**, **defensive**, and must NOT affect trading logic.
+- In this step we only create the module; we will wire it into the backtester in a later step.
+
+New file to create:
+src/midas_v2/dataio/twcs_second_loader.py
+
+Context:
+- We already have a 1-minute TWCS loader module (twcs_minute_loader.py) that:
+  - Reads from CSV under data/samples/
+  - Filters rows around a target timestamp
+  - Returns a list of candle dicts + metadata
+- We now want a similar helper for 1-second candles (candles_1s), but in this version it may often return an empty list because the 1-second CSVs may not exist yet. That is acceptable and expected.
+
+Assumptions for this version:
+- If 1-second CSVs exist, they will live at:
+    data/samples/sample_1s_{date_str}_{symbol}.csv
+  e.g. data/samples/sample_1s_2025-08-06_PHGE.csv
+- If the file does not exist, or parsing fails, the loader must:
+    - Log a warning
+    - Return an empty list and safe metadata
+    - Never raise an exception out of this module
+
+Requirements for the new module:
+
+1) Module header and imports
+
+- Use a docstring clearly describing the purpose and version:
+
+    """
+    TWCS Phase 3 – 1-Second Window Loader (v0.8.1.0.3)
+
+    Provides a safe, read-only helper to load 1-second TWCS windows around
+    entry/exit times from local CSVs under data/samples/.
+
+    This helper is defensive and must never raise exceptions; on any error it
+    returns an empty list and minimal metadata.
+    """
+
+- Imports:
+
+    from __future__ import annotations
+    from datetime import datetime, timedelta
+    from pathlib import Path
+    from typing import Any, Dict, List, Tuple
+    import csv
+    import sys
+
+2) Public API function
+
+Define:
+
+    def load_twcs_second_window(
+        symbol: str,
+        date_str: str,
+        target_time_str: str,
+        window_before_seconds: int = 60,
+        window_after_seconds: int = 0,
+        csv_root: Path | None = None,
+    ) -> Tuple[List[Dict[str, Any]], Dict[str, int]]:
+
+Behavior:
+
+- symbol: e.g. "PHGE"
+- date_str: "YYYY-MM-DD"
+- target_time_str: ISO-like time, e.g. "2025-08-06T09:58:00" or "2025-08-06 09:58:00"
+- window_before_seconds: number of seconds before target to include
+- window_after_seconds: number of seconds after target to include
+- csv_root: optional root override; if None, default to Path("data/samples")
+
+The function should:
+
+a) Build the CSV path:
+
+    if csv_root is None:
+        csv_root = Path("data/samples")
+
+    csv_path = csv_root / f"sample_1s_{date_str}_{symbol}.csv"
+
+b) If csv_path does not exist:
+
+- Print a warning to stderr like:
+
+    print(f"[WARN] v0.8.1.0.3: 1s CSV not found for {symbol} {date_str} at {csv_path}", file=sys.stderr)
+
+- Return ([], window_meta) where window_meta is:
+
+    {
+        "window_size_1s": 0,
+        "window_before_1s": window_before_seconds,
+        "window_after_1s": window_after_seconds,
+    }
+
+c) Parse target_time_str into a datetime:
+
+- Accept either "YYYY-MM-DD HH:MM:SS", "YYYY-MM-DD HH:MM", or "YYYY-MM-DDTHH:MM:SS".
+- If the string is missing seconds, assume ":00".
+- Strip a trailing "Z" if present.
+- On parse failure, log a warning and return the same empty structure as (b).
+
+d) Read the CSV:
+
+Assume the CSV has at least:
+
+- A timestamp column "t" with ISO-like timestamps (e.g. "2025-08-06T09:58:07").
+- Price columns like "o", "h", "l", "c" and volume "v".
+
+You do not need to validate all columns; just parse what you need. For each row:
+
+- Parse row["t"] into a datetime (skip row on failure).
+- Select rows where:
+
+    start_time = target_time - timedelta(seconds=window_before_seconds)
+    end_time   = target_time + timedelta(seconds=window_after_seconds)
+
+  and start_time <= row_time <= end_time.
+
+- For qualifying rows, build a dict:
+
+    {
+        "t": row_time_iso,   # original string or normalized ISO
+        "o": float or None,
+        "h": float or None,
+        "l": float or None,
+        "c": float or None,
+        "v": float or None,
+        "idx_from_entry": int,  # seconds offset from target_time
+    }
+
+- idx_from_entry should be calculated as:
+    int((row_time - target_time).total_seconds())
+
+e) Sorting:
+
+- After reading, sort the resulting list ascending by row_time.
+
+f) Window metadata:
+
+- window_meta_1s = {
+      "window_size_1s": len(candles_1s),
+      "window_before_1s": window_before_seconds,
+      "window_after_1s": window_after_seconds,
+  }
+
+g) Error handling:
+
+- Wrap the main CSV parsing logic in try/except.
+- On any exception:
+    - Log a warning with the symbol/date and the exception string.
+    - Return the same empty structure ([], window_meta_1s with size 0).
+
+3) Return value
+
+Return:
+
+    return candles_1s, window_meta_1s
+
+Where:
+
+- candles_1s: a list of dicts as described.
+- window_meta_1s: small metadata dict.
+
+4) Style and safety
+
+- This function must NEVER raise out; all errors must be handled internally.
+- It must be safe to call from TWCS hooks even when no 1-second data is available.
+- In v0.8.1.0.3, it is acceptable if it often returns an empty list; we will add the actual 1-second CSV generation/fetching logic in a later step.
+
+5) Do NOT:
+
+- Do NOT modify backtester or TWCS minute loader in this step.
+- Do NOT import or call polygon APIs in this step.
+- Do NOT add any side effects beyond logging warnings.
+
+At the end of this change:
+- src/midas_v2/dataio/twcs_second_loader.py should exist and define load_twcs_second_window with the behavior above.
+- Other modules should remain unchanged.
+
+Please output ONLY the full contents of src/midas_v2/dataio/twcs_second_loader.py.
+END COPILOT
