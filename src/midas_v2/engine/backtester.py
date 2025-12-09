@@ -28,6 +28,8 @@ from midas_v2.snapshots import twcs  # v0.8.1.0.0: TWCS core (snapshots)
 from midas_v2.dataio.twcs_minute_loader import load_twcs_minute_window  # v0.8.1.0.1
 # v0.8.1.0.2: TWCS indicators stub
 from midas_v2.indicators.twcs_indicators import build_twcs_indicators  # v0.8.1.0.2: TWCS indicators stub
+# v0.8.1.0.4: 1-second TWCS window loader
+from midas_v2.dataio.twcs_second_loader import load_twcs_second_window  # v0.8.1.0.4
 
 # Copilot: Define a dataclass called SimpleTradeSummary that captures the key fields
 # we need to explain a single completed trade in simple language.
@@ -690,7 +692,15 @@ def run_backtest(
                             window_after=0,
                         )
 
-                        entry_window_1s: list[Any] = []  # v0.8.1.0.1: placeholder (Phase 3+)
+                        # v0.8.1.0.4: load 1-second TWCS window around entry time
+                        entry_candles_1s, entry_meta_1s = load_twcs_second_window(
+                            symbol=sym,
+                            date_str=date_str,
+                            target_time_str=entry_time_iso,
+                            window_before_seconds=60,
+                            window_after_seconds=0,
+                        )
+
                         entry_indicators: Dict[str, Any] = {}  # default
 
                         # v0.8.1.0.2: attempt to build TWCS entry indicators (non-blocking)
@@ -718,7 +728,10 @@ def run_backtest(
                             "window_size_1m": window_meta_1m.get("window_size_1m", 0),  # v0.8.1.0.1
                             "window_before_1m": window_meta_1m.get("window_before_1m", 10),  # v0.8.1.0.1
                             "window_after_1m": window_meta_1m.get("window_after_1m", 0),  # v0.8.1.0.1
-                            "candles_1s": entry_window_1s,
+                            "candles_1s": entry_candles_1s,  # v0.8.1.0.4
+                            "window_size_1s": entry_meta_1s.get("window_size_1s", 0),  # v0.8.1.0.4
+                            "window_before_1s": entry_meta_1s.get("window_before_1s", 60),  # v0.8.1.0.4
+                            "window_after_1s": entry_meta_1s.get("window_after_1s", 0),  # v0.8.1.0.4
                             "indicators": entry_indicators,
                         }  # v0.8.1.0.0
 
@@ -904,7 +917,15 @@ def run_backtest(
                                 window_after=0,
                             )
 
-                            exit_window_1s: list[Any] = []  # v0.8.1.0.1: placeholder (Phase 3+)
+                            # v0.8.1.0.4: load 1-second TWCS window around TP exit time
+                            tp_candles_1s, tp_meta_1s = load_twcs_second_window(
+                                symbol=sym,
+                                date_str=date_str,
+                                target_time_str=exit_time_iso,
+                                window_before_seconds=60,
+                                window_after_seconds=0,
+                            )
+
                             exit_indicators: Dict[str, Any] = {}  # default
 
                             # v0.8.1.0.2: attempt to build TWCS exit indicators (non-blocking)
@@ -932,7 +953,10 @@ def run_backtest(
                                 "window_size_1m": window_meta_1m_exit.get("window_size_1m", 0),  # v0.8.1.0.1
                                 "window_before_1m": window_meta_1m_exit.get("window_before_1m", 10),  # v0.8.1.0.1
                                 "window_after_1m": window_meta_1m_exit.get("window_after_1m", 0),  # v0.8.1.0.1
-                                "candles_1s": exit_window_1s,
+                                "candles_1s": tp_candles_1s,  # v0.8.1.0.4
+                                "window_size_1s": tp_meta_1s.get("window_size_1s", 0),  # v0.8.1.0.4
+                                "window_before_1s": tp_meta_1s.get("window_before_1s", 60),  # v0.8.1.0.4
+                                "window_after_1s": tp_meta_1s.get("window_after_1s", 0),  # v0.8.1.0.4
                                 "indicators": exit_indicators,
                                 "mfe": mfe_value,
                                 "mae": mae_value,
@@ -1123,7 +1147,15 @@ def run_backtest(
                                 window_after=0,
                             )
 
-                            exit_window_1s: list[Any] = []  # v0.8.1.0.1: placeholder (Phase 3+)
+                            # v0.8.1.0.4: load 1-second TWCS window around SL exit time
+                            sl_candles_1s, sl_meta_1s = load_twcs_second_window(
+                                symbol=sym,
+                                date_str=date_str,
+                                target_time_str=exit_time_iso,
+                                window_before_seconds=60,
+                                window_after_seconds=0,
+                            )
+
                             exit_indicators: Dict[str, Any] = {}  # default
 
                             # v0.8.1.0.2: attempt to build TWCS exit indicators (non-blocking)
@@ -1151,7 +1183,10 @@ def run_backtest(
                                 "window_size_1m": window_meta_1m_exit.get("window_size_1m", 0),  # v0.8.1.0.1
                                 "window_before_1m": window_meta_1m_exit.get("window_before_1m", 10),  # v0.8.1.0.1
                                 "window_after_1m": window_meta_1m_exit.get("window_after_1m", 0),  # v0.8.1.0.1
-                                "candles_1s": exit_window_1s,
+                                "candles_1s": sl_candles_1s,  # v0.8.1.0.4
+                                "window_size_1s": sl_meta_1s.get("window_size_1s", 0),  # v0.8.1.0.4
+                                "window_before_1s": sl_meta_1s.get("window_before_1s", 60),  # v0.8.1.0.4
+                                "window_after_1s": sl_meta_1s.get("window_after_1s", 0),  # v0.8.1.0.4
                                 "indicators": exit_indicators,
                                 "mfe": mfe_value,
                                 "mae": mae_value,

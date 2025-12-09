@@ -1,0 +1,206 @@
+Below is the clean, consolidated start-of-version package for v0.8.1.0.4, containing:
+
+Document of what was achieved in the previous version (v0.8.1.0.3)
+
+Handover document for this version (v0.8.1.0.4)
+
+Copilot specification to implement this version (v0.8.1.0.4)
+
+Each section cites the uploaded source files exactly as required.
+
+✅ 1. What Was Achieved in the Previous Version (v0.8.1.0.3)
+
+(Source: “1. TWCS 1 second candle loader what was done in this version.md”)
+
+
+1. TWCS 1 second candle loader …
+
+✔ Summary
+
+v0.8.1.0.3 successfully delivered the TWCS 1-second candle loader, the core foundation for micro-structure analysis in your profitability roadmap.
+
+✔ Major Achievements
+
+Implemented a safe, defensive, standalone 1-second loader module.
+
+Added new file:
+src/midas_v2/dataio/twcs_second_loader.py
+
+Loader responsibilities include:
+
+Parse 1s CSV files data/samples/sample_1s_{date}_{symbol}.csv
+
+Flexible timestamp parsing
+
+Automatic missing-file handling
+
+Error-resistant CSV parsing
+
+Proper window extraction (default 60s before / 0s after)
+
+Output always includes:
+
+List of candles (possibly empty)
+
+Metadata: window_before_1s, window_after_1s, window_size_1s
+
+Full smoke test performed — loader imported correctly, missing files handled gracefully.
+
+✔ Importance
+
+This loader is the absolute prerequisite for:
+
+1-second TWCS snapshots
+
+Micro-pullback / micro-breakout model
+
+PNG visualizations
+
+Relational DB ingestion
+
+Adaptive sizing based on micro-structure
+
+Profitability modules
+
+The version was clean, isolated, and successful, changing no other code.
+
+✅ 2. Handover Document for the Current Version (v0.8.1.0.4)
+
+(Source: “2. Handover Document for this version.txt”)
+
+
+2. Handover Document for this v…
+
+✔ Objective of v0.8.1.0.4
+
+This version performs one and only one task:
+
+➜ Wire 1-second candles into TWCS snapshots for:
+
+Entry snapshot
+
+TP exit snapshot
+
+SL exit snapshot
+
+That means adding one additional block to each snapshot:
+
+candles_1s: [...]
+window_size_1s: N
+window_before_1s: 60
+window_after_1s: 0
+
+✔ Constraints
+
+Do NOT modify trading logic.
+
+Do NOT modify indicators.
+
+Do NOT modify strategy behavior.
+
+Do NOT add PNG rendering.
+
+Only modify backtester.py.
+
+✔ Expected Outcome
+
+After this version, snapshot JSONs will contain 1-second windows.
+Most symbols will still show:
+
+"candles_1s": []
+"window_size_1s": 0
+
+
+because 1-second CSVs are not yet present — this is correct.
+
+✔ Next Versions After This One
+
+v0.8.1.0.5 — PNG renderer (1m + 1s overlays)
+
+v0.8.1.0.6 — Auto PNG output after backtests
+
+v0.8.2.x — Database ingestion
+
+v0.8.3.x — Momentum score (major profitability unlock)
+
+✅ 3. Copilot Specification for v0.8.1.0.4
+
+(Source: “3. copilot prompt for next version.md”)
+
+
+3. copilot prompt for next vers…
+
+This is the exact prompt to give Copilot so it can apply the wiring cleanly.
+
+✔ Summary of Copilot’s Task
+
+Modify only:
+
+src/midas_v2/engine/backtester.py
+
+
+Add imports and attach 1-second windows into each TWCS snapshot.
+
+✔ Steps Copilot must perform
+1) Add import at top:
+# v0.8.1.0.4: 1-second TWCS window loader
+from midas_v2.dataio.twcs_second_loader import load_twcs_second_window
+
+2) In Entry TWCS block:
+# v0.8.1.0.4: load 1-second window around entry time
+entry_candles_1s, entry_meta_1s = load_twcs_second_window(
+    symbol=sym,
+    date_str=date_str,
+    target_time_str=entry_time_iso,
+    window_before_seconds=60,
+    window_after_seconds=0,
+)
+
+# v0.8.1.0.4: attach to snapshot
+entry_snapshot["candles_1s"] = entry_candles_1s
+entry_snapshot["window_size_1s"] = entry_meta_1s.get("window_size_1s", 0)
+entry_snapshot["window_before_1s"] = entry_meta_1s.get("window_before_1s", 60)
+entry_snapshot["window_after_1s"] = entry_meta_1s.get("window_after_1s", 0)
+
+3) TP exit snapshot — mirror the entry block
+
+Use exit_time_iso.
+
+4) SL exit snapshot — same pattern
+
+Also use exit_time_iso (or the relevant SL time variable).
+
+5) Add inline comments including version tag
+
+All changes must be annotated:
+
+# v0.8.1.0.4
+
+6) Do NOT:
+
+Modify logic
+
+Modify indicators
+
+Introduce new files
+
+Add PNG generation
+
+Change strategy behavior
+
+7) Copilot output requirement
+
+Output only the updated file:
+
+src/midas_v2/engine/backtester.py
+
+🎉 Summary for You — Start of v0.8.1.0.4 Is Ready
+
+You now have:
+
+✔ Full detailed summary of v0.8.1.0.3
+
+✔ Full handover instructions for v0.8.1.0.4
+✔ Copilot implementation spec for v0.8.1.0.4
+
+This is exactly the clean “start of version” package you requested.

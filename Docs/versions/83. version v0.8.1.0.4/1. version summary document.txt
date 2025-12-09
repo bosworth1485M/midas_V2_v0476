@@ -1,0 +1,116 @@
+📘 Document 1 — What Was Achieved in v0.8.1.0.4
+TWCS Phase 3 (Part 2): Wiring 1-Second Windows Into Snapshots
+1. Version Purpose
+
+The objective of v0.8.1.0.4 was to wire the 1-second TWCS loader (created in v0.8.1.0.3) into the actual snapshot generation pipeline.
+
+This means that for every trade, at entry, TP exit, and SL exit, the TWCS snapshot now includes micro-structure data extracted from the 1-second window around the trade timestamp.
+
+This version remains strictly non-functional (no changes to trading logic, indicators, sizing, filters, or parameters).
+It only extends the snapshot schema.
+
+2. Summary of Changes
+2.1 Modified File
+src/midas_v2/engine/backtester.py
+
+
+This is the only file changed in this version.
+
+3. Technical Work Completed
+3.1 Added import for 1-second loader
+
+At the top of backtester.py:
+
+# v0.8.1.0.4: 1-second TWCS window loader
+from midas_v2.dataio.twcs_second_loader import load_twcs_second_window
+
+
+This enables backtester access to the 1-second data loader.
+
+3.2 Added 1-second TWCS block to ENTRY snapshot
+
+Inside the entry TWCS creation block, after loading 1-minute TWCS and indicators, the backtester now loads:
+
+# v0.8.1.0.4: load 1-second TWCS window around entry time
+entry_candles_1s, entry_meta_1s = load_twcs_second_window(
+    symbol=sym,
+    date_str=date_str,
+    target_time_str=entry_time_iso,
+    window_before_seconds=60,
+    window_after_seconds=0,
+)
+
+
+Then attaches them to entry_snapshot:
+
+# v0.8.1.0.4: attach 1-second window to entry TWCS snapshot
+entry_snapshot["candles_1s"] = entry_candles_1s
+entry_snapshot["window_size_1s"] = entry_meta_1s.get("window_size_1s", 0)
+entry_snapshot["window_before_1s"] = entry_meta_1s.get("window_before_1s", 60)
+entry_snapshot["window_after_1s"] = entry_meta_1s.get("window_after_1s", 0)
+
+3.3 Added 1-second TWCS block to TP EXIT snapshot
+
+Analogous to entry snapshot, the TP exit block loads:
+
+tp_candles_1s, tp_meta_1s = load_twcs_second_window(
+    symbol=sym,
+    date_str=date_str,
+    target_time_str=exit_time_iso,
+    window_before_seconds=60,
+    window_after_seconds=0,
+)
+
+
+Then adds:
+
+tp_snapshot["candles_1s"] = tp_candles_1s
+tp_snapshot["window_size_1s"] = tp_meta_1s.get("window_size_1s", 0)
+tp_snapshot["window_before_1s"] = tp_meta_1s.get("window_before_1s", 60)
+tp_snapshot["window_after_1s"] = tp_meta_1s.get("window_after_1s", 0)
+
+3.4 Added 1-second TWCS block to SL EXIT snapshot
+
+The SL snapshot mirrors the TP block:
+
+sl_candles_1s, sl_meta_1s = load_twcs_second_window(
+    symbol=sym,
+    date_str=date_str,
+    target_time_str=exit_time_iso,
+    window_before_seconds=60,
+    window_after_seconds=0,
+)
+
+
+Followed by:
+
+sl_snapshot["candles_1s"] = sl_candles_1s
+sl_snapshot["window_size_1s"] = sl_meta_1s.get("window_size_1s", 0)
+sl_snapshot["window_before_1s"] = sl_meta_1s.get("window_before_1s", 60)
+sl_snapshot["window_after_1s"] = sl_meta_1s.get("window_after_1s", 0)
+
+4. Resulting Snapshot Schema Enhancement
+
+Every entry/exit TWCS file (even without real 1s data yet) now contains:
+
+"candles_1s": [],
+"window_size_1s": 0,
+"window_before_1s": 60,
+"window_after_1s": 0
+
+
+Once 1-second CSV data exists, the snapshot will automatically include rich microstructure candles.
+
+5. Validation Performed
+
+The backtest ran successfully on 2025-08-06.
+
+Loader warnings confirm correct invocation:
+“1s CSV not found …” (expected).
+
+Snapshot JSONs show all new fields exactly as required.
+
+6. Version Outcome
+
+v0.8.1.0.4 is complete, stable, and correctly implements Part 2 of TWCS Phase 3.
+This version is ready to be committed and tagged after final review.
