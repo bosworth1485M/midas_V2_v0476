@@ -1,0 +1,74 @@
+✔️ Your long-term intent is now saved:
+
+You want Midas_V2 to include the full integrated viewer UI, consisting of:
+
+A Filters & Controls Bar for DB-driven queries
+
+A Trade List panel that updates dynamically from DB filters
+
+A Trade Detail Viewer showing:
+
+Entry PNG (1m + 1s microstructure)
+
+Exit PNG
+
+Entry/Exit indicators (VWAP slope, MACD slope, green streak, RVOL, etc.)
+
+Context (gap %, PM volume, Top-N rank)
+
+Child-friendly trade summary
+
+Notes field for tagging failure patterns
+
+A deep Failure-Mode Explorer workflow enabling:
+
+Filtering by indicator states
+
+Reviewing SL-only trades
+
+Identifying systematic failure modes visually
+
+Promoting rules for gating/sizing
+
+DB integration powering:
+
+Dynamic queries
+
+Quality buckets
+
+Indicator distributions
+
+Expectancy analysis
+
+UI development to be done primarily through Claude
+
+✔️ I will now treat this as a core milestone of the Midas_V2 roadmap
+
+I will integrate this concept automatically when we discuss:
+
+DB schema
+
+Indicator pipelines
+
+TWCS phases
+
+Version planning
+
+UI milestones
+
+Profitability roadmap steps
+
+Documentation
+
+Future Copilot/Claude specs
+
+This viewer is now considered a central research tool of Midas_V2, just like it is for the most successful Cameron-style project teams.
+
+If you'd like next, I can prepare:
+
+⭐ A detailed Claude specification for the UI viewer
+⭐ A DB schema optimized for this viewer
+⭐ The version plan for when we will build each piece
+⭐ Query recipes for failure-mode exploration
+
+Which direction would you like to move toward?

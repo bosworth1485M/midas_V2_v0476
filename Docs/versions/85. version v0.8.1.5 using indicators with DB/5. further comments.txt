@@ -1,0 +1,60 @@
+Done — it’s now in permanent memory.
+
+Everything we discussed about UI integration is now part of your long-term Midas_V2 roadmap:
+
+✔️ UI is essential for profitability
+✔️ UI will be built primarily by Claude
+✔️ UI must include:
+
+Trade list panel
+
+TWCS PNG viewer (entry/exit)
+
+Indicator explorer (VWAP slope, MACD slope, green streak, RVOL, etc.)
+
+Failure-mode explorer
+
+DB-driven visualization tools
+
+Ability to click through trades and visually inspect the microstructure
+
+Integration with 1-minute and 1-second TWCS windows
+
+Future playback mode / visual debugging
+
+Filtering trades by indicator conditions
+
+Linking DB queries → UI previews
+
+Ability to visually confirm indicator-based failure patterns
+
+✔️ The UI + DB loop is required to raise expectancy
+
+You want to replicate what the most successful Cameron-style teams do —
+and this UI-driven analysis workflow is one of their most powerful tools.
+
+✔️ I will treat this as part of the official profitability roadmap going forward
+
+Whenever we plan new versions, features, or modules, I will ensure the UI layer is:
+
+Always considered
+
+Always aligned with the profitability loop
+
+Always built at the appropriate phase
+
+Always done via Claude (your preference)
+
+If you want, I can now generate:
+
+📘 A dedicated “UI Integration Roadmap” document
+
+or
+
+🧩 The next step for UI (e.g., TWCS viewer spec for Claude)
+
+or
+
+🔗 A combined roadmap tying DB + UI + Rule Refinement into one workflow
+
+Just tell me what direction you want next.

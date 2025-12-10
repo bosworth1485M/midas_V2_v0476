@@ -30,6 +30,8 @@ from midas_v2.dataio.twcs_minute_loader import load_twcs_minute_window  # v0.8.1
 from midas_v2.indicators.twcs_indicators import build_twcs_indicators  # v0.8.1.0.2: TWCS indicators stub
 # v0.8.1.0.4: 1-second TWCS window loader
 from midas_v2.dataio.twcs_second_loader import load_twcs_second_window  # v0.8.1.0.4
+# v0.8.1.0.5: TWCS PNG rendering
+from midas_v2.plotting.twcs_plotter import plot_twcs_snapshot  # v0.8.1.0.5
 
 # Copilot: Define a dataclass called SimpleTradeSummary that captures the key fields
 # we need to explain a single completed trade in simple language.
@@ -543,6 +545,11 @@ def run_backtest(
     # Strategy
     norm_params = _normalize_strategy_params(scenario_params)
     log.info(f"[WHY] Using StrategyParams: {norm_params}")
+    
+    if isinstance(scenario_params, dict):  # v0.8.1.0.5
+        plot_twcs_flag = bool(scenario_params.get("plot_twcs", False))  # v0.8.1.0.5
+    else:
+        plot_twcs_flag = False  # v0.8.1.0.5
 
     # v0.8.1.0.0: TWCS enable flag from scenario params.
     twcs_enabled = False
@@ -736,6 +743,14 @@ def run_backtest(
                         }  # v0.8.1.0.0
 
                         twcs.save_entry_snapshot(snapshot_dir, entry_meta)  # v0.8.1.0.0
+                        
+                        # v0.8.1.0.5: render entry TWCS PNG if enabled
+                        if plot_twcs_flag:  # v0.8.1.0.5
+                            try:
+                                out_png = os.path.join(snapshot_dir, "trade_snapshot_entry.png")
+                                plot_twcs_snapshot(entry_meta, out_png)
+                            except Exception as exc:
+                                print(f"[WARN] v0.8.1.0.5: Failed to plot entry TWCS for {sym}: {exc}", file=sys.stderr)
                     except Exception as exc:
                         print(f"[WARN] v0.8.1.0.1: Failed to save TWCS entry snapshot for {sym}: {exc}", file=sys.stderr)
 
@@ -966,6 +981,14 @@ def run_backtest(
                             }  # v0.8.1.0.0
 
                             twcs.save_exit_snapshot(snapshot_dir, exit_meta)  # v0.8.1.0.0
+                            
+                            # v0.8.1.0.5: render exit TWCS PNG if enabled
+                            if plot_twcs_flag:  # v0.8.1.0.5
+                                try:
+                                    out_png = os.path.join(snapshot_dir, "trade_snapshot_exit.png")
+                                    plot_twcs_snapshot(exit_meta, out_png)
+                                except Exception as exc:
+                                    print(f"[WARN] v0.8.1.0.5: Failed to plot exit TWCS for {sym}: {exc}", file=sys.stderr)
                         except Exception as exc:
                             print(f"[WARN] v0.8.1.0.1: Failed to save TWCS exit snapshot for {sym}: {exc}", file=sys.stderr)
 
@@ -1196,6 +1219,14 @@ def run_backtest(
                             }  # v0.8.1.0.0
 
                             twcs.save_exit_snapshot(snapshot_dir, exit_meta)  # v0.8.1.0.0
+                            
+                            # v0.8.1.0.5: render exit TWCS PNG if enabled
+                            if plot_twcs_flag:  # v0.8.1.0.5
+                                try:
+                                    out_png = os.path.join(snapshot_dir, "trade_snapshot_exit.png")
+                                    plot_twcs_snapshot(exit_meta, out_png)
+                                except Exception as exc:
+                                    print(f"[WARN] v0.8.1.0.5: Failed to plot exit TWCS for {sym}: {exc}", file=sys.stderr)
                         except Exception as exc:
                             print(f"[WARN] v0.8.1.0.1: Failed to save TWCS exit snapshot for {sym}: {exc}", file=sys.stderr)
 

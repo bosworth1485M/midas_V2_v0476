@@ -88,6 +88,7 @@
       "top": 5,
       "tp_pct": 2.0,
       "twcs_enabled": true,
+      "plot_twcs": true,
       "max_trades_per_symbol": 1,
       "daily_max_loss": 1000.0
     }

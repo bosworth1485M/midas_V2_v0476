@@ -1,0 +1,315 @@
+Love this question — this is where all the pieces you’ve been building finally click together.
+
+Let’s design the “Integrated Failure-Mode Viewer”: one screen that connects
+
+DB → trades & indicators
+
+PNGs → candles & microstructure
+
+UI → filters, lists, drilldowns
+
+so you can see why trades fail and turn that into rules.
+
+I’ll keep this as a concept + Claude-ready spec, not actual React code.
+
+1. Mental model: One screen, three main zones
+
+Think of a 3-part layout:
+
+Top: Filter & controls bar – choose what you want to study
+
+Left: Trade list – all trades that match your filters
+
+Right: Detail view – PNGs + indicators for the selected trade
+
+Rough ASCII layout:
+
++-----------------------------------------------------------+
+| Filters & Controls                                        |
++--------------------------+--------------------------------+
+| Trade List               |  Trade Detail Viewer           |
+| (table)                  |  - Entry PNG (1m+1s)          |
+|                          |  - Exit PNG (1m+1s)           |
+|                          |  - Indicators at entry/exit   |
+|                          |  - Basic stats & notes        |
++--------------------------+--------------------------------+
+
+
+Later, you could add tabs on the right for “Entry / Exit / DB / Notes”, but this is the core.
+
+2. Filters & controls bar (top strip)
+
+This is how you ask questions of the DB.
+
+Controls:
+
+Date range picker
+
+Start date / end date (e.g. 2025-08-01 → 2025-08-31)
+
+Scenario selector
+
+B, D, E, etc.
+
+Outcome filter
+
+All / Only Winners / Only Losers / Only SL / Only TP
+
+Indicator filters (entry)
+
+vwap_slope_bps: min / max
+
+macd_hist: min / max
+
+macd_slope: min / max
+
+green_streak: min / max
+
+rvol_open: min / max
+
+Gap / price filters
+
+gap_pct range
+
+open_price range
+
+Toggle: “Only high-confidence setups”
+
+e.g. VWAP slope > 0, MACD up, green_streak ≥ 3
+
+Toggle: “Show only failure pattern candidates”
+
+e.g. losers with certain indicator conditions
+
+UX idea:
+As you adjust filters, the Trade List updates instantly with the matching subset.
+
+This is where the DB powers everything: each change = a query.
+
+3. Trade List (left panel)
+
+A scrollable table of trades matching your filters.
+
+Columns:
+
+Date
+
+Time (entry_time)
+
+Symbol
+
+Outcome (TP / SL / EOD)
+
+PnL ($ and %)
+
+Scenario
+
+Basic indicator snapshot (at entry), like:
+
+VWAP slope
+
+MACD slope
+
+green_streak
+
+rvol_open
+
+Example row:
+
+Date	Time	Sym	Outcome	PnL	VWAP Slope	MACD Slope	Green Streak	RVOL
+2025-08-06	09:58	PHGE	TP	+27.8	+51.8 bps	-0.0196	1	2.0?
+2025-08-06	10:11	MYGN	SL	-35.0	???	???	...	...
+
+Behavior:
+
+Clicking a row selects that trade
+
+Right-hand “Trade Detail Viewer” updates immediately
+
+You can sort by PnL, by MACD slope, by VWAP slope, etc.
+
+You can do “Only show SL trades where MACD slope < 0” and inspect them one by one.
+
+This is your failure-mode hunting ground.
+
+4. Trade Detail Viewer (right panel)
+
+This is where the TWCS PNG + indicators + summary live.
+
+Split into sections:
+
+4.1 Top: Entry PNG + indicators
+
+Show trade_snapshot_entry.png
+
+Top: 1-minute candles + VWAP overlay later
+
+Bottom: 1-second candles (when we have them)
+
+Vertical line at entry time
+
+Next to it, show key indicators at entry:
+
+vwap
+
+vwap_slope_bps
+
+macd_hist
+
+macd_slope
+
+green_streak
+
+rvol_open
+
+gap_pct, open_price
+
+These values come from the entry snapshot JSON you already have. 
+
+trade_snapshot_entry_meta
+
+4.2 Middle: Exit PNG + indicators
+
+Show trade_snapshot_exit.png
+
+Next to it, indicators at exit:
+
+vwap, vwap_slope_bps
+
+macd_hist, macd_slope
+
+maybe mfe, mae, pnl_pct from the exit snapshot 
+
+trade_snapshot_exit_meta
+
+This lets you see:
+
+Did VWAP roll over before or after entry?
+
+Did MACD roll over?
+
+Did price slam into resistance?
+
+Did microstructure look weak?
+
+4.3 Bottom: Trade summary & notes
+
+Include:
+
+Basic trade stats:
+
+Symbol, scenario, date
+
+Entry/exit times
+
+Prices, shares, PnL
+
+Outcome (TP/SL)
+
+Scenario & config snapshot:
+
+gate_minutes, min_pm_vol, min_rvol_open, etc.
+
+Child-friendly narrative (you already generate via format_simple_trade_calcs) so it’s readable.
+
+Freeform notes field:
+
+You can type:
+
+“Entered late, VWAP flattening.”
+
+“MACD slope down, skip this pattern in future.”
+
+Later this can be stored in a notes column in the DB.
+
+5. Failure-mode exploration flow
+
+Here’s how you’d actually use this integrated viewer to increase profitability:
+
+Example: Investigate losing trades with negative MACD slope at entry
+
+In filters:
+
+Outcome: SL only
+
+macd_slope_entry < 0
+
+Maybe rvol_open >= 1.5 (to filter out illiquid junk)
+
+Inspect the Trade List (losers with MACD slope < 0).
+
+Click through 10–20 trades in the Trade Detail Viewer:
+
+See if candles and PNGs confirm what the numbers say:
+
+price visibly rolling over
+
+weak green bodies
+
+VWAP flattening or turning down
+
+If visually obvious:
+
+Promote a candidate rule:
+
+e.g. “require macd_slope >= 0 at entry”
+
+Then:
+
+Use DB & backtester to A/B test this rule over Aug/Sept.
+
+You repeat this process for:
+
+VWAP slope
+
+green streak
+
+RVOL
+
+gap zones
+
+1-second microstructure (later)
+
+The integrated viewer lets you directly connect:
+
+“This indicator condition is bad”
+with
+“I can see why in the chart.”
+
+6. How this plugs into your existing architecture
+
+You already have:
+
+Backtester → TWCS snapshots (JSON)
+
+Snapshot → PNGs
+
+Scenario config → knobs (JSON)
+
+Soon: DB with trades and indicators
+
+The integrated viewer will:
+
+Read from the DB for filters + trade list
+
+Read PNGs and JSON snapshots for the selected trade
+
+Display everything in a single React page (Claude’s job)
+
+Let you annotate / tag trades (stored back into DB later)
+
+7. Claude-ready “Integrated Viewer” UI spec (high level)
+
+When you’re ready for Claude, you can give it something like:
+
+“Build a React UI page FailureModeViewer with three zones: Filters bar, TradeList panel, TradeDetail panel. The data model: trades from DB (fields X,Y,Z), snapshots with PNG paths and indicators (A,B,C). Clicking a trade row loads PNGs and indicators into the detail pane. Use Tailwind layout, simple Card components, and keep it clean + fast to scan.”
+
+We can refine that into a full Claude prompt when you’re ready for UI work.
+
+If you’d like next, I can:
+
+Turn this into a precise Claude spec you can paste directly, or
+
+Design the DB query shapes that power each part of this viewer (filters → SQL), or
+
+Help sketch what v0.8.1.0.6 or v0.8.1.0.7 should do to move toward this screen.
