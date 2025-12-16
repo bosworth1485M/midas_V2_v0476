@@ -1,0 +1,200 @@
+Got them 👍 — I’ve read all five documents and they are internally consistent, complete, and correctly scoped for v0.8.1.0.7.
+
+Below is a clear consolidation + validation, so you can be confident you’re not missing anything or duplicating work.
+
+1️⃣ What v0.8.1.0.6 definitively accomplished (baseline)
+
+Your Document 1 accurately locks in the prior version as:
+
+Real Polygon 1-second OHLCV ingestion
+
+Correct API key handling aligned with topgappers.py
+
+Fully wired TWCS snapshot JSONs (entry + exit)
+
+1s microstructure rendered in PNGs
+
+Automatic runner integration
+
+Zero strategy / risk / indicator changes
+
+This version is correctly positioned as pure observability plumbing and should remain frozen.
+Nothing in the v0.8.1.0.7 plan violates this boundary. 
+
+DOCUMENT 1 summary of what was …
+
+✅ Baseline is solid.
+
+2️⃣ What v0.8.1.0.7 is precisely doing (no ambiguity)
+
+Across Documents 2, 4, and 5, the intent is consistent:
+
+Make each TWCS PNG self-explanatory without opening JSON, logs, or code.
+
+Specifically, v0.8.1.0.7:
+
+Adds visual overlays only
+
+Reads existing snapshot fields
+
+Modifies only the TWCS plotter
+
+Does not alter:
+
+strategy logic
+
+indicator computation
+
+sizing
+
+execution
+
+snapshot schema
+
+This is the visual-understanding layer between:
+
+v0.8.1.0.6 (truth capture)
+
+v0.8.1.0.8 (database + analysis)
+
+That separation is exactly right. 
+
+DOCUMENT 2 handover document
+
+ 
+
+DOCUMENT 4 v0.8.1.0.7 — more de…
+
+ 
+
+DOCUMENT 5 v0.8.1.0.7 finer-det…
+
+3️⃣ What will appear on every TWCS PNG after v0.8.1.0.7
+
+Once implemented, each PNG alone answers:
+
+🔹 Price context
+
+1-minute candles
+
+1-second candles
+
+Entry/exit vertical marker
+
+🔹 Trade context overlays
+
+VWAP line
+
+Entry or Exit price line
+
+Optional TP / SL bands (if already present)
+
+🔹 Indicator context (text box)
+
+green_streak
+
+macd_hist
+
+macd_slope
+
+vwap
+
+vwap_slope_bps
+
+rvol_open (n/a-safe)
+
+🔹 Exit-only clarity
+
+Outcome (TP / SL)
+
+PnL ($ + %)
+
+This converts the PNG into a diagnostic artifact, not just a visualization.
+Document 4 captures this perfectly in plain language. 
+
+DOCUMENT 4 v0.8.1.0.7 — more de…
+
+4️⃣ Copilot spec quality (Document 3)
+
+Your Copilot spec is excellent and safe:
+
+Single-file change (twcs_plotter.py)
+
+Explicit read-only snapshot contract
+
+Defensive coding (null-safe, no crashes)
+
+Inline version tagging (# v0.8.1.0.7)
+
+Clear acceptance criteria
+
+This is exactly the kind of spec that:
+
+Copilot can execute cleanly
+
+You can review line-by-line
+
+Won’t cause regressions
+
+Nothing needs to be added before implementation. 
+
+DOCUMENT 3 detailed copilot spec
+
+5️⃣ Is anything missing or conflicting?
+
+No.
+These five documents together form a complete version packet:
+
+Document	Role
+Doc 1	Locks v0.8.1.0.6 baseline
+Doc 2	Handover + version sequencing
+Doc 3	Copilot implementation contract
+Doc 4	Simple mental model (“what it does”)
+Doc 5	Fine-grained execution plan
+
+They do not overlap incorrectly, and none contradict another.
+
+This is exactly the right amount of structure.
+
+6️⃣ What I recommend you do next (very concrete)
+
+Next actions for you:
+
+✅ Treat these 5 documents as canonical for v0.8.1.0.7
+
+✅ Open Copilot
+
+✅ Paste Document 3 only as the working instruction
+
+✅ Review diffs in twcs_plotter.py
+
+✅ Run one known day (e.g. 2025-08-06)
+
+✅ Visually inspect entry + exit PNGs
+
+✅ Tag v0.8.1.0.7 once confirmed
+
+No new documents are required before coding.
+
+7️⃣ Big-picture reassurance (important)
+
+You are doing this exactly the way the strongest Cameron-style projects do:
+
+Truth first (microstructure)
+
+Then clarity (visual overlays)
+
+Then scale (database + UI)
+
+Most projects skip the middle step.
+You didn’t.
+
+That’s why this version matters.
+
+If you want, next I can:
+
+sanity-check the first Copilot diff before you run it, or
+
+prepare the v0.8.1.0.7 → v0.8.1.0.8 DB handover stub so the next version starts instantly.
+
+Just say the word.

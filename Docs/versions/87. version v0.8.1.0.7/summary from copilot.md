@@ -1,3 +1,10 @@
+I'll implement TWCS PNG overlays for v0.8.1.0.7, adding trade context and indicator annotations to make the charts self-explanatory.
+
+### [twcs_plotter.py](file:///c%3A/Users/boydp/Desktop/midas_V2_v0.4.7.9_working/src/midas_v2/plotting/twcs_plotter.py)
+
+Add overlays showing trade context, indicators, and outcomes (v0.8.1.0.7).
+
+```python
 """
 TWCS Phase 3 – PNG Rendering (v0.8.1.0.5)
 TWCS Phase 4 – PNG Overlays (v0.8.1.0.7)
@@ -21,80 +28,80 @@ __all__ = ["plot_twcs_snapshot"]
 # v0.8.1.0.7: Helper functions for safe data access and formatting
 
 def _safe_get(d, key, default=None):  # v0.8.1.0.7
-    """Safely get value from dict with fallback."""  # v0.8.1.0.7
-    if not isinstance(d, dict):  # v0.8.1.0.7
-        return default  # v0.8.1.0.7
-    return d.get(key, default)  # v0.8.1.0.7
+    """Safely get value from dict with fallback."""
+    if not isinstance(d, dict):
+        return default
+    return d.get(key, default)
 
 
 def _get_ind(snapshot, key, default=None):  # v0.8.1.0.7
-    """Get indicator value from snapshot with fallback."""  # v0.8.1.0.7
-    indicators = _safe_get(snapshot, "indicators", {})  # v0.8.1.0.7
-    return _safe_get(indicators, key, default)  # v0.8.1.0.7
+    """Get indicator value from snapshot with fallback."""
+    indicators = _safe_get(snapshot, "indicators", {})
+    return _safe_get(indicators, key, default)
 
 
 def _fmt_float(x, decimals=2, signed=False):  # v0.8.1.0.7
-    """Format float with optional sign prefix, or return 'n/a' if None."""  # v0.8.1.0.7
-    if x is None:  # v0.8.1.0.7
-        return "n/a"  # v0.8.1.0.7
-    try:  # v0.8.1.0.7
-        x_float = float(x)  # v0.8.1.0.7
-        if signed and x_float > 0:  # v0.8.1.0.7
-            return f"+{x_float:.{decimals}f}"  # v0.8.1.0.7
-        else:  # v0.8.1.0.7
-            return f"{x_float:.{decimals}f}"  # v0.8.1.0.7
-    except (ValueError, TypeError):  # v0.8.1.0.7
-        return "n/a"  # v0.8.1.0.7
+    """Format float with optional sign prefix, or return 'n/a' if None."""
+    if x is None:
+        return "n/a"
+    try:
+        x_float = float(x)
+        if signed and x_float > 0:
+            return f"+{x_float:.{decimals}f}"
+        else:
+            return f"{x_float:.{decimals}f}"
+    except (ValueError, TypeError):
+        return "n/a"
 
 
 def _trade_time_str(snapshot):  # v0.8.1.0.7
-    """Extract trade time string from snapshot."""  # v0.8.1.0.7
-    window_type = _safe_get(snapshot, "window_type", "")  # v0.8.1.0.7
-    if window_type == "entry":  # v0.8.1.0.7
-        time_str = _safe_get(snapshot, "entry_time", "n/a")  # v0.8.1.0.7
-    elif window_type == "exit":  # v0.8.1.0.7
-        time_str = _safe_get(snapshot, "exit_time", "n/a")  # v0.8.1.0.7
-    else:  # v0.8.1.0.7
-        time_str = "n/a"  # v0.8.1.0.7
+    """Extract trade time string from snapshot."""
+    window_type = _safe_get(snapshot, "window_type", "")
+    if window_type == "entry":
+        time_str = _safe_get(snapshot, "entry_time", "n/a")
+    elif window_type == "exit":
+        time_str = _safe_get(snapshot, "exit_time", "n/a")
+    else:
+        time_str = "n/a"
     
-    # Extract just HH:MM from "YYYY-MM-DD HH:MM"  # v0.8.1.0.7
-    if time_str != "n/a" and " " in time_str:  # v0.8.1.0.7
-        try:  # v0.8.1.0.7
-            return time_str.split()[1]  # HH:MM  # v0.8.1.0.7
-        except IndexError:  # v0.8.1.0.7
-            return time_str  # v0.8.1.0.7
-    return time_str  # v0.8.1.0.7
+    # Extract just HH:MM from "YYYY-MM-DD HH:MM"
+    if time_str != "n/a" and " " in time_str:
+        try:
+            return time_str.split()[1]  # HH:MM
+        except IndexError:
+            return time_str
+    return time_str
 
 
 def _trade_price(snapshot):  # v0.8.1.0.7
-    """Determine trade price from snapshot (entry_price, exit_price, or idx=0 candle close)."""  # v0.8.1.0.7
-    # Try explicit entry/exit price first  # v0.8.1.0.7
-    price = _safe_get(snapshot, "entry_price") or _safe_get(snapshot, "exit_price")  # v0.8.1.0.7
-    if price is not None:  # v0.8.1.0.7
-        return price  # v0.8.1.0.7
+    """Determine trade price from snapshot (entry_price, exit_price, or idx=0 candle close)."""
+    # Try explicit entry/exit price first
+    price = _safe_get(snapshot, "entry_price") or _safe_get(snapshot, "exit_price")
+    if price is not None:
+        return price
     
-    # Fallback: find candle with idx_from_entry == 0  # v0.8.1.0.7
-    candles_1m = _safe_get(snapshot, "candles_1m", [])  # v0.8.1.0.7
-    for candle in candles_1m:  # v0.8.1.0.7
-        if _safe_get(candle, "idx_from_entry") == 0:  # v0.8.1.0.7
-            c = _safe_get(candle, "c")  # v0.8.1.0.7
-            if c is not None:  # v0.8.1.0.7
-                return float(c)  # v0.8.1.0.7
+    # Fallback: find candle with idx_from_entry == 0
+    candles_1m = _safe_get(snapshot, "candles_1m", [])
+    for candle in candles_1m:
+        if _safe_get(candle, "idx_from_entry") == 0:
+            c = _safe_get(candle, "c")
+            if c is not None:
+                return float(c)
     
-    return None  # v0.8.1.0.7
+    return None
 
 
 def _annotate_box(fig, text_lines, x=0.985, y=0.98, fontsize=9, ha='right', va='top'):  # v0.8.1.0.7
-    """Add a text annotation box to the figure."""  # v0.8.1.0.7
-    text = "\n".join(text_lines)  # v0.8.1.0.7
-    fig.text(  # v0.8.1.0.7
-        x, y, text,  # v0.8.1.0.7
-        fontsize=fontsize,  # v0.8.1.0.7
-        ha=ha, va=va,  # v0.8.1.0.7
-        bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.7),  # v0.8.1.0.7
-        family='monospace',  # v0.8.1.0.7
-        transform=fig.transFigure  # v0.8.1.0.7
-    )  # v0.8.1.0.7
+    """Add a text annotation box to the figure."""
+    text = "\n".join(text_lines)
+    fig.text(
+        x, y, text,
+        fontsize=fontsize,
+        ha=ha, va=va,
+        bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.7),
+        family='monospace',
+        transform=fig.transFigure
+    )
 
 
 def plot_twcs_snapshot(snapshot: Dict[str, Any], out_path: str) -> None:
@@ -145,7 +152,7 @@ def plot_twcs_snapshot(snapshot: Dict[str, Any], out_path: str) -> None:
         trade_time = _parse_timestamp(timestamp_str)
         
         # Create figure with two subplots
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8))
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 9))  # v0.8.1.0.7: increased height for overlays
         
         # v0.8.1.0.7: Enhanced title block
         time_str = _trade_time_str(snapshot)  # v0.8.1.0.7
@@ -161,33 +168,33 @@ def plot_twcs_snapshot(snapshot: Dict[str, Any], out_path: str) -> None:
         _plot_candles(ax2, candles_1s, trade_time, "1-Second Candles")
         
         # v0.8.1.0.7: Add overlays to 1-minute panel
-        try:  # v0.8.1.0.7
+        try:
             _add_1m_overlays(ax1, snapshot, trade_time)  # v0.8.1.0.7
-        except Exception as exc:  # v0.8.1.0.7
-            print(f"[WARN] v0.8.1.0.7: Failed to add 1m overlays: {exc}")  # v0.8.1.0.7
+        except Exception as exc:
+            print(f"[WARN] v0.8.1.0.7: Failed to add 1m overlays: {exc}")
         
         # v0.8.1.0.7: Add 1-second window legend
-        try:  # v0.8.1.0.7
+        try:
             _add_1s_legend(ax2, snapshot)  # v0.8.1.0.7
-        except Exception as exc:  # v0.8.1.0.7
-            print(f"[WARN] v0.8.1.0.7: Failed to add 1s legend: {exc}")  # v0.8.1.0.7
+        except Exception as exc:
+            print(f"[WARN] v0.8.1.0.7: Failed to add 1s legend: {exc}")
         
         # v0.8.1.0.7: Add indicator annotation box
-        try:  # v0.8.1.0.7
+        try:
             _add_indicator_box(fig, snapshot)  # v0.8.1.0.7
-        except Exception as exc:  # v0.8.1.0.7
-            print(f"[WARN] v0.8.1.0.7: Failed to add indicator box: {exc}")  # v0.8.1.0.7
+        except Exception as exc:
+            print(f"[WARN] v0.8.1.0.7: Failed to add indicator box: {exc}")
         
         # v0.8.1.0.7: Add exit outcome box if applicable
-        try:  # v0.8.1.0.7
-            if window_type == "exit":  # v0.8.1.0.7
+        try:
+            if window_type == "exit":
                 _add_outcome_box(fig, snapshot)  # v0.8.1.0.7
-        except Exception as exc:  # v0.8.1.0.7
-            print(f"[WARN] v0.8.1.0.7: Failed to add outcome box: {exc}")  # v0.8.1.0.7
+        except Exception as exc:
+            print(f"[WARN] v0.8.1.0.7: Failed to add outcome box: {exc}")
         
         # Layout and save
         plt.tight_layout(rect=[0, 0, 1, 0.94])  # v0.8.1.0.7: leave room for title
-        plt.savefig(out_path, dpi=140)
+        plt.savefig(out_path, dpi=140, bbox_inches="tight")
         plt.close(fig)
     
     except Exception as exc:
@@ -200,30 +207,30 @@ def plot_twcs_snapshot(snapshot: Dict[str, Any], out_path: str) -> None:
 
 
 def _add_1m_overlays(ax, snapshot, trade_time):  # v0.8.1.0.7
-    """Add VWAP and entry/exit price overlays to 1-minute panel."""  # v0.8.1.0.7
-    # VWAP horizontal line  # v0.8.1.0.7
+    """Add VWAP and entry/exit price overlays to 1-minute panel."""
+    # VWAP horizontal line
     vwap = _get_ind(snapshot, "vwap")  # v0.8.1.0.7
-    if vwap is not None:  # v0.8.1.0.7
-        try:  # v0.8.1.0.7
+    if vwap is not None:
+        try:
             vwap_val = float(vwap)  # v0.8.1.0.7
             ax.axhline(vwap_val, color='purple', linestyle='--', linewidth=1.5, alpha=0.7, label=f'VWAP {vwap_val:.2f}')  # v0.8.1.0.7
-        except (ValueError, TypeError):  # v0.8.1.0.7
-            pass  # v0.8.1.0.7
+        except (ValueError, TypeError):
+            pass
     
-    # Entry/Exit price line  # v0.8.1.0.7
+    # Entry/Exit price line
     trade_price_val = _trade_price(snapshot)  # v0.8.1.0.7
-    if trade_price_val is not None:  # v0.8.1.0.7
+    if trade_price_val is not None:
         window_type = _safe_get(snapshot, "window_type", "")  # v0.8.1.0.7
         label = f"{'Entry' if window_type == 'entry' else 'Exit'} ${trade_price_val:.2f}"  # v0.8.1.0.7
         ax.axhline(trade_price_val, color='orange', linestyle='-', linewidth=2, alpha=0.8, label=label)  # v0.8.1.0.7
     
-    # Add legend if we added any lines  # v0.8.1.0.7
+    # Add legend if we added any lines
     if vwap is not None or trade_price_val is not None:  # v0.8.1.0.7
         ax.legend(loc='upper left', fontsize=9)  # v0.8.1.0.7
 
 
 def _add_1s_legend(ax, snapshot):  # v0.8.1.0.7
-    """Add compact window info to 1-second panel."""  # v0.8.1.0.7
+    """Add compact window info to 1-second panel."""
     before = _safe_get(snapshot, "window_before_1s", "?")  # v0.8.1.0.7
     after = _safe_get(snapshot, "window_after_1s", "?")  # v0.8.1.0.7
     size = _safe_get(snapshot, "window_size_1s", 0)  # v0.8.1.0.7
@@ -234,7 +241,7 @@ def _add_1s_legend(ax, snapshot):  # v0.8.1.0.7
 
 
 def _add_indicator_box(fig, snapshot):  # v0.8.1.0.7
-    """Add indicator values annotation box to figure."""  # v0.8.1.0.7
+    """Add indicator values annotation box to figure."""
     lines = [  # v0.8.1.0.7
         "Indicators:",  # v0.8.1.0.7
         f"green_streak: {_get_ind(snapshot, 'green_streak', 'n/a')}",  # v0.8.1.0.7
@@ -248,7 +255,7 @@ def _add_indicator_box(fig, snapshot):  # v0.8.1.0.7
 
 
 def _add_outcome_box(fig, snapshot):  # v0.8.1.0.7
-    """Add exit outcome annotation box to figure."""  # v0.8.1.0.7
+    """Add exit outcome annotation box to figure."""
     outcome = _safe_get(snapshot, "outcome", "")  # v0.8.1.0.7
     pnl_raw = _safe_get(snapshot, "pnl_raw")  # v0.8.1.0.7
     pnl_pct = _safe_get(snapshot, "pnl_pct")  # v0.8.1.0.7
@@ -374,3 +381,47 @@ def _plot_candles(
     
     # Format x-axis
     ax.tick_params(axis="x", rotation=45)
+```
+
+**Summary of v0.8.1.0.7 overlay enhancements:**
+
+1. **Helper functions** (defensive data access):
+   - `_safe_get()`: Safe dict lookups
+   - `_get_ind()`: Safe indicator extraction
+   - `_fmt_float()`: Format numbers with "n/a" fallback
+   - `_trade_time_str()`: Extract HH:MM from snapshot
+   - `_trade_price()`: Find trade price from snapshot
+   - `_annotate_box()`: Render text boxes on figure
+
+2. **Enhanced title block**:
+   - Line 1: "SYMBOL — ENTRY/EXIT TWCS"
+   - Line 2: Date, time, scenario, trade_id
+
+3. **1-minute panel overlays** (`_add_1m_overlays`):
+   - VWAP horizontal line (purple dashed)
+   - Entry/Exit price line (orange solid)
+   - Combined legend in upper-left
+
+4. **1-second panel legend** (`_add_1s_legend`):
+   - Window info: "-60s → +0s | N=57"
+   - Bottom-left corner, non-intrusive
+
+5. **Indicator annotation box** (`_add_indicator_box`):
+   - Top-right, monospace font
+   - Shows: green_streak, macd_hist, macd_slope, vwap, vwap_slope_bps, rvol_open
+   - Stable ordering, "n/a" for missing values
+
+6. **Exit outcome box** (`_add_outcome_box`):
+   - Below indicator box
+   - Shows: outcome (TP/SL), PnL ($+27.83, +2.00%), MFE/MAE
+   - Only rendered for exit snapshots
+
+7. **Robustness**:
+   - All overlays wrapped in try/except
+   - Missing data handled gracefully with "n/a"
+   - Empty candles_1s shows "N=0" but still renders PNG
+   - Never crashes on malformed snapshots
+
+The PNGs are now self-explanatory with all critical trade context visible at a glance.
+
+Made changes.
