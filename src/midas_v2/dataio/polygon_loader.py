@@ -1,4 +1,3 @@
-# ...existing code...
 """
 v0.8.1.0.0: Lightweight Polygon.io data loader for TWCS and scanners.
 Provides helpers to load API key, perform authenticated GETs, and fetch
@@ -108,4 +107,3 @@ __all__ = [
     "fetch_agg_bars_minute",
     "fetch_agg_bars_second",
 ]
-# ...existing code...

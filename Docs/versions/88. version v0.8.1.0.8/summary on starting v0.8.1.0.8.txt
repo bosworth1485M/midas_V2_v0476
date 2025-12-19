@@ -1,0 +1,237 @@
+Great — I’ve reviewed all three attached documents carefully. Below is a clean, authoritative consolidation of what was achieved in v0.8.1.0.7, followed by the handover specification for starting v0.8.1.0.8, and finally a validated Copilot execution spec. This is written so you can confidently freeze v0.8.1.0.7 and begin v0.8.1.0.8 without ambiguity.
+
+1️⃣ What Was Achieved in v0.8.1.0.7 (Authoritative Summary)
+
+Version intent:
+v0.8.1.0.7 completed the transition from data capture to human-grade diagnostic analysis. Every TWCS PNG is now a self-contained forensic artifact that explains why a trade succeeded or failed without consulting logs or JSON.
+
+Scope of Code Changes
+
+Exactly one production file modified:
+
+src/midas_v2/plotting/twcs_plotter.py
+
+No changes to:
+
+strategy logic
+
+indicators
+
+risk management
+
+runners
+
+snapshot schemas
+
+data loaders
+
+This strict isolation guarantees zero behavioral contamination. 
+
+document 1. what was done in th…
+
+Key Technical Enhancements
+
+The TWCS plotter was extended from price visualization to diagnostic rendering, using only existing snapshot data.
+
+New helper utilities (all tagged # v0.8.1.0.7):
+
+Safe access & formatting helpers (_safe_get, _fmt_float, _get_ind)
+
+Trade-time & price resolution helpers
+
+Figure-level annotation helpers (non-intrusive, read-only)
+
+Visual overlays added (no layout changes):
+
+1-minute panel
+
+VWAP line
+
+Entry & exit price lines
+
+Indicator annotation box (VWAP slope, MACD hist/slope, green streak, RVOL open)
+
+Outcome annotation box (TP/SL, PnL, MFE/MAE when present)
+
+1-second panel
+
+Clear window labeling (before/after entry)
+
+Output stability preserved
+
+PNG format, DPI, size, paths unchanged
+
+No recomputation, inference, or logic duplication
+
+Analytical Outcome (High Confidence)
+
+Using v0.8.1.0.7, you performed a controlled visual analysis of 2025-08-06, Scenario B trades:
+
+PHGE (winner) → supportive 1s microstructure
+
+MYGN, AIMD, CYRX (losers) → stalled / compressed / “worked” tape
+
+Confirmed dominant failure mode:
+
+Scenario B losses cluster where entries occur without a recent 1-second expansion phase, even when all indicator and VWAP rules pass.
+
+This failure mode was not detectable before v0.8.1.0.7.
+
+Why v0.8.1.0.7 Is Frozen
+
+Observability layer is complete
+
+Diagnostic clarity achieved
+
+Failure mode identified with confidence
+
+Any further changes here would mix diagnosis with treatment
+
+➡️ v0.8.1.0.7 should be tagged, frozen, and never modified. 
+
+document 1. what was done in th…
+
+2️⃣ Handover Specification to Start v0.8.1.0.8
+
+Status at handover:
+
+TWCS snapshots + PNGs are trusted and stable
+
+Polygon 1-second data fully integrated
+
+Failure mode is confirmed and not up for debate
+
+v0.8.1.0.8 exists for one experiment only:
+
+Does requiring a recent 1-second expansion phase remove the dominant loss bucket in Scenario B?
+
+What v0.8.1.0.8 Is / Is Not
+
+IS
+
+A single, reversible, A/B-testable entry gate
+
+Applied only to Scenario B
+
+Designed to test one hypothesis
+
+IS NOT
+
+Optimization
+
+Parameter tuning
+
+Indicator changes
+
+Risk logic changes
+
+Visualization changes
+
+Multi-gate stacking
+
+Any of the above would invalidate the experiment. 
+
+document 2. handover spec for s…
+
+Experimental Definition (Frozen)
+
+Microstructure Expansion Gate — Definition A
+
+For a candidate entry at time T:
+
+Look back 30 seconds in 1-second candles
+
+Compute:
+
+prior_high
+
+breakout_level = prior_high × (1 + 10bps)
+
+Gate passes iff:
+
+At least one candle breaks above breakout_level
+
+Final close ≥ breakout_level
+
+Missing data → FAIL CLOSED
+
+Configuration & Reversibility
+
+New fields added only under Scenario B in config/scenarios.json
+
+Gate default = OFF
+
+OFF state must reproduce identical behavior to v0.8.1.0.7
+
+Files in Scope
+
+✅ src/midas_v2/strategy/strategy.py
+
+✅ config/scenarios.json
+
+❌ Everything else explicitly excluded
+
+v0.8.1.0.8 ends with a clear promote / refine / discard decision, nothing more. 
+
+document 2. handover spec for s…
+
+3️⃣ Copilot Spec (Execution-Ready, Validated)
+
+The Copilot spec you attached is correct, complete, and aligned with both:
+
+the v0.8.1.0.7 findings
+
+the v0.8.1.0.8 experimental discipline
+
+Key Characteristics
+
+Single-file behavioral change (strategy.py)
+
+Config-driven, reversible gate
+
+Fail-closed safety
+
+One-line WHY logging when blocked
+
+No indicator, sizing, or snapshot changes
+
+All new lines version-tagged # v0.8.1.0.8
+
+Data Source
+
+Uses existing local 1-second CSVs (data/samples/sample_1s_YYYY-MM-DD_SYMBOL.csv)
+
+No new network calls
+
+No schema changes
+
+Acceptance Tests
+
+Gate OFF → identical trades to v0.8.1.0.7
+
+Gate ON → fewer trades, clear blocked-entry logs, no crashes
+
+This spec is safe to paste verbatim into Copilot.
+No gaps. No hidden assumptions. No conflicts. 
+
+COPILOT SPEC — Midas_V2 v0.8.1.…
+
+✅ Final State Check
+
+You now have:
+
+✔️ A frozen diagnostic baseline (v0.8.1.0.7)
+
+✔️ A clean experimental hypothesis (v0.8.1.0.8)
+
+✔️ A surgical Copilot spec with zero scope creep
+
+If you want next, I can:
+
+draft the exact git tag + commit message for v0.8.1.0.7
+
+generate a one-page A/B evaluation checklist for v0.8.1.0.8
+
+or help interpret results once the gate is tested
+
+Just say the word.

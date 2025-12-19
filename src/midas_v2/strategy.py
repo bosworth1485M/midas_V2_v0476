@@ -2,6 +2,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Optional, Dict, Any
 import math
+import csv  # v0.8.1.0.8
+import logging  # v0.8.1.0.8
+from pathlib import Path  # v0.8.1.0.8
+from datetime import datetime, date, time  # v0.8.1.0.8
+
+logger = logging.getLogger(__name__)  # v0.8.1.0.8
 
 # v0.4.8: Sidecar-driven feature hook (generic, OFF by default)
 # This v0.4.8 update adds a minimal import and a tiny guarded call into the external
@@ -56,6 +62,11 @@ class StrategyParams:
     # ========== MACD Rising Filter (v0.4.x) ==========
     require_macd_rise: bool = False         # Enable explicit MACD histogram rising requirement
     macd_rise_bars: int = 0                 # Number of consecutive rising MACD histogram bars required
+    
+    # ========== Microstructure Expansion Gate (v0.8.1.0.8) ==========  # v0.8.1.0.8
+    micro_expansion_gate: bool = False      # Enable microstructure expansion gate (Scenario B only)  # v0.8.1.0.8
+    micro_expansion_window_s: int = 30      # Window size in seconds for microstructure analysis  # v0.8.1.0.8
+    micro_expansion_breakout_bps: int = 10  # Breakout threshold above prior high in basis points  # v0.8.1.0.8
 
 
 # v0.7.9.7.6: config unification – factory to create StrategyParams with scenario-aware defaults.
@@ -136,6 +147,11 @@ def create_strategy_params(scenario_name: Optional[str] = None, **override_kwarg
         # MACD Rising Filter
         "require_macd_rise": _get_strategy_param("require_macd_rise", False),
         "macd_rise_bars": _get_strategy_param("macd_rise_bars", 0),
+        
+        # Microstructure Expansion Gate (v0.8.1.0.8)  # v0.8.1.0.8
+        "micro_expansion_gate": _get_strategy_param("micro_expansion_gate", False),  # v0.8.1.0.8
+        "micro_expansion_window_s": _get_strategy_param("micro_expansion_window_s", 30),  # v0.8.1.0.8
+        "micro_expansion_breakout_bps": _get_strategy_param("micro_expansion_breakout_bps", 10),  # v0.8.1.0.8
     }
     
     # Apply any explicit overrides (these always win)
@@ -289,6 +305,7 @@ class SimpleBreakoutStrategy:
         """
         self.p = params
         self._yday_bars: Optional[List[Bar]] = None  # Store yesterday's bars for RVOL calculation
+        self._gate_debug_count: Dict[str, int] = {}  # v0.8.1.0.8 TEMP: track bar_time debug logs per symbol
 
     def set_yesterday_bars(self, bars: Optional[List[Bar]]) -> None:
         """
@@ -531,6 +548,275 @@ class SimpleBreakoutStrategy:
         
         return True
 
+    def _bar_time(self, bar) -> Any:  # v0.8.1.0.8
+        """  # v0.8.1.0.8
+        Safely extract timestamp from a Bar object.  # v0.8.1.0.8
+        Backtester uses .ts, some contexts may use .t.  # v0.8.1.0.8
+        """  # v0.8.1.0.8
+        return getattr(bar, "ts", getattr(bar, "t", None))  # v0.8.1.0.8
+
+    def _normalize_target_time(self, target_time: Any, current_bar: Any, date_str: Optional[str] = None) -> Optional[datetime]:  # v0.8.1.0.8
+        """  # v0.8.1.0.8
+        Normalize target_time to a full datetime object.  # v0.8.1.0.8
+          # v0.8.1.0.8
+        Handles cases where bar.ts is datetime.time (e.g., 09:58) or HH:MM string.  # v0.8.1.0.8
+          # v0.8.1.0.8
+        Args:  # v0.8.1.0.8
+            target_time: Raw timestamp from bar (datetime, time, or string)  # v0.8.1.0.8
+            current_bar: Bar object to extract date if needed  # v0.8.1.0.8
+            date_str: Optional YYYY-MM-DD date string for combining with time strings  # v0.8.1.0.8
+          # v0.8.1.0.8
+        Returns:  # v0.8.1.0.8
+            Full datetime object, or None if unparseable  # v0.8.1.0.8
+        """  # v0.8.1.0.8
+        # Case 1: Already a full datetime  # v0.8.1.0.8
+        if isinstance(target_time, datetime):  # v0.8.1.0.8
+            return target_time  # v0.8.1.0.8
+          # v0.8.1.0.8
+        # Case 2: It's a time object (e.g., 09:58) - need to combine with date  # v0.8.1.0.8
+        if isinstance(target_time, time):  # v0.8.1.0.8
+            # Try to get trading date from multiple sources  # v0.8.1.0.8
+            trading_date = None  # v0.8.1.0.8
+            # Try provided date_str first  # v0.8.1.0.8
+            if date_str:  # v0.8.1.0.8
+                try:  # v0.8.1.0.8
+                    trading_date = datetime.strptime(date_str, "%Y-%m-%d").date()  # v0.8.1.0.8
+                except Exception:  # v0.8.1.0.8
+                    pass  # v0.8.1.0.8
+            # Try self.date  # v0.8.1.0.8
+            if trading_date is None and hasattr(self, "date") and self.date:  # v0.8.1.0.8
+                if isinstance(self.date, date):  # v0.8.1.0.8
+                    trading_date = self.date  # v0.8.1.0.8
+                elif isinstance(self.date, str):  # v0.8.1.0.8
+                    try:  # v0.8.1.0.8
+                        trading_date = datetime.strptime(self.date, "%Y-%m-%d").date()  # v0.8.1.0.8
+                    except Exception:  # v0.8.1.0.8
+                        pass  # v0.8.1.0.8
+            # Try current_bar.date  # v0.8.1.0.8
+            if trading_date is None and hasattr(current_bar, "date") and current_bar.date:  # v0.8.1.0.8
+                if isinstance(current_bar.date, date):  # v0.8.1.0.8
+                    trading_date = current_bar.date  # v0.8.1.0.8
+                elif isinstance(current_bar.date, str):  # v0.8.1.0.8
+                    try:  # v0.8.1.0.8
+                        trading_date = datetime.strptime(current_bar.date, "%Y-%m-%d").date()  # v0.8.1.0.8
+                    except Exception:  # v0.8.1.0.8
+                        pass  # v0.8.1.0.8
+            # If we found a date, combine it  # v0.8.1.0.8
+            if trading_date:  # v0.8.1.0.8
+                return datetime.combine(trading_date, target_time)  # v0.8.1.0.8
+            return None  # v0.8.1.0.8
+          # v0.8.1.0.8
+        # Case 3: String - check if it's HH:MM or HH:MM:SS format  # v0.8.1.0.8
+        if isinstance(target_time, str):  # v0.8.1.0.8
+            # Try to parse as HH:MM or HH:MM:SS if date_str is provided  # v0.8.1.0.8
+            if date_str and ":" in target_time and len(target_time) <= 8:  # v0.8.1.0.8
+                try:  # v0.8.1.0.8
+                    if target_time.count(":") == 1:  # v0.8.1.0.8
+                        time_obj = datetime.strptime(target_time, "%H:%M").time()  # v0.8.1.0.8
+                    else:  # v0.8.1.0.8
+                        time_obj = datetime.strptime(target_time, "%H:%M:%S").time()  # v0.8.1.0.8
+                    trading_date = datetime.strptime(date_str, "%Y-%m-%d").date()  # v0.8.1.0.8
+                    return datetime.combine(trading_date, time_obj)  # v0.8.1.0.8
+                except Exception:  # v0.8.1.0.8
+                    pass  # v0.8.1.0.8
+            # Try ISO datetime parsing  # v0.8.1.0.8
+            return self._parse_iso_dt(target_time)  # v0.8.1.0.8
+          # v0.8.1.0.8
+        # Case 4: Unknown type  # v0.8.1.0.8
+        return None  # v0.8.1.0.8
+
+    def _load_1s_candles(self, symbol: str, target_date: str) -> Optional[List[Dict[str, Any]]]:  # v0.8.1.0.8
+        """  # v0.8.1.0.8
+        Load 1-second candles from CSV file for microstructure analysis.  # v0.8.1.0.8
+        Supports both schemas: (t,o,h,l,c,v) preferred, (timestamp,open,high,low,close,volume) fallback.  # v0.8.1.0.8
+          # v0.8.1.0.8
+        Args:  # v0.8.1.0.8
+            symbol: Stock symbol  # v0.8.1.0.8
+            target_date: Date string in YYYY-MM-DD format  # v0.8.1.0.8
+          # v0.8.1.0.8
+        Returns:  # v0.8.1.0.8
+            List of candle dicts with keys: timestamp (str), high (float), close (float)  # v0.8.1.0.8
+            Returns None if file missing/unparseable (fail closed)  # v0.8.1.0.8
+        """  # v0.8.1.0.8
+        try:  # v0.8.1.0.8
+            csv_path = Path(f"data/samples/sample_1s_{target_date}_{symbol}.csv")  # v0.8.1.0.8
+            if not csv_path.exists():  # v0.8.1.0.8
+                return None  # v0.8.1.0.8
+            candles = []  # v0.8.1.0.8
+            with open(csv_path, "r") as f:  # v0.8.1.0.8
+                reader = csv.DictReader(f)  # v0.8.1.0.8
+                for row in reader:  # v0.8.1.0.8
+                    # Detect schema and normalize  # v0.8.1.0.8
+                    if "t" in row:  # v0.8.1.0.8
+                        # Preferred schema: t,o,h,l,c,v  # v0.8.1.0.8
+                        if "h" not in row or "c" not in row:  # v0.8.1.0.8
+                            return None  # v0.8.1.0.8
+                        candles.append({  # v0.8.1.0.8
+                            "timestamp": row["t"],  # v0.8.1.0.8
+                            "high": float(row["h"]),  # v0.8.1.0.8
+                            "close": float(row["c"])  # v0.8.1.0.8
+                        })  # v0.8.1.0.8
+                    elif "timestamp" in row:  # v0.8.1.0.8
+                        # Fallback schema: timestamp,open,high,low,close,volume  # v0.8.1.0.8
+                        if "high" not in row or "close" not in row:  # v0.8.1.0.8
+                            return None  # v0.8.1.0.8
+                        candles.append({  # v0.8.1.0.8
+                            "timestamp": row["timestamp"],  # v0.8.1.0.8
+                            "high": float(row["high"]),  # v0.8.1.0.8
+                            "close": float(row["close"])  # v0.8.1.0.8
+                        })  # v0.8.1.0.8
+                    else:  # v0.8.1.0.8
+                        # Missing required columns => fail closed  # v0.8.1.0.8
+                        return None  # v0.8.1.0.8
+            return candles  # v0.8.1.0.8
+        except Exception:  # v0.8.1.0.8
+            return None  # v0.8.1.0.8
+
+    def _parse_iso_dt(self, ts_str: str) -> Optional[datetime]:  # v0.8.1.0.8
+        """  # v0.8.1.0.8
+        Parse ISO timestamp string to datetime object.  # v0.8.1.0.8
+          # v0.8.1.0.8
+        Supports both 'YYYY-MM-DD HH:MM:SS' and 'YYYY-MM-DDTHH:MM:SS' formats.  # v0.8.1.0.8
+          # v0.8.1.0.8
+        Args:  # v0.8.1.0.8
+            ts_str: Timestamp string  # v0.8.1.0.8
+          # v0.8.1.0.8
+        Returns:  # v0.8.1.0.8
+            datetime object or None if unparseable  # v0.8.1.0.8
+        """  # v0.8.1.0.8
+        try:  # v0.8.1.0.8
+            if "T" in ts_str:  # v0.8.1.0.8
+                return datetime.fromisoformat(ts_str.replace("Z", ""))  # v0.8.1.0.8
+            else:  # v0.8.1.0.8
+                return datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")  # v0.8.1.0.8
+        except Exception:  # v0.8.1.0.8
+            return None  # v0.8.1.0.8
+
+    def _micro_expansion_ok(self, bars: List[Bar], i: int) -> bool:  # v0.8.1.0.8
+        """  # v0.8.1.0.8
+        Microstructure Expansion Gate (Definition A) - v0.8.1.0.8  # v0.8.1.0.8
+          # v0.8.1.0.8
+        Analyzes 1-second candles in window [T-30s, T) to verify breakout+hold pattern.  # v0.8.1.0.8
+          # v0.8.1.0.8
+        Logic:  # v0.8.1.0.8
+        1. prior_high = max(high) in window  # v0.8.1.0.8
+        2. breakout_level = prior_high * (1 + 10/10000)  # v0.8.1.0.8
+        3. Pass iff: (any high >= breakout_level) AND (last_close >= breakout_level)  # v0.8.1.0.8
+        4. Missing/empty/unparseable data => FAIL CLOSED (block entry)  # v0.8.1.0.8
+          # v0.8.1.0.8
+        Args:  # v0.8.1.0.8
+            bars: List of 1-minute bars  # v0.8.1.0.8
+            i: Current bar index  # v0.8.1.0.8
+          # v0.8.1.0.8
+        Returns:  # v0.8.1.0.8
+            True if microstructure shows valid expansion, False otherwise  # v0.8.1.0.8
+        """  # v0.8.1.0.8
+        try:  # v0.8.1.0.8
+            current_bar = bars[i]  # v0.8.1.0.8
+            target_time = self._bar_time(current_bar)  # v0.8.1.0.8
+            symbol = getattr(self, "symbol", "UNKNOWN")  # v0.8.1.0.8
+              # v0.8.1.0.8
+            # Infer date_str from 1s CSV filename if target_time is a time-only string  # v0.8.1.0.8
+            date_str = None  # v0.8.1.0.8
+            if isinstance(target_time, str) and ":" in target_time:  # v0.8.1.0.8
+                # Scan data/samples for sample_1s_*_{symbol}.csv files  # v0.8.1.0.8
+                samples_dir = Path("data/samples")  # v0.8.1.0.8
+                if samples_dir.exists():  # v0.8.1.0.8
+                    pattern = f"sample_1s_*_{symbol}.csv"  # v0.8.1.0.8
+                    matches = list(samples_dir.glob(pattern))  # v0.8.1.0.8
+                    if matches:  # v0.8.1.0.8
+                        # Extract YYYY-MM-DD from first match: sample_1s_YYYY-MM-DD_SYMBOL.csv  # v0.8.1.0.8
+                        filename = matches[0].name  # v0.8.1.0.8
+                        parts = filename.split("_")  # v0.8.1.0.8
+                        if len(parts) >= 3:  # v0.8.1.0.8
+                            date_str = parts[2]  # v0.8.1.0.8
+              # v0.8.1.0.8
+            # Normalize target_time to full datetime (handles time-only objects)  # v0.8.1.0.8
+            target_dt = self._normalize_target_time(target_time, current_bar, date_str)  # v0.8.1.0.8
+            if target_dt is None:  # v0.8.1.0.8
+                self._log_gate_block("unparseable_target_time", symbol, target_time, None, None, None, 0)  # v0.8.1.0.8
+                return False  # v0.8.1.0.8
+              # v0.8.1.0.8
+            # Extract date string for CSV filename  # v0.8.1.0.8
+            target_date = target_dt.strftime("%Y-%m-%d")  # v0.8.1.0.8
+              # v0.8.1.0.8
+            # Load 1s candles  # v0.8.1.0.8
+            candles = self._load_1s_candles(symbol, target_date)  # v0.8.1.0.8
+            if candles is None or len(candles) == 0:  # v0.8.1.0.8
+                self._log_gate_block("no_1s_data", symbol, target_time, None, None, None, 0)  # v0.8.1.0.8
+                return False  # v0.8.1.0.8
+              # v0.8.1.0.8
+            # Define window: [T-30s, T)  # v0.8.1.0.8
+            window_s = int(self.p.micro_expansion_window_s)  # v0.8.1.0.8
+            breakout_bps = int(self.p.micro_expansion_breakout_bps)  # v0.8.1.0.8
+              # v0.8.1.0.8
+            # Filter candles in window  # v0.8.1.0.8
+            window_candles = []  # v0.8.1.0.8
+            for c in candles:  # v0.8.1.0.8
+                c_dt = self._parse_iso_dt(c["timestamp"])  # v0.8.1.0.8
+                if c_dt is None:  # v0.8.1.0.8
+                    continue  # v0.8.1.0.8
+                delta_s = (target_dt - c_dt).total_seconds()  # v0.8.1.0.8
+                if 0 < delta_s <= window_s:  # v0.8.1.0.8
+                    window_candles.append(c)  # v0.8.1.0.8
+              # v0.8.1.0.8
+            if len(window_candles) == 0:  # v0.8.1.0.8
+                self._log_gate_block("empty_window", symbol, target_time, None, None, None, 0)  # v0.8.1.0.8
+                return False  # v0.8.1.0.8
+              # v0.8.1.0.8
+            # Calculate prior_high = max(high) in window  # v0.8.1.0.8
+            prior_high = max(c["high"] for c in window_candles)  # v0.8.1.0.8
+            breakout_level = prior_high * (1.0 + breakout_bps / 10000.0)  # v0.8.1.0.8
+              # v0.8.1.0.8
+            # Check if any high >= breakout_level  # v0.8.1.0.8
+            any_breakout = any(c["high"] >= breakout_level for c in window_candles)  # v0.8.1.0.8
+              # v0.8.1.0.8
+            # Get last_close: select latest candle from FULL list where candle_time <= T  # v0.8.1.0.8
+            # (Definition A: not restricted to window, just needs to be at/before T)  # v0.8.1.0.8
+            valid_candles = []  # v0.8.1.0.8
+            for c in candles:  # v0.8.1.0.8
+                c_dt = self._parse_iso_dt(c["timestamp"])  # v0.8.1.0.8
+                if c_dt is not None and c_dt <= target_dt:  # v0.8.1.0.8
+                    valid_candles.append((c_dt, c))  # v0.8.1.0.8
+            if len(valid_candles) == 0:  # v0.8.1.0.8
+                self._log_gate_block("no_valid_candles_at_T", symbol, target_time, prior_high, breakout_level, None, len(window_candles))  # v0.8.1.0.8
+                return False  # v0.8.1.0.8
+            # Sort by timestamp and take the latest  # v0.8.1.0.8
+            valid_candles.sort(key=lambda x: x[0])  # v0.8.1.0.8
+            last_close = valid_candles[-1][1]["close"]  # v0.8.1.0.8
+              # v0.8.1.0.8
+            # Pass iff: any_breakout AND last_close >= breakout_level  # v0.8.1.0.8
+            if any_breakout and last_close >= breakout_level:  # v0.8.1.0.8
+                return True  # v0.8.1.0.8
+            else:  # v0.8.1.0.8
+                self._log_gate_block("failed_criteria", symbol, target_time, prior_high, breakout_level, last_close, len(window_candles))  # v0.8.1.0.8
+                return False  # v0.8.1.0.8
+              # v0.8.1.0.8
+        except Exception as e:  # v0.8.1.0.8
+            # Fail closed on any exception - ALWAYS log before returning  # v0.8.1.0.8
+            symbol_safe = getattr(self, "symbol", "UNKNOWN")  # v0.8.1.0.8
+            time_safe = self._bar_time(bars[i]) if i < len(bars) else "n/a"  # v0.8.1.0.8
+            exc_type = type(e).__name__  # v0.8.1.0.8
+            self._log_gate_block(f"exception:{exc_type}", symbol_safe, time_safe, None, None, None, 0)  # v0.8.1.0.8
+            return False  # v0.8.1.0.8
+
+    def _log_gate_block(self, reason: str, symbol: str, time, prior_high, breakout_level, last_close, n_window: int) -> None:  # v0.8.1.0.8
+        """  # v0.8.1.0.8
+        Log when microstructure expansion gate blocks entry.  # v0.8.1.0.8
+          # v0.8.1.0.8
+        Args:  # v0.8.1.0.8
+            reason: Why the gate blocked (e.g., 'no_1s_data', 'failed_criteria')  # v0.8.1.0.8
+            symbol: Stock symbol  # v0.8.1.0.8
+            time: Target timestamp  # v0.8.1.0.8
+            prior_high: Max high in window (or None)  # v0.8.1.0.8
+            breakout_level: Calculated breakout level (or None)  # v0.8.1.0.8
+            last_close: Last close in window (or None)  # v0.8.1.0.8
+            n_window: Number of candles in window  # v0.8.1.0.8
+        """  # v0.8.1.0.8
+        logger.info(f"[WHY] v0.8.1.0.8 MICRO_EXPANSION_GATE: BLOCKED symbol={symbol} time={time} "  # v0.8.1.0.8
+                    f"prior_high={prior_high} breakout_level={breakout_level} last_close={last_close} "  # v0.8.1.0.8
+                    f"n_window={n_window} reason={reason}")  # v0.8.1.0.8
+
     def should_enter(self, bars: List[Bar], i: int) -> bool:
         """
         Main entry logic: determine if we should enter a trade at bar i.
@@ -581,6 +867,18 @@ class SimpleBreakoutStrategy:
         closes = [b.c for b in bars]
         if not self._passes_macd_gate(closes, i):
             return False
+
+        # Gate 5: Microstructure expansion gate (v0.8.1.0.8, Scenario B only)  # v0.8.1.0.8
+        if self.p.micro_expansion_gate:  # v0.8.1.0.8
+            symbol = getattr(self, "symbol", "UNKNOWN")  # v0.8.1.0.8
+            logger.info(f"[WHY] v0.8.1.0.8 MICRO_EXPANSION_GATE: CHECK symbol={symbol} i={i}")  # v0.8.1.0.8
+            # TEMP DEBUG: Log bar timestamp type for first 3 checks per symbol  # v0.8.1.0.8
+            if self._gate_debug_count.get(symbol, 0) < 3:  # v0.8.1.0.8
+                bt = self._bar_time(bars[i])  # v0.8.1.0.8
+                logger.info(f"[WHY] v0.8.1.0.8 MICRO_EXPANSION_GATE: BAR_TIME symbol={symbol} type={type(bt).__name__} repr={bt!r}")  # v0.8.1.0.8
+                self._gate_debug_count[symbol] = self._gate_debug_count.get(symbol, 0) + 1  # v0.8.1.0.8
+            if not self._micro_expansion_ok(bars, i):  # v0.8.1.0.8
+                return False  # v0.8.1.0.8
 
         # Note: Additional confirmations (EMA, VWAP, legacy MACD boolean)
         # would be implemented here in production code
