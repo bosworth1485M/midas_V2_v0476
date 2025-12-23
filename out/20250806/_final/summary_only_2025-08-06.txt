@@ -1,4 +1,4 @@
-B: TP=0 SL=0 Win%=0.00
+B: TP=1 SL=3 Win%=25.00
 B (catalyst): TP=0 SL=0 Win%=0.00
 D: TP=0 SL=0 Win%=0.00
 E: TP=0 SL=0 Win%=0.00

@@ -67,6 +67,11 @@ class StrategyParams:
     micro_expansion_gate: bool = False      # Enable microstructure expansion gate (Scenario B only)  # v0.8.1.0.8
     micro_expansion_window_s: int = 30      # Window size in seconds for microstructure analysis  # v0.8.1.0.8
     micro_expansion_breakout_bps: int = 10  # Breakout threshold above prior high in basis points  # v0.8.1.0.8
+    
+    # ========== Microstructure Pressure Gate (v0.8.1.0.9) ==========  # v0.8.1.0.9
+    micro_pressure_gate: bool = False       # Enable rising 1s pressure gate (Definition B)  # v0.8.1.0.9
+    micro_pressure_window_s: int = 20       # Window size in seconds for pressure analysis  # v0.8.1.0.9
+    micro_pressure_min_rising: int = 3      # Minimum consecutive higher highs required  # v0.8.1.0.9
 
 
 # v0.7.9.7.6: config unification – factory to create StrategyParams with scenario-aware defaults.
@@ -152,6 +157,11 @@ def create_strategy_params(scenario_name: Optional[str] = None, **override_kwarg
         "micro_expansion_gate": _get_strategy_param("micro_expansion_gate", False),  # v0.8.1.0.8
         "micro_expansion_window_s": _get_strategy_param("micro_expansion_window_s", 30),  # v0.8.1.0.8
         "micro_expansion_breakout_bps": _get_strategy_param("micro_expansion_breakout_bps", 10),  # v0.8.1.0.8
+        
+        # Microstructure Pressure Gate (v0.8.1.0.9)  # v0.8.1.0.9
+        "micro_pressure_gate": _get_strategy_param("micro_pressure_gate", False),  # v0.8.1.0.9
+        "micro_pressure_window_s": _get_strategy_param("micro_pressure_window_s", 20),  # v0.8.1.0.9
+        "micro_pressure_min_rising": _get_strategy_param("micro_pressure_min_rising", 3),  # v0.8.1.0.9
     }
     
     # Apply any explicit overrides (these always win)
@@ -800,6 +810,110 @@ class SimpleBreakoutStrategy:
             self._log_gate_block(f"exception:{exc_type}", symbol_safe, time_safe, None, None, None, 0)  # v0.8.1.0.8
             return False  # v0.8.1.0.8
 
+    def _micro_pressure_ok(self, bars: List[Bar], i: int) -> bool:  # v0.8.1.0.9
+        """  # v0.8.1.0.9
+        Microstructure Pressure Gate (Definition B) - v0.8.1.0.9  # v0.8.1.0.9
+          # v0.8.1.0.9
+        Analyzes 1-second candles to verify rising pressure (consecutive higher highs).  # v0.8.1.0.9
+          # v0.8.1.0.9
+        Logic:  # v0.8.1.0.9
+        1. Load 1s candles in window [T-window_s, T)  # v0.8.1.0.9
+        2. Count max streak of consecutive higher highs  # v0.8.1.0.9
+        3. Pass if max_streak >= micro_pressure_min_rising  # v0.8.1.0.9
+        4. Missing/empty/insufficient data => FAIL CLOSED (block entry)  # v0.8.1.0.9
+          # v0.8.1.0.9
+        Args:  # v0.8.1.0.9
+            bars: List of 1-minute bars  # v0.8.1.0.9
+            i: Current bar index  # v0.8.1.0.9
+          # v0.8.1.0.9
+        Returns:  # v0.8.1.0.9
+            True if rising pressure detected, False otherwise  # v0.8.1.0.9
+        """  # v0.8.1.0.9
+        try:  # v0.8.1.0.9
+            current_bar = bars[i]  # v0.8.1.0.9
+            target_time = self._bar_time(current_bar)  # v0.8.1.0.9
+            symbol = getattr(self, "symbol", "UNKNOWN")  # v0.8.1.0.9
+              # v0.8.1.0.9
+            # Infer date_str from 1s CSV filename if needed  # v0.8.1.0.9
+            date_str = None  # v0.8.1.0.9
+            if isinstance(target_time, str) and ":" in target_time:  # v0.8.1.0.9
+                samples_dir = Path("data/samples")  # v0.8.1.0.9
+                if samples_dir.exists():  # v0.8.1.0.9
+                    pattern = f"sample_1s_*_{symbol}.csv"  # v0.8.1.0.9
+                    matches = list(samples_dir.glob(pattern))  # v0.8.1.0.9
+                    if matches:  # v0.8.1.0.9
+                        filename = matches[0].name  # v0.8.1.0.9
+                        parts = filename.split("_")  # v0.8.1.0.9
+                        if len(parts) >= 3:  # v0.8.1.0.9
+                            date_str = parts[2]  # v0.8.1.0.9
+              # v0.8.1.0.9
+            # Normalize target_time to full datetime  # v0.8.1.0.9
+            target_dt = self._normalize_target_time(target_time, current_bar, date_str)  # v0.8.1.0.9
+            if target_dt is None:  # v0.8.1.0.9
+                logger.info(f"[WHY] v0.8.1.0.9 MICRO_PRESSURE_GATE: BLOCKED symbol={symbol} time={target_time} reason=unparseable_time")  # v0.8.1.0.9
+                return False  # v0.8.1.0.9
+              # v0.8.1.0.9
+            # Extract date string for CSV filename  # v0.8.1.0.9
+            target_date = target_dt.strftime("%Y-%m-%d")  # v0.8.1.0.9
+              # v0.8.1.0.9
+            # Load 1s candles  # v0.8.1.0.9
+            candles = self._load_1s_candles(symbol, target_date)  # v0.8.1.0.9
+            if candles is None or len(candles) == 0:  # v0.8.1.0.9
+                logger.info(f"[WHY] v0.8.1.0.9 MICRO_PRESSURE_GATE: BLOCKED symbol={symbol} time={target_time} reason=no_1s_data")  # v0.8.1.0.9
+                return False  # v0.8.1.0.9
+              # v0.8.1.0.9
+            # Define window: [T-window_s, T)  # v0.8.1.0.9
+            window_s = int(self.p.micro_pressure_window_s)  # v0.8.1.0.9
+            min_rising = int(self.p.micro_pressure_min_rising)  # v0.8.1.0.9
+              # v0.8.1.0.9
+            # Filter candles in window and parse timestamps  # v0.8.1.0.9
+            window_candles = []  # v0.8.1.0.9
+            for c in candles:  # v0.8.1.0.9
+                c_dt = self._parse_iso_dt(c["timestamp"])  # v0.8.1.0.9
+                if c_dt is None:  # v0.8.1.0.9
+                    continue  # v0.8.1.0.9
+                delta_s = (target_dt - c_dt).total_seconds()  # v0.8.1.0.9
+                if 0 < delta_s <= window_s:  # v0.8.1.0.9
+                    window_candles.append((c_dt, c))  # v0.8.1.0.9
+              # v0.8.1.0.9
+            # Check if we have enough candles  # v0.8.1.0.9
+            if len(window_candles) < (min_rising + 1):  # v0.8.1.0.9
+                logger.info(f"[WHY] v0.8.1.0.9 MICRO_PRESSURE_GATE: BLOCKED symbol={symbol} time={target_time} "
+                           f"max_streak=0 required={min_rising} reason=insufficient_candles n={len(window_candles)}")  # v0.8.1.0.9
+                return False  # v0.8.1.0.9
+              # v0.8.1.0.9
+            # Sort by timestamp  # v0.8.1.0.9
+            window_candles.sort(key=lambda x: x[0])  # v0.8.1.0.9
+              # v0.8.1.0.9
+            # Count max streak of consecutive higher highs  # v0.8.1.0.9
+            max_streak = 0  # v0.8.1.0.9
+            current_streak = 0  # v0.8.1.0.9
+            for k in range(1, len(window_candles)):  # v0.8.1.0.9
+                prev_high = window_candles[k-1][1]["high"]  # v0.8.1.0.9
+                curr_high = window_candles[k][1]["high"]  # v0.8.1.0.9
+                if curr_high > prev_high:  # v0.8.1.0.9
+                    current_streak += 1  # v0.8.1.0.9
+                    max_streak = max(max_streak, current_streak)  # v0.8.1.0.9
+                else:  # v0.8.1.0.9
+                    current_streak = 0  # v0.8.1.0.9
+              # v0.8.1.0.9
+            # Pass if max_streak >= min_rising  # v0.8.1.0.9
+            if max_streak >= min_rising:  # v0.8.1.0.9
+                return True  # v0.8.1.0.9
+            else:  # v0.8.1.0.9
+                logger.info(f"[WHY] v0.8.1.0.9 MICRO_PRESSURE_GATE: BLOCKED symbol={symbol} time={target_time} "
+                           f"max_streak={max_streak} required={min_rising}")  # v0.8.1.0.9
+                return False  # v0.8.1.0.9
+              # v0.8.1.0.9
+        except Exception as e:  # v0.8.1.0.9
+            # Fail closed on any exception  # v0.8.1.0.9
+            symbol_safe = getattr(self, "symbol", "UNKNOWN")  # v0.8.1.0.9
+            time_safe = self._bar_time(bars[i]) if i < len(bars) else "n/a"  # v0.8.1.0.9
+            exc_type = type(e).__name__  # v0.8.1.0.9
+            logger.info(f"[WHY] v0.8.1.0.9 MICRO_PRESSURE_GATE: BLOCKED symbol={symbol_safe} time={time_safe} "
+                       f"reason=exception:{exc_type}")  # v0.8.1.0.9
+            return False  # v0.8.1.0.9
+
     def _log_gate_block(self, reason: str, symbol: str, time, prior_high, breakout_level, last_close, n_window: int) -> None:  # v0.8.1.0.8
         """  # v0.8.1.0.8
         Log when microstructure expansion gate blocks entry.  # v0.8.1.0.8
@@ -872,13 +986,18 @@ class SimpleBreakoutStrategy:
         if self.p.micro_expansion_gate:  # v0.8.1.0.8
             symbol = getattr(self, "symbol", "UNKNOWN")  # v0.8.1.0.8
             logger.info(f"[WHY] v0.8.1.0.8 MICRO_EXPANSION_GATE: CHECK symbol={symbol} i={i}")  # v0.8.1.0.8
-            # TEMP DEBUG: Log bar timestamp type for first 3 checks per symbol  # v0.8.1.0.8
-            if self._gate_debug_count.get(symbol, 0) < 3:  # v0.8.1.0.8
-                bt = self._bar_time(bars[i])  # v0.8.1.0.8
-                logger.info(f"[WHY] v0.8.1.0.8 MICRO_EXPANSION_GATE: BAR_TIME symbol={symbol} type={type(bt).__name__} repr={bt!r}")  # v0.8.1.0.8
-                self._gate_debug_count[symbol] = self._gate_debug_count.get(symbol, 0) + 1  # v0.8.1.0.8
+            # v0.8.1.0.9: removed TEMP BAR_TIME debug logs
             if not self._micro_expansion_ok(bars, i):  # v0.8.1.0.8
                 return False  # v0.8.1.0.8
+
+        # Gate 6: Microstructure pressure gate (v0.8.1.0.9, Definition B)  # v0.8.1.0.9
+        if self.p.micro_pressure_gate:  # v0.8.1.0.9
+            symbol = getattr(self, "symbol", "UNKNOWN")  # v0.8.1.0.9
+            target_time = self._bar_time(bars[i])  # v0.8.1.0.9
+            logger.info(f"[WHY] v0.8.1.0.9 MICRO_PRESSURE_GATE: CHECK symbol={symbol} time={target_time} "
+                       f"window_s={self.p.micro_pressure_window_s} min_rising={self.p.micro_pressure_min_rising}")  # v0.8.1.0.9
+            if not self._micro_pressure_ok(bars, i):  # v0.8.1.0.9
+                return False  # v0.8.1.0.9
 
         # Note: Additional confirmations (EMA, VWAP, legacy MACD boolean)
         # would be implemented here in production code

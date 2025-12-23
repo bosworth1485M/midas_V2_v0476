@@ -93,7 +93,10 @@
       "daily_max_loss": 1000.0,
       "micro_expansion_gate": false,
       "micro_expansion_window_s": 30,
-      "micro_expansion_breakout_bps": 10
+      "micro_expansion_breakout_bps": 10,
+      "micro_pressure_gate": false,
+      "micro_pressure_window_s": 20,
+      "micro_pressure_min_rising": 2
     }
   },
   "B_backup": {
