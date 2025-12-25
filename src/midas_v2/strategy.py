@@ -72,6 +72,10 @@ class StrategyParams:
     micro_pressure_gate: bool = False       # Enable rising 1s pressure gate (Definition B)  # v0.8.1.0.9
     micro_pressure_window_s: int = 20       # Window size in seconds for pressure analysis  # v0.8.1.0.9
     micro_pressure_min_rising: int = 3      # Minimum consecutive higher highs required  # v0.8.1.0.9
+    
+    # ========== VWAP Extension Gate (v0.8.1.1.0) ==========  # v0.8.1.1.0
+    vwap_extension_gate: bool = False       # Enable VWAP over-extension filter  # v0.8.1.1.0
+    vwap_extension_max_pct: float = 1.5     # Max allowed distance from VWAP in percentage  # v0.8.1.1.0
 
 
 # v0.7.9.7.6: config unification – factory to create StrategyParams with scenario-aware defaults.
@@ -162,6 +166,10 @@ def create_strategy_params(scenario_name: Optional[str] = None, **override_kwarg
         "micro_pressure_gate": _get_strategy_param("micro_pressure_gate", False),  # v0.8.1.0.9
         "micro_pressure_window_s": _get_strategy_param("micro_pressure_window_s", 20),  # v0.8.1.0.9
         "micro_pressure_min_rising": _get_strategy_param("micro_pressure_min_rising", 3),  # v0.8.1.0.9
+        
+        # VWAP Extension Gate (v0.8.1.1.0)  # v0.8.1.1.0
+        "vwap_extension_gate": _get_strategy_param("vwap_extension_gate", False),  # v0.8.1.1.0
+        "vwap_extension_max_pct": _get_strategy_param("vwap_extension_max_pct", 1.5),  # v0.8.1.1.0
     }
     
     # Apply any explicit overrides (these always win)
@@ -931,6 +939,41 @@ class SimpleBreakoutStrategy:
                     f"prior_high={prior_high} breakout_level={breakout_level} last_close={last_close} "  # v0.8.1.0.8
                     f"n_window={n_window} reason={reason}")  # v0.8.1.0.8
 
+    def _vwap_extension_ok(self, entry_price: float, vwap: float, max_pct: float):  # v0.8.1.1.0
+        """  # v0.8.1.1.0
+        VWAP Extension Gate (v0.8.1.1.0)  # v0.8.1.1.0
+          # v0.8.1.1.0
+        Check if entry price is not over-extended from VWAP.  # v0.8.1.1.0
+        Blocks entries that are too far above VWAP (stretched).  # v0.8.1.1.0
+          # v0.8.1.1.0
+        Args:  # v0.8.1.1.0
+            entry_price: The actual price used by strategy for entry decision  # v0.8.1.1.0
+            vwap: VWAP value at the entry bar  # v0.8.1.1.0
+            max_pct: Maximum allowed distance from VWAP in percentage  # v0.8.1.1.0
+          # v0.8.1.1.0
+        Returns:  # v0.8.1.1.0
+            Tuple: (ok: bool, dist_pct: float | None)  # v0.8.1.1.0
+                ok=True if entry is acceptable, False if blocked  # v0.8.1.1.0
+                dist_pct=percentage distance from VWAP (None if VWAP invalid)  # v0.8.1.1.0
+        """  # v0.8.1.1.0
+        # Fail closed if VWAP is missing or invalid  # v0.8.1.1.0
+        if vwap is None or vwap <= 0:  # v0.8.1.1.0
+            return (False, None)  # v0.8.1.1.0
+          # v0.8.1.1.0
+        # Calculate distance from VWAP in percentage  # v0.8.1.1.0
+        dist_pct = (entry_price - vwap) / vwap * 100.0  # v0.8.1.1.0
+          # v0.8.1.1.0
+        # If entry is below VWAP, not over-extended (pass)  # v0.8.1.1.0
+        if dist_pct <= 0:  # v0.8.1.1.0
+            return (True, dist_pct)  # v0.8.1.1.0
+          # v0.8.1.1.0
+        # Block if over-extended above VWAP  # v0.8.1.1.0
+        if dist_pct > max_pct:  # v0.8.1.1.0
+            return (False, dist_pct)  # v0.8.1.1.0
+          # v0.8.1.1.0
+        # Within acceptable range  # v0.8.1.1.0
+        return (True, dist_pct)  # v0.8.1.1.0
+
     def should_enter(self, bars: List[Bar], i: int) -> bool:
         """
         Main entry logic: determine if we should enter a trade at bar i.
@@ -998,6 +1041,33 @@ class SimpleBreakoutStrategy:
                        f"window_s={self.p.micro_pressure_window_s} min_rising={self.p.micro_pressure_min_rising}")  # v0.8.1.0.9
             if not self._micro_pressure_ok(bars, i):  # v0.8.1.0.9
                 return False  # v0.8.1.0.9
+
+        # Gate 7: VWAP Extension Gate (v0.8.1.1.0)  # v0.8.1.1.0
+        if self.p.vwap_extension_gate:  # v0.8.1.1.0
+            symbol = getattr(self, "symbol", "UNKNOWN")  # v0.8.1.1.0
+            target_time = self._bar_time(bars[i])  # v0.8.1.1.0
+            # v0.8.1.1.0: entry_price uses the strategy's actual entry decision price (bar close)  # v0.8.1.1.0
+            entry_price = bars[i].c  # v0.8.1.1.0
+            vwap_vals = self._vwap_series(bars)  # v0.8.1.1.0
+            vwap = vwap_vals[i] if i < len(vwap_vals) else None  # v0.8.1.1.0
+            max_pct = self.p.vwap_extension_max_pct  # v0.8.1.1.0
+              # v0.8.1.1.0
+            ok, dist_pct = self._vwap_extension_ok(entry_price, vwap, max_pct)  # v0.8.1.1.0
+              # v0.8.1.1.0
+            # Always log CHECK when gate is enabled and VWAP is valid  # v0.8.1.1.0
+            if vwap is not None and vwap > 0:  # v0.8.1.1.0
+                logger.info(f"[WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol={symbol} time={target_time} "  # v0.8.1.1.0
+                           f"entry_price={entry_price:.4f} vwap={vwap:.4f} dist_pct={dist_pct:.2f} max_pct={max_pct}")  # v0.8.1.1.0
+              # v0.8.1.1.0
+            # Block if check failed  # v0.8.1.1.0
+            if not ok:  # v0.8.1.1.0
+                if vwap is None or vwap <= 0:  # v0.8.1.1.0
+                    logger.info(f"[WHY] v0.8.1.1.0 VWAP_EXT: BLOCKED symbol={symbol} time={target_time} "  # v0.8.1.1.0
+                               f"entry_price={entry_price:.4f} vwap={vwap} dist_pct=NA max_pct={max_pct} reason=missing_vwap")  # v0.8.1.1.0
+                else:  # v0.8.1.1.0
+                    logger.info(f"[WHY] v0.8.1.1.0 VWAP_EXT: BLOCKED symbol={symbol} time={target_time} "  # v0.8.1.1.0
+                               f"entry_price={entry_price:.4f} vwap={vwap:.4f} dist_pct={dist_pct:.2f} max_pct={max_pct} reason=overextended")  # v0.8.1.1.0
+                return False  # v0.8.1.1.0
 
         # Note: Additional confirmations (EMA, VWAP, legacy MACD boolean)
         # would be implemented here in production code

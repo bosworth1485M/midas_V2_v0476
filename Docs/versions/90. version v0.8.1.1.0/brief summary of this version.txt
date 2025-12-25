@@ -1,0 +1,66 @@
+can you give me a brief and simple summary of what that does
+
+Absolutely — here’s a brief, plain-English summary.
+
+What v0.8.1.1.0 does (in simple terms)
+
+This version adds one optional safety check before a trade is allowed:
+
+“Is the price already too far above VWAP when we’re trying to enter?”
+
+If the price is only a little above VWAP, the trade is allowed.
+
+If the price is way above VWAP (a late, stretched move), the trade is blocked.
+
+If the feature is off (default), the system behaves exactly the same as before.
+
+Why this matters
+
+Many losing trades happen because we enter too late, after the stock has already run.
+
+VWAP acts like a fair-value anchor.
+
+Being too far above VWAP usually means poor risk-reward.
+
+This filter is meant to:
+
+Skip “FOMO” entries
+
+Keep early, clean momentum trades
+
+Improve losses and expectancy without adding complexity
+
+What it does NOT do
+
+It does not change timing logic
+
+It does not use 1-second data
+
+It does not add new indicators
+
+It does not affect risk sizing or exits
+
+It only answers one question:
+
+“Are we trying to buy something that’s already too extended?”
+
+How you’ll judge success
+
+You’ll:
+
+Run the same day with it off and on
+
+Look at:
+
+average loss
+
+expectancy
+
+blocked trades in TWCS images
+
+If it helps → keep it
+If it hurts → turn it off and move on
+
+One sentence version:
+
+v0.8.1.1.0 prevents late, over-extended entries by blocking trades that are too far above VWAP, improving location without changing the strategy.

@@ -165,8 +165,16 @@
   "window_before_1m": 10,
   "window_after_1m": 0,
   "candles_1s": [],
+  "window_size_1s": 0,
+  "window_before_1s": 60,
+  "window_after_1s": 0,
   "indicators": {
-    "green_streak": 2
+    "green_streak": 2,
+    "vwap": 11.779629685796554,
+    "vwap_slope_bps": 42.12314225053067,
+    "macd_hist": 0.0074867403464051584,
+    "macd_slope": 0.0027353085883010473,
+    "rvol_open": null
   },
   "mfe": null,
   "mae": null,
