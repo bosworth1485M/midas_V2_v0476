@@ -1,0 +1,293 @@
+DOCUMENT 1
+Session Summary & Release Notes
+Midas_V2 — v0.8.1.2.0 (Documentation-Only Version)
+Use this file at the start of the next session to restore full context.
+1. What experiment this version documents
+
+Version v0.8.1.2.0 documents a payoff-geometry experiment conducted on Scenario B (Gap-and-Go).
+
+The experiment tested whether tightening the fixed stop-loss from 2.5% → 2.0%, while keeping the take-profit fixed at 2.0%, would improve profitability by:
+
+Improving payoff symmetry
+
+Lowering the theoretical break-even win rate
+
+Reducing downside damage on losing days
+
+The experiment was intentionally minimal and isolated:
+
+Only one parameter was changed (stop-loss percentage)
+
+No changes were made to signals, filters, sizing, exits, or universe logic
+
+The VWAP Extension Gate remained ON throughout
+
+This document records the hypothesis, execution, results, and final decision.
+
+2. Purpose of this version
+
+The purpose of v0.8.1.2.0 is purely documentary.
+
+No production logic or configuration changes are introduced or retained.
+
+This version exists to:
+
+Preserve the exact hypothesis that was tested
+
+Record the experimental design and results
+
+Capture the reasoning behind rejecting the change
+
+Prevent future re-testing of a disproven idea
+
+Provide a clean, factual handover to the next version
+
+This version should be treated as a decision checkpoint, not a strategy update.
+
+3. Confirmed baseline at the start of the session
+
+At the beginning of this session, Scenario B had the following verified baseline configuration:
+
+Strategy: Scenario B – Gap-and-Go
+
+VWAP Extension Gate: ON
+
+vwap_extension_gate = true
+
+vwap_extension_max_pct = 1.5
+
+Take-profit: +2.0%
+
+Stop-loss: −2.5%
+
+Gate minutes: 20
+
+RVOL open filter: min_rvol_open = 2.0
+
+MACD rising bars: 2
+
+No catalysts
+
+No adaptive sizing
+
+No dynamic exits
+
+No additional microstructure gating
+
+This baseline had already demonstrated:
+
+Clear improvement over pre-VWAP-extension behavior
+
+Reduced over-extended chase entries
+
+Strong performance on genuine momentum days (e.g. 2025-08-06)
+
+This configuration was treated as stable and correct going into the experiment.
+
+4. Hypothesis tested
+
+Hypothesis
+
+Tightening the stop-loss from 2.5% to 2.0%, while keeping take-profit fixed at 2.0%, will improve overall profitability by improving payoff symmetry and reducing required break-even win rate.
+
+Why this hypothesis was reasonable to test
+
+VWAP-disciplined entries suggested trades might require less downside room
+
+A symmetric 2.0 / 2.0 payoff lowers theoretical break-even win rate
+
+The change was a single-parameter adjustment suitable for a clean A/B test
+
+This was explicitly a payoff-geometry experiment, not a signal, filter, or regime experiment.
+
+5. What was changed temporarily during the experiment
+Files involved
+
+During the experiment, the following file was temporarily modified:
+
+config/scenarios.json
+
+Scenario B field:
+
+"sl_pct": 2.5 → "sl_pct": 2.0
+
+No other fields were modified.
+
+Files explicitly NOT changed
+
+src/midas_v2/strategy.py
+
+Verified that sl_pct is correctly read from scenario configuration
+
+No logic changes were required or made
+
+No runner scripts were modified
+
+No data ingestion scripts were modified
+
+No sizing or risk logic was modified
+
+This ensured the experiment tested geometry only, not behavior.
+
+6. Experiment design (controlled A/B test)
+
+Scenario: B
+
+VWAP Extension Gate: ON
+
+Dates tested: 2025-08-05 → 2025-08-09 (weekend auto-skipped)
+
+Universe: daily Top-5 gappers
+
+All logic identical except stop-loss percentage
+
+Command used
+python scripts\run_range_and_summarize.py --start 2025-08-05 --end 2025-08-09 --scenario B
+
+
+Two variants were tested back-to-back on the same dates and universe.
+
+7. Results
+Variant A — Tight stop (experimental)
+
+TP = 2.0%
+
+SL = 2.0%
+
+Totals
+
+Trades: 14
+
+Wins / Losses: 5 / 9
+
+Win rate: 35.71%
+
+Total PnL: −140.17
+
+Observed behavior
+
+Trades were stopped out earlier
+
+Several trades later recovered but were already exited
+
+Weak days produced large clustered losses
+
+Volatility and instability increased
+
+Variant B — Baseline stop (control)
+
+TP = 2.0%
+
+SL = 2.5%
+
+Totals
+
+Trades: 15
+
+Wins / Losses: 8 / 7
+
+Win rate: 53.33%
+
+Total PnL: −21.31
+
+Observed behavior
+
+Trades had sufficient room to develop
+
+Losses on weak days were materially smaller
+
+Strategy behavior was more stable and realistic
+
+8. Decision
+
+The experiment is rejected.
+
+Tightening the stop-loss to 2.0%:
+
+Materially reduced win rate
+
+Increased volatility
+
+Worsened total PnL
+
+Did not meaningfully reduce worst-day damage
+
+Even with VWAP-disciplined entries, Scenario B requires more than 2% downside room.
+
+9. Restoration of baseline
+
+After completing the A/B test:
+
+config/scenarios.json was restored to:
+
+"sl_pct": 2.5
+
+No other files required restoration
+
+A final single-day verification run was executed on 2025-08-06, confirming:
+
+Stop-loss = 2.5%
+
+Take-profit = 2.0%
+
+VWAP Extension Gate active
+
+Behavior consistent with pre-experiment baseline
+
+This confirms the system is fully restored to its prior working state.
+
+10. Final baseline decision
+
+The following configuration is explicitly reaffirmed as the Scenario B baseline:
+
+Stop-loss = 2.5%
+
+Take-profit = 2.0%
+
+VWAP Extension Gate = ON
+
+This baseline remains the reference point for all future work.
+
+11. Key insight from this session
+
+The primary profitability bottleneck is not payoff geometry.
+It is participation on the wrong days.
+
+Evidence:
+
+Strong days remain profitable with current logic
+
+Weak days (e.g. 2025-08-07, 2025-08-08) generate clustered losses
+
+Geometry changes alone cannot fix poor day selection
+
+This reframes the problem from “how to manage trades better” to
+“when not to trade at all.”
+
+12. Why this is a documentation-only version
+
+The experiment produced a clear negative result
+
+No production change was adopted
+
+All temporary changes were reverted
+
+The value lies in the decision and reasoning, not code changes
+
+Version v0.8.1.2.0 therefore exists to:
+
+Preserve the tested hypothesis
+
+Preserve the experimental evidence
+
+Prevent regression into re-testing a disproven idea
+
+Provide a clean conceptual handover to the next version
+
+13. Implication for the next version
+
+The next profitability lever must operate at the day level, not the trade level.
+
+Filtering bad days — not tightening stops — is the correct next direction.
+
+This directly motivates the proposed Day Follow-Through Gate, detailed in the handover document.

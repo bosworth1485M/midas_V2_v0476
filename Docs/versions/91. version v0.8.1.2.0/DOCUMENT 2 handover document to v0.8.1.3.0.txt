@@ -1,0 +1,303 @@
+DOCUMENT 2
+Technical Handover & Next-Version Design Brief
+Midas_V2 — v0.8.1.2.0 → Next Version
+Use this document to start the next version thread.
+1. Why this handover exists
+
+This handover follows v0.8.1.2.0, which was a documentation-only version created to record and reject a payoff-geometry experiment (tightening stop-loss).
+
+No production code changes were adopted in v0.8.1.2.0.
+
+This document therefore serves one purpose:
+
+To clearly define what is now frozen, what has been ruled out, and what single new knob should be explored next to lift profitability.
+
+2. Current confirmed baseline (DO NOT CHANGE)
+
+The following configuration is explicitly frozen and must be treated as the baseline going into the next version.
+
+Scenario B — Gap-and-Go (Baseline)
+
+Take-profit: +2.0%
+
+Stop-loss: −2.5%
+
+VWAP Extension Gate: ON
+
+vwap_extension_gate = true
+
+vwap_extension_max_pct = 1.5
+
+Gate minutes: 20
+
+RVOL open filter:
+
+min_rvol_open = 2.0
+
+rvol_open_minutes = 15
+
+MACD rising bars: 2
+
+Green candle requirement: 3 bars, body ≥ green_body_min
+
+Max trades per symbol: 1
+
+No catalysts
+
+No adaptive sizing
+
+No partial exits
+
+No trailing stops
+
+No microstructure expansion or pressure gating
+
+This baseline was re-verified after the experiment via a single-day run on 2025-08-06 and behaved as expected.
+
+3. What was tested and ruled out (important context)
+Tested in v0.8.1.2.0
+
+Stop-loss tightening: 2.5% → 2.0%
+
+Geometry only; no other changes
+
+Outcome
+
+Win rate collapsed
+
+Volatility increased
+
+Net PnL worsened materially
+
+Baseline SL 2.5% clearly superior
+
+Explicit conclusion
+
+Payoff geometry is not the primary profitability lever for Scenario B at this stage.
+
+This conclusion is now considered settled and should not be revisited unless the entry model itself changes materially.
+
+4. What NOT to work on next (explicit exclusions)
+
+The following areas are intentionally deferred and must not be included in the next version:
+
+Further SL / TP tuning
+
+Adaptive SL / TP by trade quality
+
+Partial profit-taking
+
+Trailing stops
+
+Adaptive sizing
+
+Catalyst-based filtering
+
+Complex microstructure logic
+
+Multi-knob experimentation
+
+Reason:
+All of these either:
+
+Mask the real failure mode, or
+
+Add complexity before the core problem is addressed.
+
+5. The real problem identified
+
+From the controlled experiments and logs:
+
+Good days (e.g. 2025-08-06):
+
+Strategy performs well
+
+VWAP-disciplined entries succeed
+
+Bad days (e.g. 2025-08-07, 2025-08-08):
+
+Multiple trades meet entry criteria
+
+Price fails to follow through
+
+Losses cluster, regardless of geometry
+
+Core insight
+
+Scenario B loses money primarily by participating on the wrong days — not by managing individual trades poorly.
+
+This reframes the optimization target.
+
+6. Required shift in focus
+
+The next improvement must operate at the day level, not the trade level.
+
+Instead of asking:
+
+“How do we manage trades better?”
+
+We must ask:
+
+“When should we not trade at all?”
+
+This is a structural shift in control logic.
+
+7. Recommended next knob: Day Follow-Through Gate
+Concept (high-level)
+
+Introduce an optional day-level gate that determines whether Scenario B is allowed to trade at all on a given day.
+
+If early market behavior does not show real momentum follow-through:
+
+Scenario B is disabled for the remainder of the day
+
+No trades are taken, regardless of individual setups
+
+This mirrors discretionary Cameron-style behavior:
+
+“If nothing is working today, stand down.”
+
+8. Why this knob is the correct next step
+
+This knob is recommended because it:
+
+Directly targets the largest source of losses (bad days)
+
+Can eliminate entire −100 to −200 PnL days
+
+Preserves behavior on strong momentum days
+
+Is orthogonal to VWAP, MACD, RVOL, SL/TP
+
+Does not depend on catalysts
+
+Is simple, explainable, and testable
+
+Fits the “single-knob, single-version” discipline
+
+9. Design principles for the next version
+
+The next version must follow these strict principles:
+
+One new knob only
+
+Binary decision per day (trade vs no-trade)
+
+Optional and configurable (OFF by default initially)
+
+Evaluated once per day, not per trade
+
+Explicit WHY logging for pass/fail
+
+No interaction with trade management logic
+
+No stacking, no tuning sprees.
+
+10. Candidate knob definition (conceptual)
+New Scenario B parameters (conceptual)
+
+require_day_follow_through
+
+day_follow_through_minutes
+
+day_follow_through_min_symbols
+
+Conceptual behavior
+
+After day_follow_through_minutes from market open:
+
+Examine the top-N gappers already in the universe
+
+Count how many symbols show real follow-through, defined by at least one simple condition:
+
+Price holding above VWAP
+
+OR price exceeding opening-range high
+
+OR strong green candle with meaningful body
+
+If the count is below threshold:
+
+Mark day as FAILED
+
+Disable Scenario B trading for the rest of the session
+
+11. Logging and observability requirements
+
+The gate must produce day-level WHY logs, such as:
+
+DAY_GATE: CHECK
+
+DAY_GATE: PASSED symbols=3
+
+DAY_GATE: FAILED symbols=1 reason=insufficient_follow_through
+
+These logs must appear:
+
+Once per day
+
+Before any trade decisions
+
+In both passing and failing cases
+
+This is critical for later TWCS and UI analysis.
+
+12. Success criteria for the next version
+
+The next version is considered successful if, with the gate enabled:
+
+Worst-day losses are materially reduced
+
+Average daily PnL improves
+
+Trade count on strong days remains similar
+
+Strategy behavior remains explainable and stable
+
+Failure criteria:
+
+No measurable reduction in bad-day damage
+
+Excessive suppression of good-day trades
+
+13. Relationship to future roadmap
+
+This knob is intentionally placed before:
+
+Catalysts
+
+Adaptive sizing
+
+Confidence-tiering
+
+Microstructure refinements
+
+Those features become more powerful after bad days are filtered out.
+
+14. How to use this handover
+
+When starting the next version thread:
+
+Paste Document 1 for context
+
+Use this document as the authoritative scope definition
+
+Do not revisit payoff geometry
+
+Implement only the day follow-through gate
+
+Evaluate ON vs OFF on the same date blocks
+
+15. Final handover summary
+
+Baseline is frozen and verified
+
+Geometry tuning is ruled out
+
+Losses are day-driven
+
+The next lever is day-level filtering
+
+The proposed solution is a Day Follow-Through Gate
+
+This document defines the single, clean path forward.
