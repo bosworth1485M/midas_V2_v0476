@@ -600,6 +600,150 @@ def run_backtest(
     sizer = build_sizer_from_config(scenario_params if isinstance(scenario_params, dict) else {})
     sizer.reset_daily()
 
+    # v0.8.1.3.0: Day follow-through gate prepass (Scenario B)
+    day_gate_failed = False  # v0.8.1.3.0: default to no gate
+    require_day_follow_through = scenario_params.get("require_day_follow_through", False) if isinstance(scenario_params, dict) else False  # v0.8.1.3.0
+    day_follow_through_minutes = scenario_params.get("day_follow_through_minutes", 20) if isinstance(scenario_params, dict) else 20  # v0.8.1.3.0
+    day_follow_through_min_symbols = scenario_params.get("day_follow_through_min_symbols", 2) if isinstance(scenario_params, dict) else 2  # v0.8.1.3.0
+    green_body_min = norm_params.get("green_body_min", 0.0)  # v0.8.1.3.0
+    if green_body_min is None:  # v0.8.1.3.0
+        green_body_min = 0.0  # v0.8.1.3.0
+    vwap_extension_max_pct = norm_params.get("vwap_extension_max_pct", 1.5)  # v0.8.1.3.0
+    if vwap_extension_max_pct is None:  # v0.8.1.3.0
+        vwap_extension_max_pct = 1.5  # v0.8.1.3.0
+
+    # v0.8.1.3.0: Always emit check log
+    log.info(  # v0.8.1.3.0
+        "DAY_GATE: CHECK enabled=%s minutes=%d min_symbols=%d universe=%d",  # v0.8.1.3.0
+        require_day_follow_through, day_follow_through_minutes, day_follow_through_min_symbols, len(symbols)  # v0.8.1.3.0
+    )  # v0.8.1.3.0
+
+    if require_day_follow_through:  # v0.8.1.3.0
+        # v0.8.1.3.0: Prepass to evaluate day follow-through across universe
+        i_eval = day_follow_through_minutes  # v0.8.1.3.0
+        follow_through_count = 0  # v0.8.1.3.0
+        for sym in symbols:  # v0.8.1.3.0
+            sym_passed = False  # v0.8.1.3.0: track if this symbol passes
+            j_pass = -1  # v0.8.1.3.0: first bar that passed
+            j_start = max(0, i_eval - 5)  # v0.8.1.3.0: late window start (for logging)
+            pass_rule = ""  # v0.8.1.3.0: which rule triggered
+            fail_reason = "no_bar_passed"  # v0.8.1.3.0: default fail reason
+            err_msg = ""  # v0.8.1.3.0: exception details for load_error
+            # v0.8.1.3.0: debug metrics (best effort)
+            dbg_close, dbg_open, dbg_high, dbg_low, dbg_vol = 0.0, 0.0, 0.0, 0.0, 0.0  # v0.8.1.3.0
+            dbg_vwap, dbg_dist_pct, dbg_body_frac = None, None, 0.0  # v0.8.1.3.0
+            dbg_cum_v = 0.0  # v0.8.1.3.0: cumulative volume for liquidity check
+            try:  # v0.8.1.3.0
+                bars = data.load_minute_bars(sym, date_str)  # v0.8.1.3.0
+                if len(bars) <= i_eval:  # v0.8.1.3.0
+                    fail_reason = "insufficient_bars"  # v0.8.1.3.0
+                    # v0.8.1.3.0: capture last available bar for debug
+                    if len(bars) > 0:  # v0.8.1.3.0
+                        last_bar = bars[-1]  # v0.8.1.3.0
+                        dbg_close, dbg_open, dbg_high, dbg_low, dbg_vol = last_bar.c, last_bar.o, last_bar.h, last_bar.l, last_bar.v  # v0.8.1.3.0
+                        dbg_body_frac = abs(last_bar.c - last_bar.o) / max(1e-9, (last_bar.h - last_bar.l))  # v0.8.1.3.0
+                else:  # v0.8.1.3.0
+                    # v0.8.1.3.0: Scan late window [j_start..i_eval] for qualification; compute VWAP incrementally from 0
+                    j_start = max(0, i_eval - 5)  # v0.8.1.3.0: late window only (last 5 minutes)
+                    running_pv = 0.0  # v0.8.1.3.0
+                    running_v = 0.0  # v0.8.1.3.0
+                    for j in range(i_eval + 1):  # v0.8.1.3.0
+                        try:  # v0.8.1.3.0
+                            b = bars[j]  # v0.8.1.3.0
+                            typical = (b.h + b.l + b.c) / 3.0  # v0.8.1.3.0
+                            running_pv += typical * b.v  # v0.8.1.3.0
+                            running_v += b.v  # v0.8.1.3.0
+                            vwap_j = running_pv / running_v if running_v > 0 else None  # v0.8.1.3.0
+                            # v0.8.1.3.0: Only test follow-through in late window [j_start..i_eval]
+                            if j >= j_start:  # v0.8.1.3.0
+                                close_above_vwap = False  # v0.8.1.3.0
+                                if vwap_j is not None and b.c > vwap_j:  # v0.8.1.3.0
+                                    # v0.8.1.3.0: Apply VWAP extension cap to close_gt_vwap qualification
+                                    dist_pct_j = abs(b.c - vwap_j) / vwap_j * 100.0  # v0.8.1.3.0
+                                    if dist_pct_j <= vwap_extension_max_pct:  # v0.8.1.3.0
+                                        close_above_vwap = True  # v0.8.1.3.0
+                                green_body_ok = False  # v0.8.1.3.0
+                                body_frac = abs(b.c - b.o) / max(1e-9, (b.h - b.l))  # v0.8.1.3.0
+                                # v0.8.1.3.0: Apply VWAP extension cap to green_body qualification
+                                if b.c > b.o and body_frac >= green_body_min:  # v0.8.1.3.0
+                                    if vwap_j is not None and vwap_j > 0:  # v0.8.1.3.0
+                                        dist_abs_pct_j = abs(b.c - vwap_j) / vwap_j * 100.0  # v0.8.1.3.0
+                                        if dist_abs_pct_j <= vwap_extension_max_pct:  # v0.8.1.3.0
+                                            green_body_ok = True  # v0.8.1.3.0
+                                    # v0.8.1.3.0: else vwap_j is None or 0, fail closed (green_body_ok remains False)
+                                # v0.8.1.3.0: If either condition passes, check liquidity floor
+                                if close_above_vwap or green_body_ok:  # v0.8.1.3.0
+                                    # v0.8.1.3.0: Apply liquidity floor (cumulative volume >= 50k)
+                                    if running_v >= 50_000:  # v0.8.1.3.0
+                                        sym_passed = True  # v0.8.1.3.0
+                                        j_pass = j  # v0.8.1.3.0
+                                        pass_rule = "close_gt_vwap" if close_above_vwap else "green_body"  # v0.8.1.3.0
+                                        # v0.8.1.3.0: capture debug metrics from passing bar
+                                        dbg_close, dbg_open, dbg_high, dbg_low, dbg_vol = b.c, b.o, b.h, b.l, b.v  # v0.8.1.3.0
+                                        dbg_vwap = vwap_j  # v0.8.1.3.0
+                                        dbg_cum_v = running_v  # v0.8.1.3.0
+                                        if vwap_j is not None and vwap_j > 0:  # v0.8.1.3.0
+                                            dbg_dist_pct = 100.0 * (b.c - vwap_j) / vwap_j  # v0.8.1.3.0
+                                        dbg_body_frac = body_frac  # v0.8.1.3.0
+                                        break  # v0.8.1.3.0: early exit once passed
+                                    # v0.8.1.3.0: else insufficient liquidity, continue scanning
+                        except Exception:  # v0.8.1.3.0
+                            continue  # v0.8.1.3.0: skip this bar, try next
+                    # v0.8.1.3.0: If no bar passed, capture debug from i_eval bar
+                    if not sym_passed:  # v0.8.1.3.0
+                        try:  # v0.8.1.3.0
+                            bar_eval = bars[i_eval]  # v0.8.1.3.0
+                            dbg_close, dbg_open, dbg_high, dbg_low, dbg_vol = bar_eval.c, bar_eval.o, bar_eval.h, bar_eval.l, bar_eval.v  # v0.8.1.3.0
+                            dbg_body_frac = abs(bar_eval.c - bar_eval.o) / max(1e-9, (bar_eval.h - bar_eval.l))  # v0.8.1.3.0
+                            dbg_cum_v = running_v  # v0.8.1.3.0: capture cumulative volume at i_eval
+                            # v0.8.1.3.0: compute final VWAP at i_eval
+                            if running_v > 0:  # v0.8.1.3.0
+                                dbg_vwap = running_pv / running_v  # v0.8.1.3.0
+                                if dbg_vwap > 0:  # v0.8.1.3.0
+                                    dbg_dist_pct = 100.0 * (bar_eval.c - dbg_vwap) / dbg_vwap  # v0.8.1.3.0
+                        except Exception:  # v0.8.1.3.0
+                            pass  # v0.8.1.3.0
+            except Exception as exc:  # v0.8.1.3.0
+                fail_reason = "load_error"  # v0.8.1.3.0
+                err_str = str(exc)  # v0.8.1.3.0
+                err_short = err_str[:160].replace("\n", " ").replace("\r", " ")  # v0.8.1.3.0
+                err_msg = err_short  # v0.8.1.3.0
+            # v0.8.1.3.0: Emit per-symbol debug log
+            if sym_passed:  # v0.8.1.3.0
+                follow_through_count += 1  # v0.8.1.3.0
+                vwap_str = f"vwap={dbg_vwap:.4f}" if dbg_vwap is not None else "vwap=N/A"  # v0.8.1.3.0
+                dist_str = f"dist_pct={dbg_dist_pct:.2f}" if dbg_dist_pct is not None else "dist_pct=N/A"  # v0.8.1.3.0
+                # v0.8.1.3.0: Compute absolute distance percent for logging clarity
+                if dbg_vwap is not None and dbg_vwap != 0:  # v0.8.1.3.0
+                    dist_abs_pct = abs(dbg_close - dbg_vwap) / dbg_vwap * 100.0  # v0.8.1.3.0
+                    dist_abs_str = f"dist_abs_pct={dist_abs_pct:.2f}"  # v0.8.1.3.0
+                else:  # v0.8.1.3.0
+                    dist_abs_str = "dist_abs_pct=N/A"  # v0.8.1.3.0
+                log.info(  # v0.8.1.3.0
+                    "DAY_GATE: SYM symbol=%s j_start=%d i_eval=%d pass=True j=%d rule=%s close=%.4f open=%.4f high=%.4f low=%.4f v=%.0f cum_v=%.0f %s %s %s vwap_cap=%.2f body_frac=%.2f",  # v0.8.1.3.0
+                    sym, j_start, i_eval, j_pass, pass_rule, dbg_close, dbg_open, dbg_high, dbg_low, dbg_vol, dbg_cum_v, vwap_str, dist_str, dist_abs_str, vwap_extension_max_pct, dbg_body_frac  # v0.8.1.3.0
+                )  # v0.8.1.3.0
+            else:  # v0.8.1.3.0
+                vwap_str = f"vwap={dbg_vwap:.4f}" if dbg_vwap is not None else "vwap=N/A"  # v0.8.1.3.0
+                dist_str = f"dist_pct={dbg_dist_pct:.2f}" if dbg_dist_pct is not None else "dist_pct=N/A"  # v0.8.1.3.0
+                # v0.8.1.3.0: Compute absolute distance percent for logging clarity
+                if dbg_vwap is not None and dbg_vwap != 0:  # v0.8.1.3.0
+                    dist_abs_pct = abs(dbg_close - dbg_vwap) / dbg_vwap * 100.0  # v0.8.1.3.0
+                    dist_abs_str = f"dist_abs_pct={dist_abs_pct:.2f}"  # v0.8.1.3.0
+                else:  # v0.8.1.3.0
+                    dist_abs_str = "dist_abs_pct=N/A"  # v0.8.1.3.0
+                err_str = f' err="{err_msg}"' if fail_reason == "load_error" and err_msg else ""  # v0.8.1.3.0
+                log.info(  # v0.8.1.3.0
+                    "DAY_GATE: SYM symbol=%s j_start=%d i_eval=%d pass=False reason=%s%s close=%.4f open=%.4f high=%.4f low=%.4f v=%.0f cum_v=%.0f %s %s %s vwap_cap=%.2f body_frac=%.2f",  # v0.8.1.3.0
+                    sym, j_start, i_eval, fail_reason, err_str, dbg_close, dbg_open, dbg_high, dbg_low, dbg_vol, dbg_cum_v, vwap_str, dist_str, dist_abs_str, vwap_extension_max_pct, dbg_body_frac  # v0.8.1.3.0
+                )  # v0.8.1.3.0
+        # v0.8.1.3.0: Determine gate outcome
+        if follow_through_count < day_follow_through_min_symbols:  # v0.8.1.3.0
+            day_gate_failed = True  # v0.8.1.3.0
+            log.info("DAY_GATE: FAILED symbols=%d reason=insufficient_follow_through", follow_through_count)  # v0.8.1.3.0
+        else:  # v0.8.1.3.0
+            log.info("DAY_GATE: PASSED symbols=%d", follow_through_count)  # v0.8.1.3.0
+
     # Guardrail trackers
     trades_by_symbol = defaultdict(int)
     cum_pnl = 0.0
@@ -641,7 +785,7 @@ def run_backtest(
                 continue
 
             # entry logic
-            if position is None and strat.should_enter(bars, i) and risk.allow_new_trade():
+            if (not day_gate_failed) and position is None and strat.should_enter(bars, i) and risk.allow_new_trade():  # v0.8.1.3.0: added day gate check
                 entry = bar.c
                 tp, sl = strat.targets(entry)
 

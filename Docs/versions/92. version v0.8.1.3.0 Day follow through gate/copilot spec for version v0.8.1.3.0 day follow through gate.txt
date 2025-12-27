@@ -1,0 +1,116 @@
+BEGIN COPILOT SPEC — Midas_V2 v0.8.1.3.0 Day Follow-Through Gate
+
+GOAL (one sentence)
+Add an optional day-level follow-through gate for Scenario B that disables all NEW entries on weak momentum days, evaluated ONCE per day, without changing any trade-level logic.
+
+ABSOLUTE SCOPE RULES (MUST FOLLOW)
+- Allowed: add 3 Scenario B config fields; add minimal day-gate logic and logging.
+- Forbidden: SL/TP changes, entry logic changes, indicator logic changes, sizing changes, catalysts, refactors, new scripts, changes to strategy.py.
+- Only implement the day gate. No second knob.
+
+FILES ALLOWED TO CHANGE (ONLY THESE)
+1) config/scenarios.json
+2) src/midas_v2/backtester.py
+
+CONFIG CHANGE (Scenario B ONLY; defaults OFF)
+In config/scenarios.json under Scenario B params add:
+- "require_day_follow_through": false
+- "day_follow_through_minutes": 20
+- "day_follow_through_min_symbols": 2
+Do NOT modify any other scenario. Do NOT change any existing fields.
+
+IMPORTANT ARCHITECTURE REALITY (do not ignore)
+backtester.py runs symbol-by-symbol (for sym in symbols) and bar-by-bar per symbol. There is no global time loop across symbols.
+Therefore: implement the day gate as a SINGLE PREPASS over the universe BEFORE the main trading loop, not as a time-synchronized cross-symbol loop.
+
+DAY GATE BEHAVIOR (STRICT)
+- If require_day_follow_through is false: behavior must be identical to prior versions (no change).
+- If require_day_follow_through is true:
+  1) Evaluate the day gate exactly once per run/day (ONE prepass).
+  2) Compute follow-through count across the same universe list loaded from universe_path.
+  3) If count < day_follow_through_min_symbols -> day_gate_failed = True (sticky)
+     Else -> day_gate_passed = True (sticky)
+  4) When day_gate_failed is True, block ONLY NEW ENTRIES for the rest of the day.
+     - Do not interfere with managing open positions (TP/SL logic remains unchanged).
+     - Do not modify strat.should_enter() or any strategy logic.
+
+FOLLOW-THROUGH TEST (v1 minimal)
+At the evaluation index i_eval = day_follow_through_minutes:
+A symbol counts as “follow-through” if EITHER:
+- close > vwap_at_i_eval
+OR
+- candle is green with body >= green_body_min
+Where:
+- close is bars[i_eval].c
+- green candle means bars[i_eval].c > bars[i_eval].o
+- body fraction is abs(c - o) / max(1e-9, (h - l)) and compare to green_body_min (if green_body_min is None, treat as 0.0)
+
+VWAP COMPUTATION (minimal; local helper in backtester.py)
+Compute VWAP up to i_eval using bars[0..i_eval] with volume weighting:
+- typical_price = (h + l + c) / 3.0
+- vwap = sum(typical_price * v) / sum(v)
+If sum(v) <= 0 or missing values: treat VWAP as None and that condition fails closed (i.e., only green-body can qualify).
+
+EDGE CASES (defensive)
+- If a symbol has fewer than i_eval+1 bars, it cannot count as follow-through.
+- If bars are missing fields, fail closed for that symbol.
+- Use try/except defensively, but do not swallow the day-gate logs.
+
+LOGGING REQUIREMENTS (MANDATORY)
+In backtester.py emit once per run/day:
+- Always emit:
+  log.info("DAY_GATE: CHECK enabled=%s minutes=%d min_symbols=%d universe=%d", enabled, m, k, len(symbols))  # v0.8.1.3.0
+
+If enabled, also emit exactly one of:
+- log.info("DAY_GATE: PASSED symbols=%d", n)  # v0.8.1.3.0
+- log.info("DAY_GATE: FAILED symbols=%d reason=insufficient_follow_through", n)  # v0.8.1.3.0
+
+These must occur before any entries are taken.
+
+WHERE TO APPLY THE BLOCK (minimal change)
+In the existing entry block in the per-bar loop:
+Current:
+if position is None and strat.should_enter(bars, i) and risk.allow_new_trade():
+Change to:
+if (not day_gate_failed) and position is None and strat.should_enter(bars, i) and risk.allow_new_trade():
+Do not change strat.should_enter. Do not change risk manager.
+
+IMPLEMENTATION LOCATION
+Inside run_backtest() in src/midas_v2/backtester.py:
+- After loading symbols and creating strat/norm_params, add prepass evaluation:
+  - read require_day_follow_through, day_follow_through_minutes, day_follow_through_min_symbols from scenario_params (dict) safely
+  - compute green_body_min from norm_params (safe default 0.0)
+  - prepass over symbols: load bars (same loader already used), evaluate follow-through at i_eval
+  - set day_gate_failed/day_gate_passed booleans
+- Then run the existing main loop (for sym in symbols) unchanged except for the entry-condition guard above.
+
+INLINE VERSION TAGGING (REQUIRED)
+Every new/modified line must include:
+# v0.8.1.3.0
+
+EXPECTED LOG EXAMPLES (SO YOU CAN VERIFY QUICKLY)
+Case A — Gate disabled (default):
+DAY_GATE: CHECK enabled=False minutes=20 min_symbols=2 universe=94
+
+Case B — Gate enabled and PASS:
+DAY_GATE: CHECK enabled=True minutes=20 min_symbols=2 universe=94
+DAY_GATE: PASSED symbols=3
+
+Case C — Gate enabled and FAIL:
+DAY_GATE: CHECK enabled=True minutes=20 min_symbols=2 universe=94
+DAY_GATE: FAILED symbols=1 reason=insufficient_follow_through
+
+VALIDATION (do not implement scripts; just ensure code supports this)
+After implementation user will run:
+python scripts\run_range_and_summarize.py --start 2025-08-05 --end 2025-08-09 --scenario B
+Compare gate OFF vs gate ON.
+
+FINAL INSTRUCTION
+Make the smallest possible diff that:
+1) Adds the 3 Scenario B config fields (defaults OFF)
+2) Implements the prepass day gate in backtester.py
+3) Blocks only new entries when day_gate_failed is True
+4) Emits required day-gate logs (matching the examples above)
+and changes NOTHING else.
+
+END COPILOT SPEC — Midas_V2 v0.8.1.3.0 Day Follow-Through Gate

@@ -98,7 +98,10 @@
       "micro_pressure_window_s": 20,
       "micro_pressure_min_rising": 2,
       "vwap_extension_gate": true,
-      "vwap_extension_max_pct": 1.5
+      "vwap_extension_max_pct": 1.5,
+      "require_day_follow_through": true,
+      "day_follow_through_minutes": 20,
+      "day_follow_through_min_symbols": 2
     }
   },
   "B_backup": {
