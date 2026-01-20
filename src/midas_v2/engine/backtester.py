@@ -349,6 +349,7 @@ def run_backtest(
     log.info("MARGINAL_VWAP_GATE v0.8.1.11.0: enabled=True")  # v0.8.1.11.0
     log.info("POST_DAMAGE_WEAK_VWAP_RECLAIM_GUARD v0.8.1.19.0: enabled=True")  # v0.8.1.19.0
     log.info("POST_DAMAGE_ENTRY_LOCKOUT v0.8.1.23.0: enabled=True")  # v0.8.1.23.0
+    log.info("POST_DAMAGE_VWAP_HEAL_ESCAPE v0.8.1.24.0: enabled=True")  # v0.8.1.24.0
 
     # v0.4.8: load feature registry once (safe no-op if registry missing)
     if FeatureRegistry is not None:  # v0.4.8
@@ -670,6 +671,7 @@ def run_backtest(
     day_vwap_ext_blocks_total = 0  # v0.8.1.21.0
     day_marginal_vwap_gate_blocks_total = 0  # v0.8.1.21.0
     day_post_damage_entry_lockout_blocks_total = 0  # v0.8.1.23.0
+    day_post_damage_heal_entries_allowed_total = 0  # v0.8.1.24.0
     day_dup_ts_total = 0  # v0.8.1.21.0
     day_pos_mgmt_mismatch_symbols = 0  # v0.8.1.21.0
     day_missing_1s_symbols = 0  # v0.8.1.21.0
@@ -751,6 +753,17 @@ def run_backtest(
         damage_first_ts = None  # v0.8.1.23.0
         post_damage_lockout_logged = False  # v0.8.1.23.0: log-once latch per symbol/day
         
+        # v0.8.1.24.0: POST_DAMAGE_VWAP_HEAL_ESCAPE per-symbol tracking
+        heal_reclaim_idx = None  # v0.8.1.24.0
+        heal_confirm_count = 0  # v0.8.1.24.0
+        heal_window_damage_seen = False  # v0.8.1.24.0
+        heal_ready_idx = None  # v0.8.1.24.0
+        post_damage_heal_attempt_used = False  # v0.8.1.24.0
+        heal_running_pv = 0.0  # v0.8.1.24.0: VWAP fallback state
+        heal_running_v = 0.0  # v0.8.1.24.0: VWAP fallback state
+        heal_reclaim_logged = False  # v0.8.1.24.0: log-once latch for reclaim
+        heal_ready_logged = False  # v0.8.1.24.0: log-once latch for ready
+        
         # Tiering context (scenario-level until per-symbol features are wired)
         tier_ctx = {
             # ONE-LINE PATCH: make sizing "score-aware" for this run
@@ -771,6 +784,67 @@ def run_backtest(
                 if bar.c < bar.o and body_fraction >= 0.60:  # v0.8.1.23.0: structural damage definition
                     damage_first_idx = i  # v0.8.1.23.0
                     damage_first_ts = bar.ts if hasattr(bar, 'ts') else f"bar_{i}"  # v0.8.1.23.0
+
+            # v0.8.1.24.0: Continuous heal tracking (post-damage VWAP reclaim + 2-bar confirmation)
+            is_rth_bar = (isinstance(bar.ts, str) and bar.ts >= "09:30" and bar.ts <= "16:00")  # v0.8.1.24.0: RTH-only
+            if is_rth_bar and damage_first_idx is not None:  # v0.8.1.24.0: only track heal after damage exists
+                # v0.8.1.24.0: Compute heal_vwap_i (prefer bar.vwap, else incremental)
+                heal_vwap_i = None  # v0.8.1.24.0
+                if hasattr(bar, 'vwap') and bar.vwap is not None and bar.vwap > 0:  # v0.8.1.24.0
+                    heal_vwap_i = bar.vwap  # v0.8.1.24.0
+                else:  # v0.8.1.24.0: fallback to incremental computation
+                    typical = (bar.h + bar.l + bar.c) / 3.0  # v0.8.1.24.0
+                    heal_running_pv += typical * bar.v  # v0.8.1.24.0
+                    heal_running_v += bar.v  # v0.8.1.24.0
+                    if heal_running_v > 0:  # v0.8.1.24.0
+                        heal_vwap_i = heal_running_pv / heal_running_v  # v0.8.1.24.0
+                
+                # v0.8.1.24.0: Determine close_above_vwap and structural damage for this bar
+                close_above_vwap = (heal_vwap_i is not None and heal_vwap_i > 0 and bar.c > heal_vwap_i)  # v0.8.1.24.0
+                body = abs(bar.c - bar.o)  # v0.8.1.24.0
+                rng = max(bar.h - bar.l, 1e-9)  # v0.8.1.24.0
+                body_fraction = body / rng  # v0.8.1.24.0
+                is_struct_damage_bar_i = (bar.c < bar.o and body_fraction >= 0.60)  # v0.8.1.24.0
+                
+                # v0.8.1.24.0: Reclaim detection (first close above VWAP after damage)
+                if heal_reclaim_idx is None and close_above_vwap:  # v0.8.1.24.0
+                    heal_reclaim_idx = i  # v0.8.1.24.0
+                    heal_confirm_count = 0  # v0.8.1.24.0
+                    heal_window_damage_seen = False  # v0.8.1.24.0
+                    heal_ready_idx = None  # v0.8.1.24.0
+                    if not heal_reclaim_logged:  # v0.8.1.24.0: log once per symbol/day
+                        log.info(f"[WHY] v0.8.1.24.0 VWAP_HEAL_RECLAIM symbol={sym} ts={bar.ts} reclaim_i={i}")  # v0.8.1.24.0
+                        heal_reclaim_logged = True  # v0.8.1.24.0
+                
+                # v0.8.1.24.0: Damage-in-window tracking (abandon if damage seen after reclaim)
+                if heal_reclaim_idx is not None and i >= heal_reclaim_idx and is_struct_damage_bar_i:  # v0.8.1.24.0
+                    heal_window_damage_seen = True  # v0.8.1.24.0
+                
+                # v0.8.1.24.0: Confirmation counting (reclaim bar does NOT count; must be i > heal_reclaim_idx)
+                if heal_reclaim_idx is not None and i > heal_reclaim_idx:  # v0.8.1.24.0
+                    if close_above_vwap:  # v0.8.1.24.0
+                        heal_confirm_count += 1  # v0.8.1.24.0
+                    else:  # v0.8.1.24.0: reset confirmation count if close drops <= VWAP
+                        heal_confirm_count = 0  # v0.8.1.24.0
+                
+                # v0.8.1.24.0: Window failure / restart (if damage seen in window, abandon)
+                if heal_window_damage_seen:  # v0.8.1.24.0
+                    heal_reclaim_idx = None  # v0.8.1.24.0
+                    heal_confirm_count = 0  # v0.8.1.24.0
+                    heal_window_damage_seen = False  # v0.8.1.24.0
+                    heal_ready_idx = None  # v0.8.1.24.0
+                
+                # v0.8.1.24.0: Heal readiness (2 confirmations after reclaim)
+                if heal_reclaim_idx is not None and heal_confirm_count >= 2 and heal_ready_idx is None:  # v0.8.1.24.0
+                    heal_ready_idx = i  # v0.8.1.24.0: this i is the 2nd confirmation bar
+                    if not heal_ready_logged:  # v0.8.1.24.0: log once per symbol/day
+                        log.info(f"[WHY] v0.8.1.24.0 VWAP_HEAL_READY symbol={sym} ts={bar.ts} reclaim_i={heal_reclaim_idx} confirm2_i={i}")  # v0.8.1.24.0
+                        heal_ready_logged = True  # v0.8.1.24.0
+            elif damage_first_idx is None:  # v0.8.1.24.0: reset heal state if no damage yet
+                heal_reclaim_idx = None  # v0.8.1.24.0
+                heal_confirm_count = 0  # v0.8.1.24.0
+                heal_window_damage_seen = False  # v0.8.1.24.0
+                heal_ready_idx = None  # v0.8.1.24.0
 
             # Guardrail: stop new trades if daily loss exceeded
             if daily_max_loss and cum_pnl <= -abs(daily_max_loss):
@@ -829,18 +903,48 @@ def run_backtest(
                         pending_entry = None  # v0.8.1.8.0: clear pending, no position created
                         continue  # v0.8.1.8.0: skip entry, proceed to next bar
                     
-                    # v0.8.1.23.0: POST_DAMAGE_ENTRY_LOCKOUT (pending_entry confirmation path)
-                    if damage_first_idx is not None and damage_first_idx < i:  # v0.8.1.23.0
-                        if not post_damage_lockout_logged:  # v0.8.1.23.0: log once per symbol/day
-                            log.warning(f"[WHY] v0.8.1.23.0 POST_DAMAGE_ENTRY_LOCKOUT symbol={sym} day_class={day_class} entry_ts={bar.ts} entry_i={i} damage_ts={damage_first_ts} damage_i={damage_first_idx} source=pending_confirm")  # v0.8.1.23.0
-                            post_damage_lockout_logged = True  # v0.8.1.23.0
-                        telemetry["count_post_damage_entry_lockout_blocks"] += 1  # v0.8.1.23.0
-                        day_post_damage_entry_lockout_blocks_total += 1  # v0.8.1.23.0
-                        pending_entry = None  # v0.8.1.23.0: clear pending, no position created
-                        continue  # v0.8.1.23.0: skip entry, proceed to next bar
+                    # v0.8.1.23.0 / v0.8.1.24.0: POST_DAMAGE_ENTRY_LOCKOUT with VWAP_HEAL_ESCAPE (pending_entry confirmation path)
+                    if damage_first_idx is not None and damage_first_idx < i:  # v0.8.1.23.0 / v0.8.1.24.0
+                        # v0.8.1.24.0: Check escape hatch conditions
+                        is_rth_bar_check = (isinstance(bar.ts, str) and bar.ts >= "09:30" and bar.ts <= "16:00")  # v0.8.1.24.0
+                        escape_hatch_allowed_at_i = (  # v0.8.1.24.0
+                            post_damage_heal_attempt_used is False  # v0.8.1.24.0
+                            and heal_ready_idx is not None  # v0.8.1.24.0
+                            and i == heal_ready_idx + 1  # v0.8.1.24.0: entry only on next bar after 2nd confirmation
+                            and heal_reclaim_idx is not None  # v0.8.1.24.0
+                            and heal_window_damage_seen is False  # v0.8.1.24.0
+                            and is_rth_bar_check  # v0.8.1.24.0
+                        )  # v0.8.1.24.0
+                        
+                        if not escape_hatch_allowed_at_i:  # v0.8.1.24.0: escape hatch does NOT apply, enforce lockout
+                            if not post_damage_lockout_logged:  # v0.8.1.23.0: log once per symbol/day
+                                log.warning(f"[WHY] v0.8.1.23.0 POST_DAMAGE_ENTRY_LOCKOUT symbol={sym} day_class={day_class} entry_ts={bar.ts} entry_i={i} damage_ts={damage_first_ts} damage_i={damage_first_idx} source=pending_confirm")  # v0.8.1.23.0
+                                post_damage_lockout_logged = True  # v0.8.1.23.0
+                            telemetry["count_post_damage_entry_lockout_blocks"] += 1  # v0.8.1.23.0
+                            day_post_damage_entry_lockout_blocks_total += 1  # v0.8.1.23.0
+                            pending_entry = None  # v0.8.1.23.0: clear pending, no position created
+                            continue  # v0.8.1.23.0: skip entry, proceed to next bar
+                        # v0.8.1.24.0: else escape_hatch_allowed_at_i is True, allow confirmation to proceed
                     
                     qty = pending_entry["qty"]  # v0.8.1.7.0
                     position = {"symbol": sym, "entry": entry, "i": i, "tp": tp, "sl": sl, "qty": qty}  # v0.8.1.7.0: use current bar index
+                    
+                    # v0.8.1.24.0: Track heal entry if escape hatch was used
+                    if damage_first_idx is not None and damage_first_idx < i:  # v0.8.1.24.0: lockout condition was met
+                        is_rth_bar_check = (isinstance(bar.ts, str) and bar.ts >= "09:30" and bar.ts <= "16:00")  # v0.8.1.24.0
+                        escape_hatch_was_used = (  # v0.8.1.24.0
+                            post_damage_heal_attempt_used is False  # v0.8.1.24.0: check before setting
+                            and heal_ready_idx is not None  # v0.8.1.24.0
+                            and i == heal_ready_idx + 1  # v0.8.1.24.0
+                            and heal_reclaim_idx is not None  # v0.8.1.24.0
+                            and heal_window_damage_seen is False  # v0.8.1.24.0
+                            and is_rth_bar_check  # v0.8.1.24.0
+                        )  # v0.8.1.24.0
+                        if escape_hatch_was_used:  # v0.8.1.24.0
+                            post_damage_heal_attempt_used = True  # v0.8.1.24.0
+                            day_post_damage_heal_entries_allowed_total += 1  # v0.8.1.24.0
+                            log.info(f"[WHY] v0.8.1.24.0 POST_DAMAGE_HEAL_ENTRY_ALLOWED symbol={sym} day_class={day_class} entry_ts={bar.ts} entry_i={i} reclaim_i={heal_reclaim_idx} confirm2_i={heal_ready_idx} allow_i={i} source=pending_confirm")  # v0.8.1.24.0
+                    
                     log.info(f"[WHY] v0.8.1.7.0 POST_EXP: POSITION_SET symbol={sym} i={i} bar_ts={bar.ts} entry={entry} tp={tp} sl={sl} qty={qty}")  # v0.8.1.7.0
                     position["trade_id"] = pending_entry.get("trade_id")  # v0.8.1.7.0
                     position["entry_time_iso"] = bar.ts  # v0.8.1.7.0: actual entry time is now
@@ -1261,14 +1365,27 @@ def run_backtest(
                     telemetry["count_struct_damage_blocks"] += 1  # v0.8.1.20.0
                     continue  # v0.8.1.4.0
                 
-                # v0.8.1.23.0: POST_DAMAGE_ENTRY_LOCKOUT (normal entry path, before position creation)
-                if damage_first_idx is not None and damage_first_idx < i:  # v0.8.1.23.0
-                    if not post_damage_lockout_logged:  # v0.8.1.23.0: log once per symbol/day
-                        log.warning(f"[WHY] v0.8.1.23.0 POST_DAMAGE_ENTRY_LOCKOUT symbol={sym} day_class={day_class} entry_ts={bar.ts} entry_i={i} damage_ts={damage_first_ts} damage_i={damage_first_idx} source=normal")  # v0.8.1.23.0
-                        post_damage_lockout_logged = True  # v0.8.1.23.0
-                    telemetry["count_post_damage_entry_lockout_blocks"] += 1  # v0.8.1.23.0
-                    day_post_damage_entry_lockout_blocks_total += 1  # v0.8.1.23.0
-                    continue  # v0.8.1.23.0: skip this bar's entry attempt
+                # v0.8.1.23.0 / v0.8.1.24.0: POST_DAMAGE_ENTRY_LOCKOUT with VWAP_HEAL_ESCAPE (normal entry path, before position creation)
+                if damage_first_idx is not None and damage_first_idx < i:  # v0.8.1.23.0 / v0.8.1.24.0
+                    # v0.8.1.24.0: Check escape hatch conditions
+                    is_rth_bar_check = (isinstance(bar.ts, str) and bar.ts >= "09:30" and bar.ts <= "16:00")  # v0.8.1.24.0
+                    escape_hatch_allowed_at_i = (  # v0.8.1.24.0
+                        post_damage_heal_attempt_used is False  # v0.8.1.24.0
+                        and heal_ready_idx is not None  # v0.8.1.24.0
+                        and i == heal_ready_idx + 1  # v0.8.1.24.0: entry only on next bar after 2nd confirmation
+                        and heal_reclaim_idx is not None  # v0.8.1.24.0
+                        and heal_window_damage_seen is False  # v0.8.1.24.0
+                        and is_rth_bar_check  # v0.8.1.24.0
+                    )  # v0.8.1.24.0
+                    
+                    if not escape_hatch_allowed_at_i:  # v0.8.1.24.0: escape hatch does NOT apply, enforce lockout
+                        if not post_damage_lockout_logged:  # v0.8.1.23.0: log once per symbol/day
+                            log.warning(f"[WHY] v0.8.1.23.0 POST_DAMAGE_ENTRY_LOCKOUT symbol={sym} day_class={day_class} entry_ts={bar.ts} entry_i={i} damage_ts={damage_first_ts} damage_i={damage_first_idx} source=normal")  # v0.8.1.23.0
+                            post_damage_lockout_logged = True  # v0.8.1.23.0
+                        telemetry["count_post_damage_entry_lockout_blocks"] += 1  # v0.8.1.23.0
+                        day_post_damage_entry_lockout_blocks_total += 1  # v0.8.1.23.0
+                        continue  # v0.8.1.23.0: skip this bar's entry attempt
+                    # v0.8.1.24.0: else escape_hatch_allowed_at_i is True, allow entry attempt to proceed
                 
                 # v0.8.1.7.0: Post-entry expansion gate — create pending entry or enter immediately
                 entry = bar.c  # v0.8.1.7.0: tentative entry price
@@ -1341,11 +1458,44 @@ def run_backtest(
                         "should_enter_at_signal": should_enter_now,  # v0.8.1.20.0: capture signal-time truth
                         "allow_new_trade_at_signal": allow_new_trade_now,  # v0.8.1.20.0: capture signal-time truth
                     }  # v0.8.1.7.0
+                    
+                    # v0.8.1.24.0: Track heal entry if escape hatch was used (expansion gate ON path)
+                    if damage_first_idx is not None and damage_first_idx < i:  # v0.8.1.24.0: lockout condition was met
+                        is_rth_bar_check = (isinstance(bar.ts, str) and bar.ts >= "09:30" and bar.ts <= "16:00")  # v0.8.1.24.0
+                        escape_hatch_was_used = (  # v0.8.1.24.0
+                            post_damage_heal_attempt_used is False  # v0.8.1.24.0: check before setting
+                            and heal_ready_idx is not None  # v0.8.1.24.0
+                            and i == heal_ready_idx + 1  # v0.8.1.24.0
+                            and heal_reclaim_idx is not None  # v0.8.1.24.0
+                            and heal_window_damage_seen is False  # v0.8.1.24.0
+                            and is_rth_bar_check  # v0.8.1.24.0
+                        )  # v0.8.1.24.0
+                        if escape_hatch_was_used:  # v0.8.1.24.0
+                            post_damage_heal_attempt_used = True  # v0.8.1.24.0
+                            day_post_damage_heal_entries_allowed_total += 1  # v0.8.1.24.0
+                            log.info(f"[WHY] v0.8.1.24.0 POST_DAMAGE_HEAL_ENTRY_ALLOWED symbol={sym} day_class={day_class} entry_ts={bar.ts} entry_i={i} reclaim_i={heal_reclaim_idx} confirm2_i={heal_ready_idx} allow_i={i} source=normal")  # v0.8.1.24.0
+                    
                     log.info(f"[WHY] v0.8.1.7.0 POST_EXP: PENDING symbol={sym} signal_time={bars[i].ts} "  # v0.8.1.7.0
                             f"minutes={strat.p.post_entry_expansion_minutes} min_bps={strat.p.post_entry_expansion_min_bps}")  # v0.8.1.7.0
                     # Do NOT create position yet; wait for confirmation  # v0.8.1.7.0
                 else:  # v0.8.1.7.0: gate is OFF, enter immediately (legacy behavior)
                     position = {"symbol": sym, "entry": entry, "i": i, "tp": tp, "sl": sl, "qty": qty}
+                    
+                    # v0.8.1.24.0: Track heal entry if escape hatch was used (expansion gate OFF path)
+                    if damage_first_idx is not None and damage_first_idx < i:  # v0.8.1.24.0: lockout condition was met
+                        is_rth_bar_check = (isinstance(bar.ts, str) and bar.ts >= "09:30" and bar.ts <= "16:00")  # v0.8.1.24.0
+                        escape_hatch_was_used = (  # v0.8.1.24.0
+                            post_damage_heal_attempt_used is False  # v0.8.1.24.0: check before setting
+                            and heal_ready_idx is not None  # v0.8.1.24.0
+                            and i == heal_ready_idx + 1  # v0.8.1.24.0
+                            and heal_reclaim_idx is not None  # v0.8.1.24.0
+                            and heal_window_damage_seen is False  # v0.8.1.24.0
+                            and is_rth_bar_check  # v0.8.1.24.0
+                        )  # v0.8.1.24.0
+                        if escape_hatch_was_used:  # v0.8.1.24.0
+                            post_damage_heal_attempt_used = True  # v0.8.1.24.0
+                            day_post_damage_heal_entries_allowed_total += 1  # v0.8.1.24.0
+                            log.info(f"[WHY] v0.8.1.24.0 POST_DAMAGE_HEAL_ENTRY_ALLOWED symbol={sym} day_class={day_class} entry_ts={bar.ts} entry_i={i} reclaim_i={heal_reclaim_idx} confirm2_i={heal_ready_idx} allow_i={i} source=normal")  # v0.8.1.24.0
 
                     # attach to position for later use
                     if isinstance(position, dict):
@@ -1827,7 +1977,7 @@ def run_backtest(
         log.info(f"- universe_symbols={universe_symbols}")  # v0.8.1.21.0
         log.info(f"- trades_closed={trades_closed} tp={tp_count} sl={sl_count} winrate={winrate:.2f}")  # v0.8.1.21.0
         log.info(f"- day_pnl_realized={cum_pnl:.2f}")  # v0.8.1.21.0
-        log.info(f"- blocks_total: struct_damage={day_struct_damage_blocks_total} post_damage_weak_reclaim={day_post_damage_weak_reclaim_blocks_total} vwap_ext={day_vwap_ext_blocks_total} marginal_vwap_gate={day_marginal_vwap_gate_blocks_total} post_damage_entry_lockout={day_post_damage_entry_lockout_blocks_total}")  # v0.8.1.21.0 / v0.8.1.23.0
+        log.info(f"- blocks_total: struct_damage={day_struct_damage_blocks_total} post_damage_weak_reclaim={day_post_damage_weak_reclaim_blocks_total} vwap_ext={day_vwap_ext_blocks_total} marginal_vwap_gate={day_marginal_vwap_gate_blocks_total} post_damage_entry_lockout={day_post_damage_entry_lockout_blocks_total} post_damage_heal_entries_allowed={day_post_damage_heal_entries_allowed_total}")  # v0.8.1.21.0 / v0.8.1.23.0 / v0.8.1.24.0
         log.info(f"- minutes_since_damage_at_entry (damage_scan_lookback_bars={REGIME_DAMAGE_LOOKBACK_BARS}): {minutes_stats}")  # v0.8.1.21.0
         log.info(f"- data_quality: dup_ts_total={day_dup_ts_total} pos_mgmt_mismatch_symbols={day_pos_mgmt_mismatch_symbols} missing_1s_symbols={day_missing_1s_symbols}")  # v0.8.1.21.0
         log.info("="*80)  # v0.8.1.21.0
