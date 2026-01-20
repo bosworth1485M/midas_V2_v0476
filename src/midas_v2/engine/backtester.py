@@ -348,6 +348,7 @@ def run_backtest(
     log.info("CONFIRM_BAR_GUARD v0.8.1.8.1: enabled=True")  # v0.8.1.8.0
     log.info("MARGINAL_VWAP_GATE v0.8.1.11.0: enabled=True")  # v0.8.1.11.0
     log.info("POST_DAMAGE_WEAK_VWAP_RECLAIM_GUARD v0.8.1.19.0: enabled=True")  # v0.8.1.19.0
+    log.info("POST_DAMAGE_ENTRY_LOCKOUT v0.8.1.23.0: enabled=True")  # v0.8.1.23.0
 
     # v0.4.8: load feature registry once (safe no-op if registry missing)
     if FeatureRegistry is not None:  # v0.4.8
@@ -668,6 +669,7 @@ def run_backtest(
     day_post_damage_weak_reclaim_blocks_total = 0  # v0.8.1.21.0
     day_vwap_ext_blocks_total = 0  # v0.8.1.21.0
     day_marginal_vwap_gate_blocks_total = 0  # v0.8.1.21.0
+    day_post_damage_entry_lockout_blocks_total = 0  # v0.8.1.23.0
     day_dup_ts_total = 0  # v0.8.1.21.0
     day_pos_mgmt_mismatch_symbols = 0  # v0.8.1.21.0
     day_missing_1s_symbols = 0  # v0.8.1.21.0
@@ -699,6 +701,7 @@ def run_backtest(
             "count_post_damage_weak_reclaim_blocks": 0,
             "count_vwap_ext_blocks": 0,
             "count_marginal_vwap_gate_blocks": 0,
+            "count_post_damage_entry_lockout_blocks": 0,  # v0.8.1.23.0
             "last_damage_ts": None,
             "last_damage_idx": None,
             "dup_ts_count": 0,
@@ -743,6 +746,11 @@ def run_backtest(
         entry = None
         pending_entry = None  # v0.8.1.7.0: pending entry confirmation state
         
+        # v0.8.1.23.0: POST_DAMAGE_ENTRY_LOCKOUT per-symbol tracking
+        damage_first_idx = None  # v0.8.1.23.0
+        damage_first_ts = None  # v0.8.1.23.0
+        post_damage_lockout_logged = False  # v0.8.1.23.0: log-once latch per symbol/day
+        
         # Tiering context (scenario-level until per-symbol features are wired)
         tier_ctx = {
             # ONE-LINE PATCH: make sizing "score-aware" for this run
@@ -754,6 +762,15 @@ def run_backtest(
             bar = bars[i]
             if sym == "TCMD" and date_str == "2025-08-05" and getattr(bar, "ts", None) == "14:19":
                 print(f"[BAR_STREAM] v0.8.1.7.0 PRE symbol={sym} ts={bar.ts} o={bar.o} h={bar.h} l={bar.l} c={bar.c}")
+
+            # v0.8.1.23.0: Continuous damage tracking (track first structural damage bar)
+            if damage_first_idx is None:  # v0.8.1.23.0: only capture first damage
+                body = abs(bar.c - bar.o)  # v0.8.1.23.0
+                rng = max(bar.h - bar.l, 1e-9)  # v0.8.1.23.0
+                body_fraction = body / rng  # v0.8.1.23.0
+                if bar.c < bar.o and body_fraction >= 0.60:  # v0.8.1.23.0: structural damage definition
+                    damage_first_idx = i  # v0.8.1.23.0
+                    damage_first_ts = bar.ts if hasattr(bar, 'ts') else f"bar_{i}"  # v0.8.1.23.0
 
             # Guardrail: stop new trades if daily loss exceeded
             if daily_max_loss and cum_pnl <= -abs(daily_max_loss):
@@ -811,6 +828,16 @@ def run_backtest(
                         log.warning(f"[WHY] v0.8.1.8.1 CONFIRM_BAR_STOP_VIOLATION symbol={sym} direction={direction} ts={confirm_bar.ts} low={confirm_bar.l} stop={sl}")  # v0.8.1.8.0
                         pending_entry = None  # v0.8.1.8.0: clear pending, no position created
                         continue  # v0.8.1.8.0: skip entry, proceed to next bar
+                    
+                    # v0.8.1.23.0: POST_DAMAGE_ENTRY_LOCKOUT (pending_entry confirmation path)
+                    if damage_first_idx is not None and damage_first_idx < i:  # v0.8.1.23.0
+                        if not post_damage_lockout_logged:  # v0.8.1.23.0: log once per symbol/day
+                            log.warning(f"[WHY] v0.8.1.23.0 POST_DAMAGE_ENTRY_LOCKOUT symbol={sym} day_class={day_class} entry_ts={bar.ts} entry_i={i} damage_ts={damage_first_ts} damage_i={damage_first_idx} source=pending_confirm")  # v0.8.1.23.0
+                            post_damage_lockout_logged = True  # v0.8.1.23.0
+                        telemetry["count_post_damage_entry_lockout_blocks"] += 1  # v0.8.1.23.0
+                        day_post_damage_entry_lockout_blocks_total += 1  # v0.8.1.23.0
+                        pending_entry = None  # v0.8.1.23.0: clear pending, no position created
+                        continue  # v0.8.1.23.0: skip entry, proceed to next bar
                     
                     qty = pending_entry["qty"]  # v0.8.1.7.0
                     position = {"symbol": sym, "entry": entry, "i": i, "tp": tp, "sl": sl, "qty": qty}  # v0.8.1.7.0: use current bar index
@@ -1233,6 +1260,15 @@ def run_backtest(
                         early_reject_logged.add(reject_key)
                     telemetry["count_struct_damage_blocks"] += 1  # v0.8.1.20.0
                     continue  # v0.8.1.4.0
+                
+                # v0.8.1.23.0: POST_DAMAGE_ENTRY_LOCKOUT (normal entry path, before position creation)
+                if damage_first_idx is not None and damage_first_idx < i:  # v0.8.1.23.0
+                    if not post_damage_lockout_logged:  # v0.8.1.23.0: log once per symbol/day
+                        log.warning(f"[WHY] v0.8.1.23.0 POST_DAMAGE_ENTRY_LOCKOUT symbol={sym} day_class={day_class} entry_ts={bar.ts} entry_i={i} damage_ts={damage_first_ts} damage_i={damage_first_idx} source=normal")  # v0.8.1.23.0
+                        post_damage_lockout_logged = True  # v0.8.1.23.0
+                    telemetry["count_post_damage_entry_lockout_blocks"] += 1  # v0.8.1.23.0
+                    day_post_damage_entry_lockout_blocks_total += 1  # v0.8.1.23.0
+                    continue  # v0.8.1.23.0: skip this bar's entry attempt
                 
                 # v0.8.1.7.0: Post-entry expansion gate — create pending entry or enter immediately
                 entry = bar.c  # v0.8.1.7.0: tentative entry price
@@ -1759,6 +1795,7 @@ def run_backtest(
         day_post_damage_weak_reclaim_blocks_total += telemetry.get("count_post_damage_weak_reclaim_blocks", 0)  # v0.8.1.21.0
         day_vwap_ext_blocks_total += telemetry.get("count_vwap_ext_blocks", 0)  # v0.8.1.21.0
         day_marginal_vwap_gate_blocks_total += telemetry.get("count_marginal_vwap_gate_blocks", 0)  # v0.8.1.21.0
+        day_post_damage_entry_lockout_blocks_total += telemetry.get("count_post_damage_entry_lockout_blocks", 0)  # v0.8.1.23.0
         day_dup_ts_total += telemetry.get("dup_ts_count", 0)  # v0.8.1.21.0
         day_pos_mgmt_mismatch_symbols += (1 if telemetry.get("pos_mgmt_mismatch_occurred", False) else 0)  # v0.8.1.21.0
         day_missing_1s_symbols += (1 if telemetry.get("missing_1s_csv", False) else 0)  # v0.8.1.21.0
@@ -1790,7 +1827,7 @@ def run_backtest(
         log.info(f"- universe_symbols={universe_symbols}")  # v0.8.1.21.0
         log.info(f"- trades_closed={trades_closed} tp={tp_count} sl={sl_count} winrate={winrate:.2f}")  # v0.8.1.21.0
         log.info(f"- day_pnl_realized={cum_pnl:.2f}")  # v0.8.1.21.0
-        log.info(f"- blocks_total: struct_damage={day_struct_damage_blocks_total} post_damage_weak_reclaim={day_post_damage_weak_reclaim_blocks_total} vwap_ext={day_vwap_ext_blocks_total} marginal_vwap_gate={day_marginal_vwap_gate_blocks_total}")  # v0.8.1.21.0
+        log.info(f"- blocks_total: struct_damage={day_struct_damage_blocks_total} post_damage_weak_reclaim={day_post_damage_weak_reclaim_blocks_total} vwap_ext={day_vwap_ext_blocks_total} marginal_vwap_gate={day_marginal_vwap_gate_blocks_total} post_damage_entry_lockout={day_post_damage_entry_lockout_blocks_total}")  # v0.8.1.21.0 / v0.8.1.23.0
         log.info(f"- minutes_since_damage_at_entry (damage_scan_lookback_bars={REGIME_DAMAGE_LOOKBACK_BARS}): {minutes_stats}")  # v0.8.1.21.0
         log.info(f"- data_quality: dup_ts_total={day_dup_ts_total} pos_mgmt_mismatch_symbols={day_pos_mgmt_mismatch_symbols} missing_1s_symbols={day_missing_1s_symbols}")  # v0.8.1.21.0
         log.info("="*80)  # v0.8.1.21.0
