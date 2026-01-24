@@ -1,0 +1,95 @@
+BEGIN COPILOT IMPLEMENTATION SPEC — Midas_V2 v0.8.1.31.0
+
+VERSION
+- v0.8.1.31.0
+
+FILE SCOPE (HARD RULE)
+- Edit ONE file only:
+  src/midas_v2/engine/backtester.py
+
+INTENT (AUTHORITATIVE)
+- Narrow over-broad structural damage lockouts that are causing excessive zero-trade days in Scenario B.
+- Evidence: v0.8.1.30.0 showed dominant blockers were POST_DAMAGE_ENTRY_LOCKOUT and STRUCT_DAMAGE_FAIL.
+- This version adjusts EXACTLY ONE structural rule.
+- This is NOT a new feature, NOT optimization, NOT new indicators.
+
+SUCCESS CRITERIA
+- Fewer zero-trade days in Scenario B on historically “good” momentum regimes.
+- No re-introduction of known catastrophic loss clusters.
+- Clear A/B separation vs v0.8.1.30.0.
+
+NON-GOALS / DO NOT TOUCH
+- Do NOT modify STRUCT_DAMAGE_FAIL behavior or thresholds.
+- Do NOT modify STRUCT_DAMAGE v0.8.1.4.0 guard logic (weak VWAP reclaim / recovery logic).
+- Do NOT modify POST_DAMAGE_CONTINUATION_BLOCK logic.
+- Do NOT modify POST_DAMAGE_WEAK_VWAP_RECLAIM_GUARD logic.
+- Do NOT modify DAY_GATE logic or throttle logic.
+- Do NOT modify ASC_GREEN logic (leave as-is from v0.8.1.30.0; no changes here).
+- Do NOT add new config flags.
+- Do NOT refactor, move code, or introduce helper functions.
+- Do NOT change sizing.
+
+THE ONE CHANGE (EXACT)
+- Change the scope of POST_DAMAGE_ENTRY_LOCKOUT so it only applies on HOSTILE days.
+- Hostile day is already computed: day_class == "hostile" (is_hostile_day).
+- Result: post-damage entries are no longer globally killed on healthy/marginal days.
+- Preserve the existing VWAP_HEAL_ESCAPE behavior EXACTLY as implemented.
+
+WHERE TO CHANGE (TWO PLACES)
+There are TWO enforcement blocks of POST_DAMAGE_ENTRY_LOCKOUT:
+
+A) Pending-confirm entry path (after expansion confirmation, before creating position):
+- Find the comment:
+  "# v0.8.1.23.0 / v0.8.1.24.0: POST_DAMAGE_ENTRY_LOCKOUT with VWAP_HEAL_ESCAPE (pending_entry confirmation path)"
+- Current condition pattern (simplified):
+  if damage_first_idx is not None and damage_first_idx < i:
+      compute escape_hatch_allowed_at_i
+      if not escape_hatch_allowed_at_i:
+          log warning
+          increment telemetry
+          pending_entry = None
+          continue
+- REQUIRED CHANGE:
+  Wrap/guard this entire lockout enforcement behind hostile-day only:
+  if (day_class == "hostile") and (damage_first_idx is not None and damage_first_idx < i):
+      ... existing block unchanged ...
+
+B) Normal entry path (before creating pending_entry/position):
+- Find the comment:
+  "# v0.8.1.23.0 / v0.8.1.24.0: POST_DAMAGE_ENTRY_LOCKOUT with VWAP_HEAL_ESCAPE (normal entry path, before position creation)"
+- Current condition pattern (simplified):
+  if damage_first_idx is not None and damage_first_idx < i:
+      compute escape_hatch_allowed_at_i
+      if not escape_hatch_allowed_at_i:
+          log warning
+          increment telemetry
+          continue
+- REQUIRED CHANGE:
+  Wrap/guard this entire lockout enforcement behind hostile-day only:
+  if (day_class == "hostile") and (damage_first_idx is not None and damage_first_idx < i):
+      ... existing block unchanged ...
+
+IMPORTANT IMPLEMENTATION NOTES (SAFETY)
+- Do NOT change the escape hatch condition logic.
+- Do NOT change log message strings except to add version-tagged lines ONLY if absolutely needed.
+- Keep counters/telemetry exactly as-is. They should naturally reduce because lockout is no longer active on non-hostile days.
+- Keep fail-closed behavior: if any exception occurs, preserve current conservative behavior (do not accidentally allow entries due to errors). However, this change should be a simple boolean gate and should not introduce new exceptions.
+
+LOGGING (MINIMAL, OPTIONAL)
+- OPTIONAL (allowed but not required):
+  Add one log line near existing feature announcements:
+    log.info("POST_DAMAGE_ENTRY_LOCKOUT v0.8.1.31.0: scope=hostile_only enabled=True")
+- If you add it, tag it with v0.8.1.31.0 and do NOT remove prior v0.8.1.23.0 enabled=True log.
+- Do NOT add multiple logs; one line max.
+
+VALIDATION CHECK (MENTAL)
+After change:
+- On healthy/marginal days: a symbol that had an earlier damage candle should NOT be globally blocked solely by POST_DAMAGE_ENTRY_LOCKOUT.
+- On hostile days: behavior should remain conservative (lockout still blocks unless VWAP_HEAL_ESCAPE applies).
+- All other guards remain unchanged and can still block entries (STRUCT_DAMAGE_FAIL etc).
+
+DELIVERABLE
+- Provide a unified diff patch (or describe exact edits) for ONLY src/midas_v2/engine/backtester.py.
+- No other files changed.
+
+END COPILOT IMPLEMENTATION SPEC — Midas_V2 v0.8.1.31.0

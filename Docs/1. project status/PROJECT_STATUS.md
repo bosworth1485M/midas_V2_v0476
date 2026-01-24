@@ -25,6 +25,37 @@ Timeline expectation: ~1–2 focused versions after observability.
 
 ## Latest Completed Version
 
+
+# PROJECT_STATUS.md — Insert for v0.8.1.31.0
+
+v0.8.1.31.0 (ALIGNMENT) — Narrowed over-broad structural damage lockouts that were causing excessive zero-trade days in Scenario B.
+
+Change:
+- backtester.py: POST_DAMAGE_ENTRY_LOCKOUT now applies on hostile days only (day_class=="hostile") in both enforcement locations (normal entry + pending-confirm). Added a single observability log announcing hostile-only scope.
+
+Why:
+- v0.8.1.30.0 showed ASC_GREEN was not the primary participation bottleneck; dominant blockers were POST_DAMAGE_ENTRY_LOCKOUT and STRUCT_DAMAGE_FAIL. The lockout was behaving like a global symbol kill-switch, inconsistent with Cameron-style contextual damage rules.
+
+Validation (A/B vs v0.8.1.30.0):
+- Good regime (2025-08-05 → 2025-08-07, Scenario B): trades=3 total; Aug-05 (1 loss, -26.10), Aug-06 (2 trades, 1W/1L, -5.32), Aug-07 (0 trades). Participation improved (2/3 days traded), but PnL remains negative (out of scope).
+- Hostile regime (2025-12-02 → 2025-12-06, Scenario B): Dec-03 (1 loss, -34.96), Dec-05 (3 losses, -104.94), other days 0 trades. No catastrophic loss cluster reintroduced; behavior remains conservative.
+
+Outcome:
+- PASS for alignment intent: reduced kill-switch behavior and restored partial participation on good regimes while preserving hostile-day safety. Profitability not addressed in this version by design.
+
+Next:
+- v0.8.1.32.0 will target the dominant remaining loss class (post-damage VWAP reclaim entries without proven continuation) with a single structural adjustment and the same two-regime A/B validation.
+
+
+
+
+
+
+
+
+
+
+
 ## Alignment Roadmap (active)
 v0.8.1.30.0 — ASC_GREEN diagnostic A/B (Scenario B only)
 

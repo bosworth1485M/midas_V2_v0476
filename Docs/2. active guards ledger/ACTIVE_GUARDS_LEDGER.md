@@ -8,6 +8,17 @@ It captures why each guard exists, what failure class it blocks, when it was int
 This is not a per-version summary. Each version adds to this ledger.
 
 Style rule: Latest summary and newest guards appear at the top.
+
+
+POST_DAMAGE_ENTRY_LOCKOUT (v0.8.1.23.0)
+- Status: ENABLED (scoped as of v0.8.1.31.0)
+- Scope (v0.8.1.31.0): Applies ONLY when day_class == "hostile" (Scenario B day-gate classification).
+- Purpose: Prevent post-damage entries on hostile regimes where reclaim/fade losses cluster.
+- Notes: Previously acted as a day-long symbol kill-switch after first damage candle; v0.8.1.31.0 narrowed scope to restore participation on marginal/healthy days while preserving hostile-day safety.
+
+
+
+
 ASC_GREEN — Scenario B (Diagnostic Disable) — v0.8.1.30.0
 
 Guard name:

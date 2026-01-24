@@ -350,6 +350,8 @@ def run_backtest(
     log.info("POST_DAMAGE_WEAK_VWAP_RECLAIM_GUARD v0.8.1.19.0: enabled=True")  # v0.8.1.19.0
     log.info("POST_DAMAGE_ENTRY_LOCKOUT v0.8.1.23.0: enabled=True")  # v0.8.1.23.0
     log.info("POST_DAMAGE_VWAP_HEAL_ESCAPE v0.8.1.24.0: enabled=True")  # v0.8.1.24.0
+    # v0.8.1.31.0: Narrow scope of POST_DAMAGE_ENTRY_LOCKOUT to hostile days only
+    log.info("POST_DAMAGE_ENTRY_LOCKOUT v0.8.1.31.0: scope=hostile_only enabled=True")  # v0.8.1.31.0 (OBSERVABILITY)
 
     # v0.4.8: load feature registry once (safe no-op if registry missing)
     if FeatureRegistry is not None:  # v0.4.8
@@ -1103,7 +1105,8 @@ def run_backtest(
                         continue  # v0.8.1.8.0: skip entry, proceed to next bar
                     
                     # v0.8.1.23.0 / v0.8.1.24.0: POST_DAMAGE_ENTRY_LOCKOUT with VWAP_HEAL_ESCAPE (pending_entry confirmation path)
-                    if damage_first_idx is not None and damage_first_idx < i:  # v0.8.1.23.0 / v0.8.1.24.0
+                    # v0.8.1.31.0: apply lockout only on hostile days
+                    if day_class == "hostile" and damage_first_idx is not None and damage_first_idx < i:  # v0.8.1.23.0 / v0.8.1.24.0
                         # v0.8.1.24.0: Check escape hatch conditions
                         is_rth_bar_check = (isinstance(bar.ts, str) and bar.ts >= "09:30" and bar.ts <= "16:00")  # v0.8.1.24.0
                         escape_hatch_allowed_at_i = (  # v0.8.1.24.0
@@ -1707,7 +1710,8 @@ def run_backtest(
                     continue  # v0.8.1.4.0
                 
                 # v0.8.1.23.0 / v0.8.1.24.0: POST_DAMAGE_ENTRY_LOCKOUT with VWAP_HEAL_ESCAPE (normal entry path, before position creation)
-                if damage_first_idx is not None and damage_first_idx < i:  # v0.8.1.23.0 / v0.8.1.24.0
+                # v0.8.1.31.0: apply lockout only on hostile days
+                if day_class == "hostile" and damage_first_idx is not None and damage_first_idx < i:  # v0.8.1.23.0 / v0.8.1.24.0
                     # v0.8.1.24.0: Check escape hatch conditions
                     is_rth_bar_check = (isinstance(bar.ts, str) and bar.ts >= "09:30" and bar.ts <= "16:00")  # v0.8.1.24.0
                     escape_hatch_allowed_at_i = (  # v0.8.1.24.0
