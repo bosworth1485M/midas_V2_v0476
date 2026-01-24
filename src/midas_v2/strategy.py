@@ -76,6 +76,9 @@ class StrategyParams:
     # ========== VWAP Extension Gate (v0.8.1.1.0) ==========  # v0.8.1.1.0
     vwap_extension_gate: bool = False       # Enable VWAP over-extension filter  # v0.8.1.1.0
     vwap_extension_max_pct: float = 1.5     # Max allowed distance from VWAP in percentage  # v0.8.1.1.0
+    
+    # ========== Marginal Day Policy (v0.8.1.17.0) ==========  # v0.8.1.17.0
+    marginal_stop_after_1_loss: bool = False  # Stop all entries after first SL on marginal days  # v0.8.1.17.0
 
 
 # v0.7.9.7.6: config unification – factory to create StrategyParams with scenario-aware defaults.
@@ -170,6 +173,9 @@ def create_strategy_params(scenario_name: Optional[str] = None, **override_kwarg
         # VWAP Extension Gate (v0.8.1.1.0)  # v0.8.1.1.0
         "vwap_extension_gate": _get_strategy_param("vwap_extension_gate", False),  # v0.8.1.1.0
         "vwap_extension_max_pct": _get_strategy_param("vwap_extension_max_pct", 1.5),  # v0.8.1.1.0
+        
+        # Marginal Day Policy (v0.8.1.17.0)  # v0.8.1.17.0
+        "marginal_stop_after_1_loss": _get_strategy_param("marginal_stop_after_1_loss", False),  # v0.8.1.17.0
     }
     
     # Apply any explicit overrides (these always win)

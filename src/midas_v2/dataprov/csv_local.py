@@ -15,8 +15,9 @@ class CsvLocalProvider(DataProvider):
         out: List[Bar] = []
         with open(path, newline="") as f:
             r = csv.DictReader(f)
+            print(f"[CSV_LOCAL] v0.8.1.7.0 load_minute_bars path={path} cols={r.fieldnames}")
             for row in r:
-                out.append(Bar(
+                b = Bar(
                     ts=row["time"],
                     o=float(row["open"]),
                     h=float(row["high"]),
@@ -24,5 +25,8 @@ class CsvLocalProvider(DataProvider):
                     c=float(row["close"]),
                     v=int(float(row["volume"])),
                     vwap=float(row["vwap"]) if row.get("vwap") else None
-                ))
+                )
+                if symbol == "TCMD" and date_str == "2025-08-05" and len(out) < 3:
+                    print(f"[CSV_LOCAL_BAR] ts={b.ts} o={b.o} h={b.h} l={b.l} c={b.c} v={b.v}")
+                out.append(b)
         return out

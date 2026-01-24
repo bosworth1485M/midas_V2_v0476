@@ -423,6 +423,12 @@ def run_backtest(
     if scn == "UNKNOWN":
         scn = "B"
 
+    # v0.8.1.30.0 (ALIGNMENT): Scenario B toggle to disable ASC_GREEN for A/B testing
+    asc_green_disabled_for_B = False  # v0.8.1.30.0 (SAFETY): default to enabled behavior
+    if (scenario_name or scn) == "B" and isinstance(scenario_params, dict):  # v0.8.1.30.0 (ALIGNMENT)
+        asc_green_disabled_for_B = bool(scenario_params.get("disable_asc_green", False))  # v0.8.1.30.0 (SAFETY)
+    asc_green_state_logged = False  # v0.8.1.30.0 (OBSERVABILITY): log-once latch for state
+
     # NEW: build adaptive sizer from full scenario params (not just normalized)
     sizer = build_sizer_from_config(scenario_params if isinstance(scenario_params, dict) else {})
     sizer.reset_daily()
@@ -751,6 +757,16 @@ def run_backtest(
     marginal_stop1loss_eligible_logged = False  # v0.8.1.17.0: separate latch for policy A eligibility log
 
     trades = []
+    # v0.8.1.30.0 (OBSERVABILITY): Announce ASC_GREEN state for Scenario B once per run/day
+    try:  # v0.8.1.30.0 (SAFETY)
+        if (scenario_name or scn) == "B":  # v0.8.1.30.0 (ALIGNMENT)
+            if asc_green_disabled_for_B:
+                log.info("ASC_GREEN v0.8.1.30.0: scenario=B enabled=False (disabled via scenarios.json)")  # v0.8.1.30.0 (OBSERVABILITY)
+            else:
+                log.info("ASC_GREEN v0.8.1.30.0: scenario=B enabled=True")  # v0.8.1.30.0 (OBSERVABILITY)
+            asc_green_state_logged = True  # v0.8.1.30.0 (OBSERVABILITY)
+    except Exception:
+        pass  # v0.8.1.30.0 (SAFETY)
     for sym in symbols:
         try:
             bars = data.load_minute_bars(sym, date_str)
@@ -999,7 +1015,8 @@ def run_backtest(
                             f"observed_bps={expansion_bps:.2f} required_bps={strat.p.post_entry_expansion_min_bps}")  # v0.8.1.7.0
                     # v0.8.1.28.0 (ALIGNMENT): Re-evaluate ASCENDING green candles at confirmation time for Scenario B
                     # v0.8.1.28.0 (SAFETY): fail-closed on any exception -> cancel pending and log
-                    if (scenario_name or scn) == "B":  # v0.8.1.28.0 (ALIGNMENT)
+                    # v0.8.1.30.0 (ALIGNMENT): only enforce when ASC_GREEN is not disabled for Scenario B
+                    if (scenario_name or scn) == "B" and (not asc_green_disabled_for_B):  # v0.8.1.30.0 (ALIGNMENT)
                         try:  # v0.8.1.28.0 (SAFETY)
                             N = getattr(strat.p, "rise_bars", getattr(strat.p, "macd_rise_bars", 3))  # v0.8.1.28.0 (ALIGNMENT): derive rise_bars param
                             try:
@@ -1415,7 +1432,8 @@ def run_backtest(
             allow_new_trade_now = risk.allow_new_trade()
             # v0.8.1.28.0 (ALIGNMENT): Scenario-B ascending-green enforcement (veto applied here)
             # v0.8.1.28.0 (SAFETY): fail-closed -> on any exception we FALL BACK to strat.should_enter result and warn
-            if should_enter_now and (scenario_name or scn) == "B":
+            # v0.8.1.30.0 (ALIGNMENT): only enforce when ASC_GREEN is not disabled for Scenario B
+            if should_enter_now and (scenario_name or scn) == "B" and (not asc_green_disabled_for_B):  # v0.8.1.30.0 (ALIGNMENT)
                 try:
                     # v0.8.1.28.0 (OBSERVABILITY): announce enforcement once per day/run
                     if not asc_green_enforce_logged:  # v0.8.1.28.0 (OBSERVABILITY): log-once latch

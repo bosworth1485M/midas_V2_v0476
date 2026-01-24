@@ -89,6 +89,7 @@
       "tp_pct": 2.0,
       "twcs_enabled": true,
       "plot_twcs": true,
+      "disable_asc_green": true,
       "max_trades_per_symbol": 1,
       "daily_max_loss": 1000.0,
       "micro_expansion_gate": false,
@@ -101,7 +102,14 @@
       "vwap_extension_max_pct": 1.5,
       "require_day_follow_through": true,
       "day_follow_through_minutes": 20,
-      "day_follow_through_min_symbols": 2
+      "day_follow_through_min_symbols": 2,
+      "require_day_gate_close_gt_vwap": true,
+      "reject_reclaim_after_damage": false,
+      "auto_struct_damage_from_day_gate": true,
+      "post_entry_expansion_gate": true,
+      "post_entry_expansion_minutes": 2,
+      "post_entry_expansion_min_bps": 10,
+      "marginal_stop_after_1_loss": false
     }
   },
   "B_backup": {

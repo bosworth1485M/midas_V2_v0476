@@ -8,7 +8,61 @@ It captures why each guard exists, what failure class it blocks, when it was int
 This is not a per-version summary. Each version adds to this ledger.
 
 Style rule: Latest summary and newest guards appear at the top.
+ASC_GREEN — Scenario B (Diagnostic Disable) — v0.8.1.30.0
 
+Guard name:
+ASC_GREEN (ascending green candles requirement)
+
+Original purpose:
+Enforce Cameron-style momentum quality by requiring ascending green candles before allowing continuation entries, intended to filter weak or choppy follow-through.
+
+Change in this version:
+
+Scenario B only: ASC_GREEN temporarily disabled via config flag (disable_asc_green=true)
+
+All other scenarios unchanged
+
+Guard logic remains intact in code; enforcement is bypassed only when the flag is set
+
+Reason for change:
+Frequent zero-trade days raised concern that ASC_GREEN might be over-blocking valid Cameron-style continuation entries. This version explicitly tested whether ASC_GREEN was the primary participation bottleneck.
+
+Observed behavior (A/B evidence):
+
+In v0.8.1.29.0, ASC_GREEN was actively blocking many candidates (ASC_GREEN_BLOCK events observed).
+
+In v0.8.1.30.0, ASC_GREEN blocking was fully removed.
+
+Zero-trade days persisted in hostile regimes (Dec 02–06, 2025), indicating ASC_GREEN was not the dominant blocker.
+
+Structural damage guards (POST_DAMAGE_ENTRY_LOCKOUT, STRUCT_DAMAGE_FAIL) were the primary remaining rejection causes.
+
+Conclusion:
+ASC_GREEN is confirmed to be a secondary friction guard, not the root cause of zero-trade behavior. Disabling it alone does not restore participation in structurally damaged regimes.
+
+Current status:
+
+Disabled for Scenario B only (diagnostic state)
+
+Remains enabled and unchanged elsewhere
+
+Treated as reversible and under evaluation
+
+Side effects / risks:
+
+Removing ASC_GREEN may admit lower-quality continuations if structural guards are later relaxed.
+
+ASC_GREEN should not be permanently removed without contextualizing it within revised structure-damage rules.
+
+Re-enable procedure:
+
+Remove or set disable_asc_green=false for Scenario B in config/scenarios.json
+
+No code changes required
+
+Next planned action (per roadmap):
+Do not further adjust ASC_GREEN yet.
+Proceed to v0.8.1.31.0, which will scope and narrow post-damage structural lockouts so participation is restored in valid regimes before re-evaluating secondary quality filters.
 
 This version is explicitly marked as PLANNED / PROPOSED and does not claim anything has changed yet.
 

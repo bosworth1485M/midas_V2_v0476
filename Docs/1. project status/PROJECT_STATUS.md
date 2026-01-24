@@ -26,7 +26,44 @@ Timeline expectation: ~1–2 focused versions after observability.
 ## Latest Completed Version
 
 ## Alignment Roadmap (active)
+v0.8.1.30.0 — ASC_GREEN diagnostic A/B (Scenario B only)
 
+Purpose:
+Temporarily disable the ASC_GREEN guard for Scenario B to test whether it was blocking valid Cameron-style continuation entries and causing zero-trade days.
+
+What was tested:
+
+Scenario B only: ASC_GREEN disabled via config flag
+
+A/B comparison against v0.8.1.29.0 on:
+
+Dec 02–06, 2025 (hostile / low-quality regime)
+
+Aug 05–07, 2025 (good momentum regime)
+
+Results:
+
+Dec 02–06:
+
+v0.8.1.29.0 and v0.8.1.30.0 both produced 0 trades
+
+v0.8.1.29.0 showed frequent ASC_GREEN_BLOCK events
+
+v0.8.1.30.0 removed ASC_GREEN_BLOCK, but entries were still prevented by:
+
+POST_DAMAGE_ENTRY_LOCKOUT
+
+STRUCT_DAMAGE_FAIL
+
+Aug 05–07 (v0.8.1.30.0):
+
+Scenario B participated with 2 trades, 50% win rate, −5.32 PnL
+
+Conclusion:
+ASC_GREEN was confirmed to be actively blocking candidates, but it is not the primary cause of zero-trade days. Structural damage guards (POST_DAMAGE_ENTRY_LOCKOUT, STRUCT_DAMAGE_FAIL) are the dominant participation bottleneck. This version successfully falsified ASC_GREEN as the main blocker and narrowed the focus of subsequent versions.
+
+Next step (per plan):
+Proceed to v0.8.1.31.0, which will scope and narrow post-damage structural lockouts so Scenario B can participate on valid Cameron-style continuation days without re-admitting known loss patterns.
 v0.8.1.29.0 (completed)
 - Removed false open-time marginal VWAP rejection (i<3).
 - Proven not to be the cause of zero trades in Dec 2025.
