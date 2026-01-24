@@ -1,0 +1,261 @@
+Handover Specification
+Transition from Midas_V2 v0.8.1.8.2 → v0.8.1.9.0
+(Standardized on scripts/run_range_and_summarize.py + log capture for all A/B testing)
+1. Purpose of This Handover
+
+This document transfers complete context, constraints, and next-step intent from v0.8.1.8.2 into the next version (v0.8.1.9.0), ensuring:
+
+v0.8.1.9.0 introduces exactly one profit-affecting change
+
+That change is validated via extensive A/B testing over a wide date range
+
+All profit claims are measurable, explainable, and reversible
+
+No diagnostic/safety foundations are weakened
+
+Testing is standardized and logs are captured so results can be compared cleanly
+
+This is not a release note and not a Copilot spec. It defines what must be preserved, what may change, and how success is judged.
+
+2. Authoritative State at End of v0.8.1.8.2
+2.1 Execution & Stability
+
+Backtester executes end-to-end without crashes.
+
+Runtime stability fix is in place:
+
+Safe fallback for missing post_entry_expansion_gate (must remain).
+
+2.2 Observability (Major Milestone)
+
+v0.8.1.8.2 introduced day-level observability:
+
+Exactly one DAY_GATE_SUMMARY log per successfully executed day.
+
+Emitted after DAY_GATE evaluation and after structural-damage auto-switch finalization.
+
+Enables deterministic day classification using close_gt_vwap_cnt.
+
+2.3 Trading Behavior
+
+Trading behavior remains identical to v0.8.1.8.1:
+
+No changes to entry logic, exits, sizing, indicators, or PnL computation.
+
+v0.8.1.8.2 added observability only (plus stability fixes discovered during validation).
+
+3. What v0.8.1.8.2 Proved (Key Findings)
+3.1 DAY_GATE is functioning correctly
+
+Zero-trade days are policy-driven, not bugs.
+
+3.2 Day regimes are now explicit
+
+Using close_gt_vwap_cnt:
+
+close_gt_vwap_cnt	Regime	Current behavior
+0	Hostile	Trade 0
+1	Marginal	Trade 0
+≥2	Healthy	Trade normally
+3.3 Marginal days are structurally different
+
+Empirical observation from July:
+
+close_gt_vwap_cnt == 1 days are not equivalent to hostile days.
+
+They often contain one legitimate continuation opportunity.
+
+Current binary gating suppresses them entirely.
+
+This is the first high-confidence profit lever.
+
+4. Concrete Baseline Result (Reference Point)
+4.1 Fully documented healthy-day reference
+
+Date: 2025-07-18
+Scenario: B
+DAY_GATE_SUMMARY: close_gt_vwap_cnt=3, day_gate_failed=False
+Runner summary stats: B: TP=2 SL=1 Win%=66.67 (healthy-day control)
+
+This day is the “healthy control” that must not regress.
+
+5. Bugs Fixed in v0.8.1.8.2 (Must Stay Fixed)
+5.1 Runtime crash fix (mandatory)
+
+getattr(strat.p, "post_entry_expansion_gate", False)
+Must not be reverted.
+
+5.2 DAY_GATE_SUMMARY log correctness
+
+Must remain one log record (no embedded newlines).
+
+Greppable / parse-safe.
+
+6. Constraints for v0.8.1.9.0 (Non-Negotiable)
+6.1 What MUST NOT change
+
+Entry logic / strat.should_enter(...)
+
+Exit logic / TP/SL
+
+Indicators
+
+Sizing / RiskManager behavior
+
+DAY_GATE evaluation rules or thresholds
+
+Hostile-day suppression (cnt==0)
+
+Healthy-day behavior (cnt>=2)
+
+Anything outside Scenario B
+
+6.2 What MAY change (exactly one thing)
+
+Day-level participation policy for marginal days only
+
+No other changes permitted.
+
+7. Locked Direction for v0.8.1.9.0
+7.1 Agreed policy change
+Day regime	Behavior in v0.8.1.9.0
+Hostile (cnt==0)	Trade 0 (unchanged)
+Marginal (cnt==1)	Allow exactly 1 trade (first valid signal)
+Healthy (cnt>=2)	Unchanged
+7.2 Trade selection rule
+
+The first valid signal of the day
+
+No ranking, no scoring, no waiting
+
+Deterministic and reversible.
+
+8. Mandatory A/B Testing Requirement (Critical)
+8.1 Why wide-range A/B testing is mandatory
+
+This change loosens a gate; small losses can accumulate silently. A single good day proves possibility, not profitability. Therefore, extensive A/B is required.
+
+8.2 A/B definition (must be identical symbol/date sets)
+
+Variant A (control): v0.8.1.8.2 — marginal days trade 0
+
+Variant B (treatment): v0.8.1.9.0 — marginal days trade max 1
+
+Everything else identical.
+
+8.3 Metrics (must compare all)
+
+Net PnL
+
+Profit factor
+
+Win rate on marginal-day trades
+
+Max drawdown
+
+Average loss size
+
+Loss clustering / streakiness
+
+Profit improvement with materially worse drawdown is not acceptable.
+
+8.4 Success criteria (minimum)
+
+Meaningful net profit improvement across the full range
+
+Drawdown does not materially worsen
+
+Healthy-day results unchanged
+
+Hostile days remain suppressed
+
+Marginal-day trades show non-destructive expectancy (preferably positive)
+
+9. Standardized Test Workflow (IMPORTANT UPDATE)
+9.1 Standardization rule (authoritative)
+
+All testing (single-day and multi-day) MUST use:
+
+python scripts\run_range_and_summarize.py ...
+
+output captured to a log file using Tee-Object
+
+This ensures A/B runs can be compared cleanly and repeatably.
+
+9.2 Suggested wide ranges (specific, concrete)
+
+These ranges are chosen to:
+
+include multiple regimes
+
+provide enough days for marginal-day coverage
+
+stay close to the July “marginal day” focus
+
+Range Set 1 (Primary July focus — wide)
+
+2025-07-01 → 2025-07-31 (full month, wide regime coverage)
+
+Control (A):
+
+python scripts\run_range_and_summarize.py --start 2025-07-01 --end 2025-07-31 --scenario B *>&1 | Tee-Object -FilePath ".\out\auto\B_runlog_20250701_20250731_v0.8.1.8.2_A_control.txt"
+
+
+Treatment (B):
+
+python scripts\run_range_and_summarize.py --start 2025-07-01 --end 2025-07-31 --scenario B *>&1 | Tee-Object -FilePath ".\out\auto\B_runlog_20250701_20250731_v0.8.1.9.0_B_treatment.txt"
+
+Range Set 2 (Time-diverse cluster check — August control)
+
+2025-08-05 → 2025-08-31 (healthy-month regression guard)
+
+Control (A):
+
+python scripts\run_range_and_summarize.py --start 2025-08-05 --end 2025-08-31 --scenario B *>&1 | Tee-Object -FilePath ".\out\auto\B_runlog_20250805_20250831_v0.8.1.8.2_A_control.txt"
+
+
+Treatment (B):
+
+python scripts\run_range_and_summarize.py --start 2025-08-05 --end 2025-08-31 --scenario B *>&1 | Tee-Object -FilePath ".\out\auto\B_runlog_20250805_20250831_v0.8.1.9.0_B_treatment.txt"
+
+Range Set 3 (Older cluster for time-diverse validation)
+
+2025-04-01 → 2025-04-30 (hostile/choppy month stress test)
+
+Control (A):
+
+python scripts\run_range_and_summarize.py --start 2025-04-01 --end 2025-04-30 --scenario B *>&1 | Tee-Object -FilePath ".\out\auto\B_runlog_20250401_20250430_v0.8.1.8.2_A_control.txt"
+
+
+Treatment (B):
+
+python scripts\run_range_and_summarize.py --start 2025-04-01 --end 2025-04-30 --scenario B *>&1 | Tee-Object -FilePath ".\out\auto\B_runlog_20250401_20250430_v0.8.1.9.0_B_treatment.txt"
+
+9.3 Minimal sanity run (single day, standardized on range runner)
+
+Use the healthy control day (2025-07-18):
+
+python scripts\run_range_and_summarize.py --start 2025-07-18 --end 2025-07-18 --scenario B *>&1 | Tee-Object -FilePath ".\out\auto\B_runlog_20250718_20250718_v0.8.1.9.0_sanity.txt"
+
+
+Expected:
+
+No regression vs v0.8.1.8.2 on a healthy day.
+
+10. Philosophy to Carry Forward
+
+Structure beats indicators
+
+Day context before signal logic
+
+One change per version
+
+Diagnostic clarity before profit
+
+Evidence before belief
+
+Reversible changes only
+
+11. Handover Summary (One Paragraph)
+
+v0.8.1.8.2 completed the diagnostic phase by making day-level trade suppression explicit and by stabilizing runtime execution, establishing a reliable baseline for profit work. The system now clearly distinguishes hostile, marginal, and healthy days using the existing DAY_GATE counter close_gt_vwap_cnt. v0.8.1.9.0 will introduce exactly one profit-affecting change: allow exactly one trade on marginal days (close_gt_vwap_cnt==1) while leaving hostile-day suppression and healthy-day behavior unchanged. This must be validated via extensive A/B testing using the standardized range runner (run_range_and_summarize.py) with outputs captured to log files so Variant A (v0.8.1.8.2) can be compared directly to Variant B (v0.8.1.9.0) across wide date ranges.

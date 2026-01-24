@@ -1,0 +1,188 @@
+COPILOT SPEC (FINAL — LOCKED)
+Midas_V2 v0.8.1.9.0
+Limited Marginal-Day Participation (1 trade max) — strict A/B validation
+GOAL (EXACT)
+
+Enable limited marginal-day participation for Scenario B when DAY_GATE is enabled:
+
+Hostile days (close_gt_vwap_count == 0): no trades (unchanged)
+
+Marginal days (close_gt_vwap_count == 1): allow at most 1 completed trade for the entire day
+
+Healthy days (close_gt_vwap_count >= 2): unchanged (normal behavior)
+
+This version MUST be:
+
+deterministic
+
+reversible
+
+minimal
+
+enforced at entry time (not by changing DAY_GATE computation)
+
+This change exists ONLY so we can run strict A/B validation over wide ranges using run_range_and_summarize.py with logs written to files.
+
+CRITICAL CODE REALITY (DO NOT RE-IMPLEMENT)
+
+In backtester.py, entries only occur behind:
+
+if (not day_gate_failed) and position is None and pending_entry is None and strat.should_enter(...) ...
+
+Therefore, on many “marginal” days where:
+
+close_gt_vwap_count == 1, but
+
+day_gate_failed == True (common when min_symbols=2 and only 1 qualifies),
+
+no entry is possible, even if you add a “1 trade max” counter.
+
+So v0.8.1.9.0 MUST introduce a minimal mechanism to override enforcement of day_gate_failed for marginal days at entry time, without changing how day_gate_failed is computed.
+
+FILES ALLOWED TO CHANGE (ONLY)
+
+src/midas_v2/engine/backtester.py
+
+NO OTHER FILES.
+NO CONFIG CHANGES.
+NO NEW SCRIPTS.
+NO REFACTORS.
+
+REQUIRED BEHAVIOR (MANDATORY)
+1) Use DAY_GATE enable flag to scope behavior (SAFETY)
+
+This version MUST NOT change behavior when DAY_GATE is disabled.
+
+Use the existing scenario param / variable already in the file:
+
+require_day_follow_through (or the existing equivalent in this code path)
+
+Define these booleans (exact):
+
+is_day_gate_on = bool(require_day_follow_through)
+
+is_hostile_day = (is_day_gate_on and close_gt_vwap_count == 0)
+
+is_marginal_day = (is_day_gate_on and close_gt_vwap_count == 1)
+
+is_healthy_day = (is_day_gate_on and close_gt_vwap_count >= 2)
+
+If is_day_gate_on == False then:
+
+do NOT apply marginal logic
+
+do NOT log marginal participation
+
+do NOT enforce a marginal trade cap
+(i.e., feature is a complete no-op)
+
+2) Introduce a day-level counter: day_trade_count
+
+Maintain a per-day integer counter:
+
+day_trade_count = 0 at the start of each trading day loop
+
+Increment ONLY when a trade is FINALIZED (TP or SL), at the same place where the code already updates:
+
+per-symbol trade stats
+
+realized/cumulative pnl
+
+“trade finished” bookkeeping
+
+Do NOT increment on “pending entry”, “position set”, or “entry filled”.
+
+3) Implement “effective_day_gate_failed” (core mechanism)
+
+Do NOT modify how day_gate_failed is computed.
+Instead, create:
+
+effective_day_gate_failed = day_gate_failed
+
+Override enforcement ONLY in this case:
+
+If is_marginal_day AND day_trade_count < 1:
+
+set effective_day_gate_failed = False
+
+Rationale:
+
+hostile (cnt==0) stays blocked
+
+healthy (cnt>=2) unchanged
+
+marginal (cnt==1) becomes eligible for exactly one completed trade
+
+4) Enforce the 1-trade cap on marginal days
+
+Once day_trade_count >= 1 on a marginal day:
+
+block ALL further entries for that day (even if other entry conditions pass)
+
+Log a single reason once per day (log-once):
+
+Use an existing log-once mechanism if present (e.g., early_reject_logged)
+
+Emit:
+[WHY] v0.8.1.9.0 MARGINAL_DAY_TRADE_CAP_REACHED day_trade_count=1
+
+No repeated spam logs.
+
+5) Replace day_gate_failed with effective_day_gate_failed in exactly two places
+
+To keep this minimal and deterministic, ONLY substitute effective_day_gate_failed for day_gate_failed in:
+
+A) The early-reject / suppression logic where the code logs “DAY_GATE FAILED …” or rejects entries due to day_gate_failed.
+
+B) The combined entry condition that currently requires:
+(not day_gate_failed) and position is None and pending_entry is None and strat.should_enter(...) ...
+
+Replace ONLY that not day_gate_failed with not effective_day_gate_failed.
+
+DO NOT restructure the rest of the entry logic.
+
+LOGGING (STRICT)
+
+Add one concise, once-per-day summary line at the same location where the code already emits the day-level gate summary (or immediately adjacent).
+
+Format (one line):
+DAY_GATE v0.8.1.9.0 summary: on=<0|1> close_gt_vwap_count=<n> class=<off|hostile|marginal|healthy> marginal_cap=<n/a|1> day_trade_count=<n>
+
+Also log once when the marginal override first enables eligibility (optional but allowed):
+[INFO] v0.8.1.9.0 MARGINAL_DAY_ELIGIBLE override_day_gate_failed=True day_trade_count=<0>
+
+Do NOT add more logs than this.
+
+DO NOT DO (HARD PROHIBITIONS)
+
+DO NOT change DAY_GATE computation, thresholds, or counters
+
+DO NOT add new indicators, new data, new helper functions
+
+DO NOT add or change JSON config keys
+
+DO NOT refactor entry/exit code
+
+DO NOT move code blocks
+
+DO NOT allow marginal participation when DAY_GATE is off
+
+DO NOT allow more than 1 completed trade on marginal days
+
+ACCEPTANCE TESTING (PROCESS — NOT CODE)
+
+We will validate via strict A/B:
+
+Feature OFF vs ON
+
+Same date ranges
+
+Same scenario B
+
+Using scripts/run_range_and_summarize.py
+
+Output always captured to files (Tee-Object) for compare
+
+This is NOT implemented here; it is the required workflow for acceptance.
+
+END OF SPEC (LOCKED)

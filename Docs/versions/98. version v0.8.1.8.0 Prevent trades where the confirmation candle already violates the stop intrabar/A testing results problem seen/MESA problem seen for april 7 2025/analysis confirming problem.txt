@@ -1,0 +1,95 @@
+Yes — this is exactly the file I meant, and it fully closes the loop. Thank you for uploading it.
+
+Let me now do the clean, final analysis using only your data.
+
+What this file proves (from the FULL run log)
+
+From A_runlog_2025-04-07_B_full.txt 
+
+A_runlog_2025-04-07_B_full
+
+ we have the authoritative POSITION_SET lines, which contain the missing stop prices.
+
+JNVR — confirmed already
+
+From the log:
+
+POST_EXP: POSITION_SET symbol=JNVR bar_ts=10:14 entry=30.34 tp=30.9468 sl=29.5815
+
+
+From the TWCS entry meta:
+
+Confirm candle low at 10:14 = 27.69
+
+Check:
+
+27.69 <= 29.5815  ✅
+
+
+Conclusion: JNVR is a confirm-bar stop violation.
+v0.8.1.8.0 would block this trade.
+
+MESA — now proven conclusively
+
+From the log:
+
+POST_EXP: POSITION_SET symbol=MESA bar_ts=09:42 entry=15.9015 tp=16.21953 sl=15.5039625
+
+
+From the TWCS entry meta (idx_from_entry = 0 candle at 09:42):
+
+Confirm candle low = 15.00
+
+Check:
+
+15.00 <= 15.5039625  ✅
+
+
+Conclusion: MESA is also a confirm-bar stop violation.
+This trade was invalid at the moment of entry.
+
+Why this matters (and why the confusion is now resolved)
+
+You now have two independent, fully documented A-side examples from the same day:
+
+Symbol	Confirm Time	Stop	Confirm Low	Violation
+JNVR	10:14	29.5815	27.69	YES
+MESA	09:42	15.5040	15.00	YES
+
+Both:
+
+passed signal + post-entry expansion
+
+were entered
+
+were already stopped intrabar on the confirm candle
+
+immediately lost money
+
+This is exactly the failure class v0.8.1.8.0 targets.
+
+Final answer to your underlying question
+
+Do the snapshots for meta show the problem?
+
+Yes — when paired with the POSITION_SET stop price from the full log, the TWCS meta snapshots prove the problem beyond doubt.
+
+No additional tooling, parsing, or speculation is required.
+
+What this means for next steps
+
+You are now fully justified to:
+
+✅ Proceed with v0.8.1.8.0
+
+✅ Treat April 7 as a valid A baseline
+
+✅ Expect JNVR and MESA to disappear from results after the guard
+
+✅ Use the absence of snapshots + CONFIRM_BAR_STOP_VIOLATION WHY logs as the B-side proof
+
+If you want, next I can:
+
+outline the exact success checklist for the v0.8.1.8.0 rerun, or
+
+help you write the release note paragraph for v0.8.1.8.0 using this evidence.

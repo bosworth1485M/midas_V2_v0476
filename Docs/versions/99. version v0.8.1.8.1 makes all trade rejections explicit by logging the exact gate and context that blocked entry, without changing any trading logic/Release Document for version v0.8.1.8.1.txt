@@ -1,0 +1,323 @@
+Release Document
+Midas_V2 — Version v0.8.1.8.1
+Execution Safety Guard + Full Rejection Observability
+Executive Summary
+
+v0.8.1.8.1 completes a critical correctness and transparency milestone for Midas_V2.
+
+This release:
+
+Prevents execution-invalid trades by blocking entries where the confirmation candle already violates the stop intrabar.
+
+Eliminates silent trade suppression by explicitly logging every early rejection with reason and contextual detail.
+
+Establishes a fully explainable system, where low trade counts and 0-trade days can be diagnosed precisely rather than inferred.
+
+Profitability Status (Explicit and Correct)
+
+Overall profitability in this version is lower than desired.
+This is not intentional and not an acceptable end state.
+
+Low profit is an unwanted side effect of conservative, safety-first controls introduced to:
+
+enforce execution realism, and
+
+remove ambiguity in system behavior.
+
+Extensive validation across April (hostile), July (marginal), and August (healthy) regimes confirms:
+
+The confirm-bar stop-violation guard works as intended.
+
+The dominant suppressor of trades and profit is DAY_GATE, not execution bugs.
+
+System behavior is now deterministic, auditable, and suitable for controlled profitability recovery.
+
+v0.8.1.8.1 finalizes the execution correctness + observability phase and intentionally positions the system for profit recovery work in subsequent versions.
+
+1. Why This Version Exists
+
+This version addresses two foundational problems discovered during TWCS review and multi-month backtesting:
+
+Execution realism flaw
+Some trades were entered even though the confirmation candle itself already violated the stop intrabar. These trades appear valid in bar-based backtests but would be instantly stopped in live execution.
+
+Silent trade suppression
+When trades disappeared (including entire 0-trade days), the backtester provided no explanation, forcing guesswork and undermining confidence.
+
+The execution fix (originally developed as v0.8.1.8.0) and the observability work (v0.8.1.8.1) are inseparable. Because v0.8.1.8.0 was never released independently, both are consolidated and documented as v0.8.1.8.1.
+
+2. High-Level Goals
+Primary goal
+
+Prevent execution-invalid trades where the confirmation candle already violates the stop intrabar.
+
+Secondary goal
+
+Ensure that all trade suppression is explicit and explainable, eliminating silent failures.
+
+These goals are prerequisites to profitability recovery, not substitutes for it.
+
+3. What Changed (and What Did Not)
+3.1 Functional change — execution safety
+
+Confirm-bar stop-violation guard
+
+At confirmation time, inspect the wick-correct candle.
+
+If intrabar price action would already hit the stop:
+
+Reject the trade.
+
+Emit a [WHY] CONFIRM_BAR_STOP_VIOLATION log.
+
+This enforces live-trading realism and removes structurally invalid entries.
+
+3.2 Observability changes — no behavior change
+
+Added explicit [WHY] EARLY_REJECT logs at all early rejection paths in backtester.py, including:
+
+DAY_GATE_FAILED
+
+STRUCT_DAMAGE_FAIL
+
+VWAP_MISSING
+
+DAILY_MAX_LOSS
+
+MAX_TRADES_PER_SYMBOL
+
+Enhancements include:
+
+Log-once latch (per symbol / per reason / per day)
+
+Contextual details= fields using existing variables only
+
+Version-consistent log stamping
+
+These changes do not alter trading behavior.
+
+3.3 Explicit non-changes
+
+❌ No indicator logic modified
+
+❌ No thresholds adjusted
+
+❌ No entry logic loosened
+
+❌ No exits or sizing changed
+
+❌ No new filters introduced
+
+❌ strategy.py restored to its exact pre-version state
+
+4. Files Affected
+Modified
+
+src/midas_v2/engine/backtester.py
+
+Explicitly restored
+
+src/midas_v2/strategy.py
+
+Restore commands used:
+
+git checkout -- src/midas_v2/strategy.py
+git diff src/midas_v2/strategy.py
+
+5. Validation Methodology
+
+Validation was intentionally performed across three time-diverse market regimes:
+
+Period	Regime Type	Purpose
+April 2025	Hostile / choppy	Stress execution safety
+July 2025	Marginal / mixed	Diagnose trade suppression
+August 2025	Healthy / trending	Confirm no regression
+
+All tests used:
+
+python scripts\run_range_and_summarize.py
+
+6. April 2025 Results (Hostile Regime)
+Command
+python scripts\run_range_and_summarize.py --start 2025-04-01 --end 2025-04-10 --scenario B
+
+Observations
+
+Very low trade count
+
+Multiple STRUCT_DAMAGE_FAIL
+
+Several CONFIRM_BAR_STOP_VIOLATION events
+
+Conclusion
+
+April contained structurally weak setups and confirmation candles that already violated stops.
+The confirm-bar guard correctly filtered execution-invalid trades.
+
+7. July 2025 Results (Marginal Regime)
+Baseline comparison
+
+v0.8.1.7.1: 2 trades (net -6.2)
+
+v0.8.1.8.1: 0 trades
+
+This raised the diagnostic question:
+
+Are trades disappearing because of the confirm-bar guard, or because of other gating?
+
+July run with full observability
+python scripts\run_range_and_summarize.py --start 2025-07-14 --end 2025-07-18 --scenario B *> ".\out\auto\runlog_20250714_20250718_B_v0.8.1.8.1.txt"
+
+
+Representative logs:
+
+[WHY] v0.8.1.8.1 EARLY_REJECT reason=DAY_GATE_FAILED symbol=PHGE ts=09:30
+details=gate_minutes=20 min_symbols=2 close_gt_vwap_cnt=0 require_close_gt_vwap=True
+
+[WHY] v0.8.1.8.1 EARLY_REJECT reason=STRUCT_DAMAGE_FAIL symbol=NUWE ts=10:34
+details=weak_vwap_reclaim recovery_failed lookback_bars=8 body_thresh=0.60
+
+July conclusion
+
+Primary suppressor: DAY_GATE_FAILED
+
+require_close_gt_vwap=True
+
+close_gt_vwap_cnt=0 on most days
+
+Confirm-bar guard not responsible
+
+Structural damage blocked a small subset of symbols
+
+8. August 2025 Results (Healthy Regime)
+Command
+python scripts\run_range_and_summarize.py --start 2025-08-05 --end 2025-08-09 --scenario B
+
+Observations
+
+Trades present
+
+DAY_GATE passed
+
+No abnormal suppression
+
+Confirm-bar guard triggered only selectively
+
+Conclusion
+
+The confirm-bar stop-violation guard does not suppress trading in healthy regimes.
+
+9. Conclusions on Profitability
+9.1 Why profit is currently low
+
+Profitability is lower than desired due to unwanted side effects of conservative controls introduced for correctness:
+
+DAY_GATE is binary and aggressive, suppressing entire marginal days
+
+Trade count is significantly reduced
+
+Winning trades are not amplified (conservative exits, no re-entries, flat sizing)
+
+These effects were accepted temporarily to eliminate execution errors and ambiguity — not because low profit is acceptable.
+
+9.2 What is not causing low profit
+
+Based on evidence:
+
+❌ No execution bugs
+
+❌ No silent trade suppression
+
+❌ No confirm-bar guard overreach
+
+❌ No unstable or random behavior
+
+Low profit is therefore structural and temporary, not accidental.
+
+9.3 Interpretation of the current phase
+
+v0.8.1.8.1 represents a necessary but incomplete phase:
+
+execution correctness achieved
+
+observability achieved
+
+profitability not yet achieved
+
+This phase is a prerequisite — not the destination.
+
+13. Profitability Roadmap
+
+This roadmap defines how profitability will be explicitly recovered, not merely hoped for.
+
+13.1 Root cause of low profit
+
+Binary DAY_GATE suppresses marginal days
+
+Opportunity density is constrained
+
+Trade management is conservative
+
+These are known causes, not mysteries.
+
+13.2 Profit recovery strategy (ordered)
+
+Profit will be recovered through controlled policy refinement, not broad loosening:
+
+Selective DAY_GATE
+
+Replace binary day suppression with conditional participation
+
+Conditional opportunity expansion
+
+Allow more trades only on proven strong days
+
+Trade management improvements
+
+Partial exits
+
+Failure-based exits
+
+Re-entries / continuations
+
+Sizing adjustments
+
+Applied last, after stability is proven
+
+14. Next Version Plan
+Version: v0.8.1.8.2 — Day-Level Profitability Diagnostics
+
+Purpose:
+Complete the diagnostic phase by making DAY_GATE outcomes explicit at the day level, enabling selective gating in later versions.
+
+Scope (logging-only):
+
+[WHY] v0.8.1.8.2 DAY_GATE_SUMMARY
+details=gate_minutes=20 min_symbols=2 close_gt_vwap_cnt=0 require_close_gt_vwap=True
+
+
+Explicitly excluded:
+
+❌ No strategy changes
+
+❌ No threshold tuning
+
+❌ No profit-seeking behavior yet
+
+15. Final One-Sentence Description
+
+v0.8.1.8.1 enforces execution realism by blocking confirmation candles that already violate stops and adds full observability so all rejected trades and 0-trade days are explicitly explained, enabling controlled profitability recovery.
+
+16. Status
+
+✅ Execution safety guard implemented
+
+✅ Observability added
+
+✅ strategy.py restored
+
+✅ April / July / August validated
+
+⏳ Awaiting document approval
+
+⏳ Git tagging intentionally deferred

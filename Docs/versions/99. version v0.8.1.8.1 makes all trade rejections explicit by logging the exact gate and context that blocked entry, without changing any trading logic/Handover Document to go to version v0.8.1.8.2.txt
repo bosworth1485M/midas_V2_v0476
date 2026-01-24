@@ -1,0 +1,190 @@
+Handover Document
+Transition to Midas_V2 — Version v0.8.1.8.2
+Day-Level Profitability Diagnostics (DAY_GATE Summary)
+1. Purpose of This Handover
+
+This document transfers full context, intent, constraints, and findings from v0.8.1.8.1 to the next development thread v0.8.1.8.2.
+
+Its purpose is to ensure that:
+
+the next version does exactly one thing,
+
+no strategy or profit logic is changed prematurely, and
+
+all future profit work remains causally grounded.
+
+This handover is not a release note and not an implementation spec.
+
+2. Where the Project Is Now (Authoritative State)
+
+As of v0.8.1.8.1, the system has achieved:
+
+2.1 Execution correctness
+
+Trades are no longer entered when the confirmation candle already violates the stop intrabar.
+
+Execution-invalid entries have been eliminated.
+
+2.2 Full observability
+
+All early trade rejections are explicitly logged via [WHY] EARLY_REJECT.
+
+No silent suppression remains.
+
+Logs include contextual details= fields using existing variables.
+
+Log volume is controlled via log-once latching.
+
+Version stamping is consistent.
+
+2.3 Verified behavior across regimes
+
+Testing across April, July, and August 2025 established:
+
+April (hostile):
+
+Low trade count due to STRUCT_DAMAGE and confirm-bar violations.
+
+July (marginal):
+
+0 trades due primarily to DAY_GATE_FAILED.
+
+August (healthy):
+
+Trades present; DAY_GATE passes; no regression.
+
+These conclusions are now proven, not inferred.
+
+3. Critical Finding That Motivates v0.8.1.8.2
+
+The dominant suppressor of trades — and therefore profit — is:
+
+DAY_GATE, specifically when
+require_close_gt_vwap=True and close_gt_vwap_cnt=0.
+
+This suppression is currently visible only via:
+
+many per-symbol DAY_GATE_FAILED logs at 09:30.
+
+While correct, this creates friction when answering the most important diagnostic question:
+
+Why did this entire day produce zero trades?
+
+4. Exact Purpose of v0.8.1.8.2
+
+v0.8.1.8.2 exists to elevate DAY_GATE diagnostics from per-symbol noise to a single, explicit, day-level summary.
+
+This version completes the diagnostic phase before any profit-oriented logic is attempted.
+
+5. Scope Definition (Non-Negotiable)
+5.1 Allowed changes
+
+Logging only
+
+backtester.py only
+
+Use existing variables only
+
+One new log line per trading day
+
+No new configuration options
+
+5.2 Explicitly forbidden
+
+❌ Strategy logic changes
+
+❌ DAY_GATE behavior changes
+
+❌ Threshold tuning
+
+❌ Selective gating (comes later)
+
+❌ Entry, exit, or sizing changes
+
+❌ Indicator changes
+
+❌ Changes in trade count or outcomes
+
+If trade outcomes change in v0.8.1.8.2, the version is invalid.
+
+6. Required Behavior (Conceptual, Not Code)
+
+For each trading day, after DAY_GATE evaluation:
+
+Emit exactly one summary log per scenario.
+
+Log regardless of whether the day passes or fails.
+
+Required log shape
+[WHY] v0.8.1.8.2 DAY_GATE_SUMMARY
+details=gate_minutes=<N> min_symbols=<N> close_gt_vwap_cnt=<N> require_close_gt_vwap=<True/False>
+
+Key properties
+
+Printed once per day
+
+Printed once per scenario
+
+Uses values already computed in v0.8.1.8.1
+
+No new calculations
+
+No per-symbol repetition
+
+7. Why This Version Matters Before Profit Work
+
+Without a day-level summary:
+
+diagnosing marginal vs hostile days requires scanning dozens of logs
+
+DAY_GATE effects are easy to misattribute
+
+selective gating cannot be justified cleanly
+
+With a day-level summary:
+
+regime classification becomes immediate
+
+marginal days are distinguishable from hostile days
+
+future profit recovery decisions are evidence-based
+
+This step reduces risk in every future profit-oriented version.
+
+8. Success Criteria for v0.8.1.8.2
+
+The version is successful if and only if:
+
+A single DAY_GATE_SUMMARY line appears per trading day
+
+The summary matches observed symbol-level behavior
+
+Trade counts and PnL are unchanged from v0.8.1.8.1
+
+No files outside backtester.py are modified
+
+No strategy logic is altered
+
+9. Explicitly Out of Scope (Future Versions)
+
+The following are not to be implemented or discussed in v0.8.1.8.2:
+
+Selective DAY_GATE
+
+Partial-day participation
+
+Trade count expansion
+
+Exit refinement
+
+Risk or sizing changes
+
+Support/resistance logic
+
+Relational database integration
+
+Those belong to later roadmap stages.
+
+10. Handover Statement
+
+v0.8.1.8.2 continues the discipline of v0.8.1.8.1 by completing day-level diagnostics for DAY_GATE, without altering any trading behavior, enabling safe and evidence-based profitability recovery in subsequent versions.

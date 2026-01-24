@@ -1,0 +1,250 @@
+HANDOVER SPECIFICATION
+From v0.8.1.9.0 → v0.8.1.10.0
+Use this document at the start of the v0.8.1.10.0 version thread to restore full context.
+1. Where We Are Now (End of v0.8.1.9.0)
+What v0.8.1.9.0 implemented
+
+Scenario B allows at most one completed trade on marginal days
+
+Marginal day = close_gt_vwap_count == 1
+
+Hostile days (close_gt_vwap_count == 0) remain fully suppressed
+
+Healthy days (close_gt_vwap_count >= 2) remain unchanged
+
+This version was a controlled experiment to answer a single question:
+
+Do marginal days sometimes contain one valid trade that is worth taking?
+
+2. How Testing Was Done (Technical Context)
+Runner used (standardized)
+
+All testing used:
+
+python scripts\run_range_and_summarize.py
+
+
+This ensured:
+
+identical universe construction
+
+identical scenario parameters
+
+identical logging and summaries
+
+A/B structure
+
+A: v0.8.1.8.2 (baseline)
+
+B: v0.8.1.9.0 (marginal participation)
+
+Logs were captured using Tee-Object so A/B runs could be compared reliably.
+
+3. Confirmation That Correct Behavior Was Preserved
+
+Single-day A/B checks confirmed that v0.8.1.9.0 did not break behavior that was already correct.
+
+Healthy day check
+
+2025-07-18
+
+Both versions traded normally with identical outcomes
+
+Hostile day checks
+
+2025-07-21, 2025-07-22
+
+Both versions took zero trades
+
+Conclusion:
+The new logic affected only marginal days, exactly as intended.
+
+4. Full-Month A/B Test (April 2025)
+Commands used
+
+Baseline (A):
+
+python scripts\run_range_and_summarize.py --start 2025-04-01 --end 2025-04-30 --scenario B *>&1 | Tee-Object -FilePath ".\out\auto\B_runlog_20250401_20250430_v0.8.1.8.2.txt"
+
+
+Marginal participation (B):
+
+python scripts\run_range_and_summarize.py --start 2025-04-01 --end 2025-04-30 --scenario B *>&1 | Tee-Object -FilePath ".\out\auto\B_runlog_20250401_20250430_v0.8.1.9.0.txt"
+
+5. Marginal Days Observed (April 2025)
+
+From the v0.8.1.9.0 runlog, the following days were explicitly classified as marginal:
+
+2025-04-01
+
+2025-04-04
+
+2025-04-07
+
+2025-04-11
+
+2025-04-22
+
+2025-04-24
+
+2025-04-30
+
+Key observation:
+Marginal days are not rare; they occur regularly and materially affect results.
+
+6. TWCS Analysis Performed (Critical Evidence)
+
+Per workflow rules, TWCS was used as the primary diagnostic tool.
+
+Marginal-day LOSS (failure case)
+
+GRI — 2025-04-01 — SL −34.88 (−2.5%)
+
+Observed via TWCS:
+
+Entry occurred when the entry candle was the first candle to close above VWAP
+
+There were no completed candles closing above VWAP prior to entry
+
+Price failed to remain above VWAP and stopped out quickly
+
+This trade exists only because v0.8.1.9.0 allowed one marginal-day trade.
+
+Marginal-day WIN (success case)
+
+JNVR — 2025-04-07 — TP +27.93 (+2.0%)
+
+Observed via TWCS:
+
+Multiple completed candles closed above VWAP before entry
+
+Price remained above VWAP
+
+Trade showed clean continuation into profit
+
+This is a valid marginal-day opportunity that the feature was intended to capture.
+
+7. Root Cause Identified
+
+v0.8.1.9.0 currently:
+
+uses day-level classification (marginal day)
+
+applies a one-trade-per-day cap
+
+This is necessary but insufficient.
+
+It does not distinguish between:
+
+marginal-day entries where price has not closed above VWAP before entry (GRI), and
+
+marginal-day entries where price has already closed above VWAP for multiple candles (JNVR).
+
+8. Key Principle Derived (From TWCS)
+
+On marginal days, a trade should not be entered until price has already closed above VWAP for more than one completed candle.
+
+This principle was derived from observed behavior, not from theory or optimization.
+
+9. Anticipated Improvement in v0.8.1.10.0
+Why improvement is expected
+
+The next version will remove a specific, proven failure class (early marginal-day entries before price has held above VWAP).
+
+This is expected to improve results because:
+
+the losses introduced in v0.8.1.9.0 are not random
+
+they cluster around entries made before price showed persistence above VWAP
+
+Removing these trades improves trade quality, not trade frequency.
+
+Expected impact on win rate
+
+Marginal-day win rate is expected to increase
+
+Because:
+
+low-probability entries (GRI-type) are removed
+
+high-probability entries (JNVR-type) are preserved
+
+Overall win rate may improve modestly; marginal-day win rate should improve more clearly.
+
+Expected impact on profit / expectancy
+
+Expectancy on marginal days is expected to improve
+
+Even if total trade count decreases slightly
+
+Removing a −2.5% loss while preserving +2.0% wins materially improves average outcomes per marginal trade.
+
+This is how profitable Cameron-style systems typically improve:
+
+They remove bad trades rather than adding more trades.
+
+What is not expected
+
+The next version is not expected to:
+
+increase total trade count
+
+materially change results on hostile or healthy days
+
+eliminate all losses
+
+outperform strongly trending months by itself
+
+It is a risk-quality improvement, not a growth lever.
+
+10. Objective of v0.8.1.10.0
+
+Refine marginal-day participation so that:
+
+trades are allowed only after price has already closed above VWAP for multiple candles
+
+all existing correct behavior remains unchanged
+
+This refinement should:
+
+block GRI-type failures
+
+preserve JNVR-type winners
+
+add exactly one structural condition (no refactors, no new indicators)
+
+11. Validation Plan for v0.8.1.10.0
+
+Sanity cluster
+
+Small set of known marginal days
+
+Immediate TWCS review of any new loss
+
+April 2025 A/B rerun
+
+Compare v0.8.1.9.0 vs v0.8.1.10.0
+
+Success if any one of the following occurs:
+
+marginal-day win rate increases
+
+marginal-day loss count decreases
+
+marginal-day expectancy improves
+
+TWCS confirms:
+
+GRI-type trades are blocked
+
+JNVR-type trades remain
+
+12. Status
+
+v0.8.1.9.0: implemented, tested, and diagnosed
+
+v0.8.1.10.0: clearly defined next step with expected qualitative improvement
+
+End state
+
+This handover fully captures what was done, what was learned, and why the next version is expected to improve win rate and profit, without changing workflow or over-promising outcomes.

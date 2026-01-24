@@ -474,6 +474,56 @@ def run_backtest(
             dbg_cum_v = 0.0  # v0.8.1.3.0: cumulative volume for liquidity check
             try:  # v0.8.1.3.0
                 bars = data.load_minute_bars(sym, date_str)  # v0.8.1.3.0
+                
+                # v0.8.1.25.0: Canonicalize duplicate minute timestamps BEFORE evaluation and pos mgmt
+                canon_by_ts: dict[object, Bar] = {}  # v0.8.1.25.0
+                canon_ts_order: list[object] = []   # v0.8.1.25.0
+                dup_count_canon = 0                # v0.8.1.25.0
+                no_ts_count_canon = 0              # v0.8.1.25.0
+                
+                for b in bars:  # v0.8.1.25.0
+                    ts = getattr(b, "ts", None)  # v0.8.1.25.0
+                    
+                    if ts is None:  # v0.8.1.25.0
+                        # v0.8.1.25.0: defensive — keep bar as-is if no timestamp (do NOT drop)
+                        # v0.8.1.25.0: assign a unique synthetic ts AND store it into Bar.ts to avoid later key-collapsing
+                        no_ts_count_canon += 1  # v0.8.1.25.0
+                        ts = f"__NO_TS__{no_ts_count_canon}"  # v0.8.1.25.0
+                    
+                    if ts not in canon_by_ts:  # v0.8.1.25.0
+                        canon_by_ts[ts] = Bar(  # v0.8.1.25.0
+                            ts=ts,       # v0.8.1.25.0
+                            o=b.o,
+                            h=b.h,
+                            l=b.l,
+                            c=b.c,
+                            v=b.v,
+                            vwap=b.vwap
+                        )
+                        canon_ts_order.append(ts)  # v0.8.1.25.0
+                    else:
+                        # v0.8.1.25.0: merge duplicate timestamp using same policy as pos_bar_by_ts
+                        dup_count_canon += 1  # v0.8.1.25.0
+                        prev = canon_by_ts[ts]  # v0.8.1.25.0
+                        canon_by_ts[ts] = Bar(  # v0.8.1.25.0
+                            ts=ts,                    # v0.8.1.25.0
+                            o=prev.o,                 # first open
+                            h=max(prev.h, b.h),       # max high
+                            l=min(prev.l, b.l),       # min low
+                            c=b.c,                    # last close
+                            v=(prev.v or 0) + (b.v or 0),  # sum volume
+                            vwap=prev.vwap if prev.vwap is not None else b.vwap  # first non-null vwap
+                        )
+                
+                if dup_count_canon > 0 or no_ts_count_canon > 0:  # v0.8.1.25.0
+                    log.warning(  # v0.8.1.25.0
+                        "[WARN] [DEDUP_TS] v0.8.1.25.0 symbol=%s date=%s duplicates=%d no_ts=%d",
+                        sym, date_str, dup_count_canon, no_ts_count_canon
+                    )
+                
+                # v0.8.1.25.0: Replace bars with canonicalized list preserving first-seen order
+                bars = [canon_by_ts[ts] for ts in canon_ts_order]  # v0.8.1.25.0
+                
                 if len(bars) <= i_eval:  # v0.8.1.3.0
                     fail_reason = "insufficient_bars"  # v0.8.1.3.0
                     # v0.8.1.3.0: capture last available bar for debug
@@ -651,6 +701,17 @@ def run_backtest(
     # v0.8.1.9.0: Day-level trade counter (increments only when trade finalizes at TP or SL)
     day_trade_count = 0  # v0.8.1.9.0
     
+    # v0.8.1.27.0 (ALIGNMENT): Day-level throttle state (Scenario B only)
+    throttle_enabled = False  # v0.8.1.27.0 (ALIGNMENT): whether throttle is active (Scenario B only)
+    throttle_class = "off"  # v0.8.1.27.0 (ALIGNMENT): "healthy"|"marginal"|"hostile"|"off"
+    throttle_risk_factor = 1.0  # v0.8.1.27.0 (ALIGNMENT): sizing multiplier (1.0=full, 0.75=marginal, 0.50=hostile)
+    throttle_max_trades = 999999  # v0.8.1.27.0 (ALIGNMENT): max trades allowed today (999999=unlimited for healthy/off)
+    throttle_reason = ""  # v0.8.1.27.0 (ALIGNMENT): reason text from DAY_GATE classification
+    throttle_logged = False  # v0.8.1.27.0 (OBSERVABILITY): ensure throttle summary is logged once per day
+    day_throttle_blocks_logged = set()  # v0.8.1.27.0 (OBSERVABILITY): dedupe max_trades block logs per (symbol, day)
+    # v0.8.1.28.0 (OBSERVABILITY): ASCENDING-GREEN enforcement announced once per day for Scenario B
+    asc_green_enforce_logged = False  # v0.8.1.28.0 (OBSERVABILITY): ensure enable message is logged once per run/day
+    
     # v0.8.1.17.0: Marginal stop-after-1-loss policy enablement and state
     scenario_on = bool(getattr(strat.p, "marginal_stop_after_1_loss", False))  # v0.8.1.17.0
     env_on = os.getenv("MIDAS_MARGINAL_STOP1LOSS", "").strip().lower() in {"1", "true", "yes"}  # v0.8.1.17.0
@@ -696,6 +757,55 @@ def run_backtest(
         except FileNotFoundError as e:
             log.warning(str(e))
             continue
+        
+        # v0.8.1.25.0: Canonicalize duplicate minute timestamps BEFORE evaluation and pos mgmt
+        canon_by_ts: dict[object, Bar] = {}  # v0.8.1.25.0
+        canon_ts_order: list[object] = []   # v0.8.1.25.0
+        dup_count_canon = 0                # v0.8.1.25.0
+        no_ts_count_canon = 0              # v0.8.1.25.0
+        
+        for b in bars:  # v0.8.1.25.0
+            ts = getattr(b, "ts", None)  # v0.8.1.25.0
+            
+            if ts is None:  # v0.8.1.25.0
+                # v0.8.1.25.0: defensive — keep bar as-is if no timestamp (do NOT drop)
+                # v0.8.1.25.0: assign a unique synthetic ts AND store it into Bar.ts to avoid later key-collapsing
+                no_ts_count_canon += 1  # v0.8.1.25.0
+                ts = f"__NO_TS__{no_ts_count_canon}"  # v0.8.1.25.0
+            
+            if ts not in canon_by_ts:  # v0.8.1.25.0
+                canon_by_ts[ts] = Bar(  # v0.8.1.25.0
+                    ts=ts,       # v0.8.1.25.0
+                    o=b.o,
+                    h=b.h,
+                    l=b.l,
+                    c=b.c,
+                    v=b.v,
+                    vwap=b.vwap
+                )
+                canon_ts_order.append(ts)  # v0.8.1.25.0
+            else:
+                # v0.8.1.25.0: merge duplicate timestamp using same policy as pos_bar_by_ts
+                dup_count_canon += 1  # v0.8.1.25.0
+                prev = canon_by_ts[ts]  # v0.8.1.25.0
+                canon_by_ts[ts] = Bar(  # v0.8.1.25.0
+                    ts=ts,                    # v0.8.1.25.0
+                    o=prev.o,                 # first open
+                    h=max(prev.h, b.h),       # max high
+                    l=min(prev.l, b.l),       # min low
+                    c=b.c,                    # last close
+                    v=(prev.v or 0) + (b.v or 0),  # sum volume
+                    vwap=prev.vwap if prev.vwap is not None else b.vwap  # first non-null vwap
+                )
+        
+        if dup_count_canon > 0 or no_ts_count_canon > 0:  # v0.8.1.25.0
+            log.warning(  # v0.8.1.25.0
+                "[WARN] [DEDUP_TS] v0.8.1.25.0 symbol=%s date=%s duplicates=%d no_ts=%d",
+                sym, date_str, dup_count_canon, no_ts_count_canon
+            )
+        
+        # v0.8.1.25.0: Replace bars with canonicalized list preserving first-seen order
+        bars = [canon_by_ts[ts] for ts in canon_ts_order]  # v0.8.1.25.0
 
         # v0.8.1.20.0: Telemetry dict for per-symbol/per-day diagnostics (initialize BEFORE any writes)
         telemetry = {
@@ -711,6 +821,9 @@ def run_backtest(
             "pos_mgmt_mismatch_last": None,
             "missing_1s_csv": False,
         }
+        
+        # v0.8.1.25.0: keep dup-ts telemetry accurate after canonicalization (pos_bar_by_ts may now see 0)
+        telemetry["dup_ts_count"] = dup_count_canon  # v0.8.1.25.0
 
         # v0.8.1.7.0: freeze original OHLC for TP/SL, keyed by timestamp
         # Create NEW Bar objects so later mutations to bars do not affect TP/SL checks
@@ -884,6 +997,75 @@ def run_backtest(
                     expansion_bps = (max_high_since_signal - vwap_at_signal) / vwap_at_signal * 10_000 if vwap_at_signal > 0 else 0.0  # v0.8.1.7.0
                     log.info(f"[WHY] v0.8.1.7.0 POST_EXP: CONFIRMED symbol={sym} confirm_time={bar.ts} "  # v0.8.1.7.0
                             f"observed_bps={expansion_bps:.2f} required_bps={strat.p.post_entry_expansion_min_bps}")  # v0.8.1.7.0
+                    # v0.8.1.28.0 (ALIGNMENT): Re-evaluate ASCENDING green candles at confirmation time for Scenario B
+                    # v0.8.1.28.0 (SAFETY): fail-closed on any exception -> cancel pending and log
+                    if (scenario_name or scn) == "B":  # v0.8.1.28.0 (ALIGNMENT)
+                        try:  # v0.8.1.28.0 (SAFETY)
+                            N = getattr(strat.p, "rise_bars", getattr(strat.p, "macd_rise_bars", 3))  # v0.8.1.28.0 (ALIGNMENT): derive rise_bars param
+                            try:
+                                N = int(N)
+                            except Exception:
+                                N = 3
+
+                            # v0.8.1.28.0 (SAFETY): if N < 1, skip enforcement
+                            if N >= 1:
+                                start_idx = i - N  # v0.8.1.28.0 (ALIGNMENT): inclusive start index for sequence
+                                if start_idx < 0:  # v0.8.1.28.0 (SAFETY)
+                                    asc_ok = False  # v0.8.1.28.0 (ALIGNMENT)
+                                    asc_reason = "not_enough_candles"  # v0.8.1.28.0 (OBSERVABILITY)
+                                else:
+                                    asc_ok = True
+                                    asc_reason = ""  # v0.8.1.28.0 (OBSERVABILITY)
+                                    prev_close = None
+                                    prev_low = None
+                                    for k in range(start_idx, i):  # v0.8.1.28.0 (ALIGNMENT)
+                                        b_k = bars[k]
+                                        rng_k = b_k.h - b_k.l  # v0.8.1.28.0 (SAFETY)
+                                        if rng_k <= 0:  # v0.8.1.28.0 (SAFETY)
+                                            asc_ok = False
+                                            asc_reason = "zero_range_candle"  # v0.8.1.28.0 (OBSERVABILITY)
+                                            break
+                                        if not (b_k.c > b_k.o):  # v0.8.1.28.0 (ALIGNMENT)
+                                            asc_ok = False
+                                            asc_reason = "non_green_or_small_body"  # v0.8.1.28.0 (OBSERVABILITY)
+                                            break
+                                        body_frac_k = abs(b_k.c - b_k.o) / max(1e-9, rng_k)  # v0.8.1.28.0 (ALIGNMENT)
+                                        if body_frac_k < green_body_min:  # v0.8.1.28.0 (ALIGNMENT)
+                                            asc_ok = False
+                                            asc_reason = "non_green_or_small_body"  # v0.8.1.28.0 (OBSERVABILITY)
+                                            break
+                                        if prev_close is not None and not (b_k.c > prev_close):  # v0.8.1.28.0 (ALIGNMENT)
+                                            asc_ok = False
+                                            asc_reason = "non_ascending_close"  # v0.8.1.28.0 (OBSERVABILITY)
+                                            break
+                                        if prev_low is not None and not (b_k.l >= prev_low):  # v0.8.1.28.0 (ALIGNMENT)
+                                            asc_ok = False
+                                            asc_reason = "non_ascending_low"  # v0.8.1.28.0 (OBSERVABILITY)
+                                            break
+                                        prev_close = b_k.c
+                                        prev_low = b_k.l
+
+                                    # v0.8.1.28.0 (ALIGNMENT): structural damage within seq invalidates continuation
+                                    if asc_ok and damage_first_idx is not None and damage_first_idx < i and damage_first_idx >= start_idx:  # v0.8.1.28.0 (ALIGNMENT)
+                                        asc_ok = False
+                                        asc_reason = "post_damage_reset"  # v0.8.1.28.0 (OBSERVABILITY)
+
+                                if not asc_ok:  # v0.8.1.28.0 (OBSERVABILITY)
+                                    candidate_ts = bar.ts if hasattr(bar, 'ts') else f"bar_{i}"
+                                    reject_key = f"{date_str}:{sym}:ASC_GREEN_CANCEL_PENDING:{asc_reason}"  # v0.8.1.28.0 (OBSERVABILITY)
+                                    if reject_key not in early_reject_logged:  # v0.8.1.28.0 (OBSERVABILITY)
+                                        log.warning(f"[WHY] v0.8.1.28.0 ASC_GREEN_CANCEL_PENDING symbol={sym} ts={candidate_ts} reason={asc_reason} N={N} green_body_min={green_body_min}")  # v0.8.1.28.0 (OBSERVABILITY)
+                                        early_reject_logged.add(reject_key)  # v0.8.1.28.0 (OBSERVABILITY)
+                                    pending_entry = None  # v0.8.1.28.0 (SAFETY): cancel pending entry
+                                    continue  # v0.8.1.28.0 (ALIGNMENT): skip entry on this bar
+                        except Exception as exc:  # v0.8.1.28.0 (SAFETY)
+                            candidate_ts = bar.ts if hasattr(bar, 'ts') else f"bar_{i}"
+                            reject_key = f"{date_str}:{sym}:ASC_GREEN_CANCEL_PENDING:fallback"  # v0.8.1.28.0 (OBSERVABILITY)
+                            if reject_key not in early_reject_logged:  # v0.8.1.28.0 (OBSERVABILITY)
+                                log.warning(f"[WHY] v0.8.1.28.0 ASC_GREEN_CANCEL_PENDING symbol={sym} ts={candidate_ts} reason=fallback N={getattr(strat.p, 'rise_bars', getattr(strat.p, 'macd_rise_bars', 3))} green_body_min={green_body_min}")  # v0.8.1.28.0 (OBSERVABILITY)
+                                early_reject_logged.add(reject_key)  # v0.8.1.28.0 (OBSERVABILITY)
+                            pending_entry = None  # v0.8.1.28.0 (SAFETY)
+                            continue  # v0.8.1.28.0 (ALIGNMENT)
                     # Enter on this bar (using pending entry data)  # v0.8.1.7.0
                     entry = bar.c  # v0.8.1.7.0: enter at current bar close
                     # v0.8.1.7.1: Rebase TP/SL to confirm-time entry (fixes TP-but-negative-pnl bug)
@@ -1079,8 +1261,52 @@ def run_backtest(
                 # else: still within window, keep checking  # v0.8.1.7.0
 
             # entry logic
-            # v0.8.1.9.0: Compute effective_day_gate_failed (override for marginal days)
+            # v0.8.1.27.0 (ALIGNMENT): Compute throttle state for Scenario B, or use legacy effective_day_gate_failed for all other scenarios
             effective_day_gate_failed = day_gate_failed  # v0.8.1.9.0: start with computed value
+            
+            # v0.8.1.27.0 (ALIGNMENT): Scenario B throttle conversion (once per day)
+            if (scenario_name or scn) == "B" and require_day_follow_through and not throttle_logged:  # v0.8.1.27.0 (ALIGNMENT): Scenario B + DAY_GATE enabled
+                try:  # v0.8.1.27.0 (SAFETY): fail-closed if throttle params cannot be determined
+                    if is_hostile_day:  # v0.8.1.27.0 (ALIGNMENT): hostile day throttle
+                        throttle_enabled = True  # v0.8.1.27.0 (ALIGNMENT)
+                        throttle_class = "hostile"  # v0.8.1.27.0 (ALIGNMENT)
+                        throttle_risk_factor = 0.50  # v0.8.1.27.0 (ALIGNMENT): 50% size on hostile days
+                        throttle_max_trades = 1  # v0.8.1.27.0 (ALIGNMENT): max 1 trade on hostile days
+                        throttle_reason = f"close_gt_vwap_count={close_gt_vwap_count}"  # v0.8.1.27.0 (OBSERVABILITY)
+                        effective_day_gate_failed = False  # v0.8.1.27.0 (ALIGNMENT): override hard block, enable throttle
+                    elif is_marginal_day:  # v0.8.1.27.0 (ALIGNMENT): marginal day throttle
+                        throttle_enabled = True  # v0.8.1.27.0 (ALIGNMENT)
+                        throttle_class = "marginal"  # v0.8.1.27.0 (ALIGNMENT)
+                        throttle_risk_factor = 0.75  # v0.8.1.27.0 (ALIGNMENT): 75% size on marginal days
+                        throttle_max_trades = 2  # v0.8.1.27.0 (ALIGNMENT): max 2 trades on marginal days
+                        throttle_reason = f"close_gt_vwap_count={close_gt_vwap_count}"  # v0.8.1.27.0 (OBSERVABILITY)
+                        effective_day_gate_failed = False  # v0.8.1.27.0 (ALIGNMENT): override hard block, enable throttle
+                    elif is_healthy_day:  # v0.8.1.27.0 (ALIGNMENT): healthy day (no throttle)
+                        throttle_enabled = False  # v0.8.1.27.0 (ALIGNMENT)
+                        throttle_class = "healthy"  # v0.8.1.27.0 (ALIGNMENT)
+                        throttle_risk_factor = 1.0  # v0.8.1.27.0 (ALIGNMENT): full size on healthy days
+                        throttle_max_trades = 999999  # v0.8.1.27.0 (ALIGNMENT): no cap on healthy days
+                        throttle_reason = f"close_gt_vwap_count={close_gt_vwap_count}"  # v0.8.1.27.0 (OBSERVABILITY)
+                        effective_day_gate_failed = False  # v0.8.1.27.0 (ALIGNMENT): healthy day passes gate
+                    else:  # v0.8.1.27.0 (SAFETY): unexpected state, fail-closed
+                        log.warning("[WHY] v0.8.1.27.0 DAY_GATE_THROTTLE_FALLBACK reason=unexpected_day_class class=%s", day_class)  # v0.8.1.27.0 (SAFETY)
+                        throttle_enabled = False  # v0.8.1.27.0 (SAFETY)
+                        throttle_class = "off"  # v0.8.1.27.0 (SAFETY)
+                        effective_day_gate_failed = day_gate_failed  # v0.8.1.27.0 (SAFETY): keep original behavior
+                    # v0.8.1.27.0 (OBSERVABILITY): Log throttle state once per day
+                    log.info("DAY_GATE_THROTTLE v0.8.1.27.0: scenario=B enabled=%s class=%s risk_factor=%.2f max_trades=%d reason=%s",
+                             throttle_enabled, throttle_class, throttle_risk_factor, throttle_max_trades, throttle_reason)  # v0.8.1.27.0 (OBSERVABILITY)
+                    throttle_logged = True  # v0.8.1.27.0 (OBSERVABILITY): ensure log appears once per day
+                except Exception as exc:  # v0.8.1.27.0 (SAFETY): fail-closed on any error
+                    log.warning("[WHY] v0.8.1.27.0 DAY_GATE_THROTTLE_FALLBACK reason=exception details=%s", str(exc)[:200])  # v0.8.1.27.0 (SAFETY)
+                    throttle_enabled = False  # v0.8.1.27.0 (SAFETY)
+                    effective_day_gate_failed = day_gate_failed  # v0.8.1.27.0 (SAFETY): keep original behavior
+            
+            # v0.8.1.27.0 (ALIGNMENT): Apply Scenario B throttle effect every bar (do not revert to hard block after throttle_logged)
+            if (scenario_name or scn) == "B" and require_day_follow_through and throttle_enabled and throttle_class in {"marginal", "hostile"}:  # v0.8.1.27.0 (ALIGNMENT)
+                effective_day_gate_failed = False  # v0.8.1.27.0 (ALIGNMENT): throttle is allowed to evaluate candidates (cap/risk applied elsewhere)
+            
+            # v0.8.1.9.0 / v0.8.1.17.0: Legacy marginal-day override logic (now applies to all scenarios including B)
             if is_marginal_day and marginal_stop1loss_enabled:  # v0.8.1.17.0: new policy branch
                 if marginal_sl_seen:  # v0.8.1.17.0: SL occurred, block all further entries
                     effective_day_gate_failed = True  # v0.8.1.17.0
@@ -1099,7 +1325,7 @@ def run_backtest(
                 if not marginal_eligible_logged:  # v0.8.1.9.0: log once per day
                     log.info("[INFO] v0.8.1.9.0 MARGINAL_DAY_ELIGIBLE override_day_gate_failed=True day_trade_count=%d", day_trade_count)  # v0.8.1.9.0
                     marginal_eligible_logged = True  # v0.8.1.9.0
-            elif is_marginal_day and day_trade_count >= 1:  # v0.8.1.9.0: enforce 1-trade cap on marginal days (baseline)
+            elif is_marginal_day and day_trade_count >= 1 and not ((scenario_name or scn) == "B" and throttle_enabled):  # v0.8.1.9.0 / v0.8.1.27.0 (ALIGNMENT): baseline 1-trade cap, but not for Scenario B throttle
                 effective_day_gate_failed = True  # v0.8.1.9.0: block further entries
                 if not marginal_cap_reached_logged:  # v0.8.1.9.0: log once per day
                     log.info("[WHY] v0.8.1.9.0 MARGINAL_DAY_TRADE_CAP_REACHED day_trade_count=%d", day_trade_count)  # v0.8.1.9.0
@@ -1140,42 +1366,139 @@ def run_backtest(
                         vwap_map[k] = None  # v0.8.1.11.0
                 
                 # v0.8.1.11.0: Windowed acceptance — require hits>=2 in window {i-1, i-2, i-3}
-                window = [i - 1, i - 2, i - 3]  # v0.8.1.11.0
-                hits = 0  # v0.8.1.11.0
-                fail_close = 0.0  # v0.8.1.11.0: for logging only
-                fail_vwap = 0.0  # v0.8.1.11.0: for logging only
-                fail_idx = None  # v0.8.1.11.0: for logging only
-                
-                for check_idx in window:  # v0.8.1.11.0
-                    if check_idx < 0:  # v0.8.1.11.0: skip out-of-bounds
-                        continue  # v0.8.1.11.0
-                    
-                    b_check = bars[check_idx]  # v0.8.1.11.0
-                    vwap_check = vwap_map.get(check_idx)  # v0.8.1.11.0
-                    
-                    # v0.8.1.11.0: capture representative values for first checked bar (logging only)
-                    if fail_idx is None:  # v0.8.1.11.0
-                        fail_idx = check_idx  # v0.8.1.11.0
-                        fail_close = b_check.c  # v0.8.1.11.0
-                        fail_vwap = vwap_check if vwap_check is not None else 0.0  # v0.8.1.11.0
-                    
-                    # v0.8.1.11.0: qualifies := green AND close > VWAP
-                    if vwap_check is not None and vwap_check > 0:  # v0.8.1.11.0
-                        if b_check.c > b_check.o and b_check.c > vwap_check:  # v0.8.1.11.0
-                            hits += 1  # v0.8.1.11.0
-                
-                if hits < 2:  # v0.8.1.11.0: reject this entry attempt (delay behavior)
-                    reject_key = f"{date_str}:{sym}:MARGINAL_VWAP_WINDOW_REJECT"  # v0.8.1.11.0
-                    if reject_key not in early_reject_logged:  # v0.8.1.11.0
-                        candidate_ts = bar.ts if hasattr(bar, 'ts') else f"bar_{i}"  # v0.8.1.11.0
-                        log.warning(f"[WHY] v0.8.1.11.0 MARGINAL_VWAP_WINDOW_REJECT symbol={sym} ts={candidate_ts} hits={hits} fail_idx={fail_idx} window=i-1,i-2,i-3 close={fail_close:.2f} vwap={fail_vwap:.2f}")  # v0.8.1.11.0
-                        early_reject_logged.add(reject_key)  # v0.8.1.11.0
-                    telemetry["count_marginal_vwap_gate_blocks"] += 1  # v0.8.1.20.0
-                    continue  # v0.8.1.11.0: skip this bar's entry attempt
+                # v0.8.1.29.0 (ALIGNMENT): skip this gate when insufficient window (i<3)
+                if i >= 3:  # v0.8.1.29.0 (SAFETY)
+                    window = [i - 1, i - 2, i - 3]  # v0.8.1.11.0
+                    hits = 0  # v0.8.1.11.0
+                    fail_close = 0.0  # v0.8.1.11.0: for logging only
+                    fail_vwap = 0.0  # v0.8.1.11.0: for logging only
+                    fail_idx = None  # v0.8.1.11.0: for logging only
+
+                    for check_idx in window:  # v0.8.1.11.0
+                        if check_idx < 0:  # v0.8.1.11.0: skip out-of-bounds
+                            continue  # v0.8.1.11.0
+
+                        b_check = bars[check_idx]  # v0.8.1.11.0
+                        vwap_check = vwap_map.get(check_idx)  # v0.8.1.11.0
+
+                        # v0.8.1.11.0: capture representative values for first checked bar (logging only)
+                        if fail_idx is None:  # v0.8.1.11.0
+                            fail_idx = check_idx  # v0.8.1.11.0
+                            fail_close = b_check.c  # v0.8.1.11.0
+                            fail_vwap = vwap_check if vwap_check is not None else 0.0  # v0.8.1.11.0
+
+                        # v0.8.1.11.0: qualifies := green AND close > VWAP
+                        if vwap_check is not None and vwap_check > 0:  # v0.8.1.11.0
+                            if b_check.c > b_check.o and b_check.c > vwap_check:  # v0.8.1.11.0
+                                hits += 1  # v0.8.1.11.0
+
+                    if hits < 2:  # v0.8.1.11.0: reject this entry attempt (delay behavior)
+                        reject_key = f"{date_str}:{sym}:MARGINAL_VWAP_WINDOW_REJECT"  # v0.8.1.11.0
+                        if reject_key not in early_reject_logged:  # v0.8.1.11.0
+                            candidate_ts = bar.ts if hasattr(bar, 'ts') else f"bar_{i}"  # v0.8.1.11.0
+                            log.warning(f"[WHY] v0.8.1.11.0 MARGINAL_VWAP_WINDOW_REJECT symbol={sym} ts={candidate_ts} hits={hits} fail_idx={fail_idx} window=i-1,i-2,i-3 close={fail_close:.2f} vwap={fail_vwap:.2f}")  # v0.8.1.11.0
+                            early_reject_logged.add(reject_key)  # v0.8.1.11.0
+                        telemetry["count_marginal_vwap_gate_blocks"] += 1  # v0.8.1.20.0
+                        continue  # v0.8.1.11.0: skip this bar's entry attempt
+                else:  # v0.8.1.29.0 (ALIGNMENT): insufficient lookback window, skip this gate (do not reject)
+                    try:  # v0.8.1.29.0 (OBSERVABILITY): optional low-noise breadcrumb (deduped)
+                        info_key = f"{date_str}:{sym}:MARGINAL_VWAP_WINDOW_INSUFFICIENT"  # v0.8.1.29.0 (OBSERVABILITY)
+                        if info_key not in early_reject_logged:
+                            candidate_ts = bar.ts if hasattr(bar, 'ts') else f"bar_{i}"
+                            log.info(f"[WHY] v0.8.1.29.0 MARGINAL_VWAP_WINDOW_INSUFFICIENT symbol={sym} ts={candidate_ts} i={i}")  # v0.8.1.29.0 (OBSERVABILITY)
+                            early_reject_logged.add(info_key)
+                    except Exception:
+                        pass  # v0.8.1.29.0 (SAFETY)
             
             # v0.8.1.19.0: Compute entry conditions once to avoid double-evaluation (guard + final entry share same result)
             should_enter_now = strat.should_enter(bars, i)
             allow_new_trade_now = risk.allow_new_trade()
+            # v0.8.1.28.0 (ALIGNMENT): Scenario-B ascending-green enforcement (veto applied here)
+            # v0.8.1.28.0 (SAFETY): fail-closed -> on any exception we FALL BACK to strat.should_enter result and warn
+            if should_enter_now and (scenario_name or scn) == "B":
+                try:
+                    # v0.8.1.28.0 (OBSERVABILITY): announce enforcement once per day/run
+                    if not asc_green_enforce_logged:  # v0.8.1.28.0 (OBSERVABILITY): log-once latch
+                        N_tmp = getattr(strat.p, "rise_bars", getattr(strat.p, "macd_rise_bars", 3))  # v0.8.1.28.0 (ALIGNMENT): derive N safely
+                        try:
+                            N_display = int(N_tmp)
+                        except Exception:
+                            N_display = 3
+                        log.info(f"ASC_GREEN_ENFORCE v0.8.1.28.0: scenario=B enabled=True N={N_display} green_body_min={green_body_min}")  # v0.8.1.28.0 (OBSERVABILITY)
+                        asc_green_enforce_logged = True  # v0.8.1.28.0 (OBSERVABILITY): ensure single announcement
+
+                    # v0.8.1.28.0 (ALIGNMENT): evaluate ascending-green on last N completed bars (i-N .. i-1)
+                    N = getattr(strat.p, "rise_bars", getattr(strat.p, "macd_rise_bars", 3))  # v0.8.1.28.0 (ALIGNMENT): prefer rise_bars param
+                    try:
+                        N = int(N)
+                    except Exception:
+                        N = 3
+
+                    # v0.8.1.28.0 (SAFETY): if N < 1, skip enforcement (preserve behavior)
+                    if N >= 1:
+                        start_idx = i - N  # v0.8.1.28.0 (ALIGNMENT): inclusive start index for sequence
+                        # v0.8.1.28.0 (SAFETY): not enough historical bars -> BLOCK
+                        if start_idx < 0:
+                            asc_ok = False  # v0.8.1.28.0 (ALIGNMENT): not enough candles
+                            asc_reason = "not_enough_candles"  # v0.8.1.28.0 (OBSERVABILITY)
+                        else:
+                            asc_ok = True
+                            asc_reason = ""
+                            prev_close = None
+                            prev_low = None
+                            # v0.8.1.28.0 (ALIGNMENT): iterate from oldest -> newest to enforce strict ordering
+                            for k in range(start_idx, i):
+                                b_k = bars[k]
+                                # v0.8.1.28.0 (SAFETY): require positive range
+                                rng_k = b_k.h - b_k.l
+                                if rng_k <= 0:
+                                    asc_ok = False  # v0.8.1.28.0 (SAFETY): zero-range invalid
+                                    asc_reason = "zero_range_candle"  # v0.8.1.28.0 (OBSERVABILITY)
+                                    break
+                                # v0.8.1.28.0 (ALIGNMENT): green + body fraction threshold
+                                if not (b_k.c > b_k.o):
+                                    asc_ok = False  # v0.8.1.28.0 (ALIGNMENT): must be green
+                                    asc_reason = "non_green_or_small_body"  # v0.8.1.28.0 (OBSERVABILITY)
+                                    break
+                                body_frac_k = abs(b_k.c - b_k.o) / max(1e-9, rng_k)
+                                if body_frac_k < green_body_min:
+                                    asc_ok = False  # v0.8.1.28.0 (ALIGNMENT): body too small
+                                    asc_reason = "non_green_or_small_body"  # v0.8.1.28.0 (OBSERVABILITY)
+                                    break
+                                # v0.8.1.28.0 (ALIGNMENT): strict increasing closes
+                                if prev_close is not None and not (b_k.c > prev_close):
+                                    asc_ok = False  # v0.8.1.28.0 (ALIGNMENT): close must strictly increase
+                                    asc_reason = "non_ascending_close"  # v0.8.1.28.0 (OBSERVABILITY)
+                                    break
+                                # v0.8.1.28.0 (ALIGNMENT): lows must be non-decreasing
+                                if prev_low is not None and not (b_k.l >= prev_low):
+                                    asc_ok = False  # v0.8.1.28.0 (ALIGNMENT): low must not decrease
+                                    asc_reason = "non_ascending_low"  # v0.8.1.28.0 (OBSERVABILITY)
+                                    break
+                                prev_close = b_k.c
+                                prev_low = b_k.l
+
+                            # v0.8.1.28.0 (ALIGNMENT): Structural damage invalidates continuation if damage occurred within sequence
+                            if asc_ok and damage_first_idx is not None and damage_first_idx < i and damage_first_idx >= start_idx:
+                                asc_ok = False  # v0.8.1.28.0 (ALIGNMENT): post-damage reset blocks continuation
+                                asc_reason = "post_damage_reset"  # v0.8.1.28.0 (OBSERVABILITY)
+
+                        # v0.8.1.28.0 (OBSERVABILITY): on failure, veto entry and log reason (deduped)
+                        if not asc_ok:
+                            try:
+                                candidate_ts = bar.ts if hasattr(bar, 'ts') else f"bar_{i}"
+                                reject_key = f"{date_str}:{sym}:ASC_GREEN_BLOCK:{asc_reason}"
+                                if reject_key not in early_reject_logged:
+                                    log.warning(f"[WHY] v0.8.1.28.0 ASC_GREEN_BLOCK symbol={sym} ts={candidate_ts} reason={asc_reason} N={N} green_body_min={green_body_min}")  # v0.8.1.28.0 (OBSERVABILITY)
+                                    early_reject_logged.add(reject_key)
+                            except Exception:
+                                # v0.8.1.28.0 (SAFETY): best-effort logging only
+                                pass
+                            should_enter_now = False  # v0.8.1.28.0 (ALIGNMENT): veto entry for Scenario B
+                    # else N < 1: do nothing (no enforcement)
+                except Exception as exc:  # v0.8.1.28.0 (SAFETY): fallback to existing behavior on error
+                    candidate_ts = bar.ts if hasattr(bar, 'ts') else f"bar_{i}"
+                    log.warning(f"[WHY] v0.8.1.28.0 ASC_GREEN_FALLBACK symbol={sym} ts={candidate_ts} reason={str(exc)[:200]}")  # v0.8.1.28.0 (SAFETY)
             
             # v0.8.1.19.0: Post-Damage Weak VWAP Reclaim Guard (Healthy Days)
             # Scenario B-only: block late/weak VWAP reclaims after structural damage on healthy days
@@ -1387,6 +1710,16 @@ def run_backtest(
                         continue  # v0.8.1.23.0: skip this bar's entry attempt
                     # v0.8.1.24.0: else escape_hatch_allowed_at_i is True, allow entry attempt to proceed
                 
+                # v0.8.1.27.0 (SAFETY): Throttle max_trades enforcement (Scenario B only)
+                if (scenario_name or scn) == "B" and throttle_enabled and throttle_class in {"marginal", "hostile"}:  # v0.8.1.27.0 (SAFETY)
+                    if day_trade_count >= throttle_max_trades:  # v0.8.1.27.0 (SAFETY): max trades reached for the day
+                        throttle_block_key = f"{date_str}:{sym}:DAY_THROTTLE_MAX_TRADES_BLOCK"  # v0.8.1.27.0 (OBSERVABILITY): dedupe key
+                        if throttle_block_key not in day_throttle_blocks_logged:  # v0.8.1.27.0 (OBSERVABILITY): log once per symbol/day
+                            candidate_ts = bar.ts if hasattr(bar, 'ts') else f"bar_{i}"  # v0.8.1.27.0 (OBSERVABILITY)
+                            log.warning(f"[WHY] v0.8.1.27.0 DAY_THROTTLE_MAX_TRADES_BLOCK symbol={sym} ts={candidate_ts} limit={throttle_max_trades} class={throttle_class}")  # v0.8.1.27.0 (OBSERVABILITY)
+                            day_throttle_blocks_logged.add(throttle_block_key)  # v0.8.1.27.0 (OBSERVABILITY)
+                        continue  # v0.8.1.27.0 (SAFETY): skip this bar's entry attempt
+                
                 # v0.8.1.7.0: Post-entry expansion gate — create pending entry or enter immediately
                 entry = bar.c  # v0.8.1.7.0: tentative entry price
                 tp, sl = strat.targets(entry)  # v0.8.1.7.0
@@ -1398,12 +1731,17 @@ def run_backtest(
                 try:
                     tier = sizer.pick_tier(tier_ctx)
                     risk_usd = sizer.per_trade_risk_usd(tier)
-                    if sizer.s.enabled and risk_usd > 0:
-                        sized_qty = sizer.shares_for(entry, sl, risk_usd)
+                    # v0.8.1.27.0 (ALIGNMENT): Apply throttle risk_factor for Scenario B
+                    risk_usd_effective = risk_usd  # v0.8.1.27.0 (ALIGNMENT): default to unscaled
+                    if (scenario_name or scn) == "B" and throttle_enabled and throttle_class in {"marginal", "hostile"}:  # v0.8.1.27.0 (ALIGNMENT)
+                        risk_usd_effective = risk_usd * throttle_risk_factor  # v0.8.1.27.0 (ALIGNMENT): scale by throttle factor
+                    if sizer.s.enabled and risk_usd_effective > 0:
+                        sized_qty = sizer.shares_for(entry, sl, risk_usd_effective)  # v0.8.1.27.0 (ALIGNMENT): use effective risk
                         if sized_qty > 0:
                             qty = sized_qty
-                            log.info(
-                                f"[SIZE] {sym} tier={tier} risk_usd={risk_usd:.2f} "
+                            log.info(  # v0.8.1.27.0 (OBSERVABILITY): show base + effective risk + throttle factor
+                                f"[SIZE] {sym} tier={tier} risk_usd_base={risk_usd:.2f} "
+                                f"risk_usd_eff={risk_usd_effective:.2f} throttle_factor={throttle_risk_factor:.2f} "
                                 f"entry={entry:.4f} sl={sl:.4f} qty={qty}"
                             )
                 except Exception as e:
@@ -1973,7 +2311,11 @@ def run_backtest(
             minutes_stats = "count=0 min=N/A p50=N/A max=N/A"  # v0.8.1.21.0
         
         log.info("="*80)  # v0.8.1.21.0
-        log.info(f"REGIME_SUMMARY v0.8.1.21.0 | date={date_str} | scenario={scenario_name or scn or 'UNKNOWN'} | class={day_class}")  # v0.8.1.21.0
+        # v0.8.1.27.0 (OBSERVABILITY): Add throttle fields for Scenario B
+        if (scenario_name or scn) == "B":  # v0.8.1.27.0 (OBSERVABILITY)
+            log.info(f"REGIME_SUMMARY v0.8.1.21.0 | date={date_str} | scenario={scenario_name or scn or 'UNKNOWN'} | class={day_class} | throttle_enabled={throttle_enabled} throttle_class={throttle_class} throttle_factor={throttle_risk_factor:.2f} throttle_max_trades={throttle_max_trades}")  # v0.8.1.21.0 / v0.8.1.27.0 (OBSERVABILITY)
+        else:  # v0.8.1.27.0 (OBSERVABILITY): non-B scenarios unchanged
+            log.info(f"REGIME_SUMMARY v0.8.1.21.0 | date={date_str} | scenario={scenario_name or scn or 'UNKNOWN'} | class={day_class}")  # v0.8.1.21.0
         log.info(f"- universe_symbols={universe_symbols}")  # v0.8.1.21.0
         log.info(f"- trades_closed={trades_closed} tp={tp_count} sl={sl_count} winrate={winrate:.2f}")  # v0.8.1.21.0
         log.info(f"- day_pnl_realized={cum_pnl:.2f}")  # v0.8.1.21.0

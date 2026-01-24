@@ -1,0 +1,250 @@
+HANDOVER SPEC (DETAILED)
+From: v0.8.1.10.0
+To: v0.8.1.11.0
+Topic: Refine marginal VWAP acceptance from hard suppression to selective delay
+1. Context (what the previous version proved)
+What v0.8.1.10.0 introduced
+
+v0.8.1.10.0 added a marginal-day VWAP acceptance guard that requires two prior completed candles (i-2 and i-1) to both:
+
+close green, and
+
+close above VWAP,
+
+before allowing a marginal-day entry.
+
+The rule was applied only when:
+
+DAY_GATE / day-follow-through is enabled,
+
+the day is classified as marginal (close_gt_vwap_count == 1),
+
+the marginal trade is still available (day_trade_count < 1),
+
+and entry is otherwise eligible.
+
+The rule was implemented as an early reject (MARGINAL_VWAP_ACCEPT_FAIL) inserted between:
+
+the existing DAY_GATE_FAILED early reject, and
+
+the combined entry condition (strat.should_enter(...)).
+
+No other behavior was changed.
+
+2. What v0.8.1.10.0 conclusively demonstrated (do not re-litigate)
+A/B results (two independent months)
+
+April 2025
+
+A (v0.8.1.9.0):
+trades=24, losses=14, totalPnL=-209.89
+
+B (v0.8.1.10.0):
+trades=17, losses=9, totalPnL=-91.27
+
+Improvement: +118.62
+
+August 2025
+
+A (v0.8.1.9.0):
+trades=18, losses=12, totalPnL=-251.80
+
+B (v0.8.1.10.0):
+trades=11, losses=6, totalPnL=-70.08
+
+Improvement: +181.72
+
+Across both months:
+
+~7 trades removed
+
+losses reduced far more than wins
+
+win rate materially improved
+
+drawdown collapsed
+
+This establishes that marginal VWAP acceptance gating removes a regime-independent failure class.
+
+Loss attribution (April deep dive)
+
+Five full-stop SL losses present in v0.8.1.9.0 were entirely removed in v0.8.1.10.0:
+
+GRI (2025-04-01)
+
+IBO (2025-04-04)
+
+NAOV (2025-04-08)
+
+BON (2025-04-11)
+
+CNEY (2025-04-24)
+
+All five were:
+
+early 09:30 marginal entries,
+
+explicitly blocked by
+EARLY_REJECT reason=MARGINAL_VWAP_ACCEPT_FAIL,
+
+and never traded later that day.
+
+Therefore, v0.8.1.10.0 acted as a hard suppressor for these symbols — and that behavior was correct for these cases.
+
+TWCS counter-example (critical nuance)
+
+JNVR 2025-04-07:
+
+Was suppressed entirely by v0.8.1.10.0.
+
+TWCS confirms it was a legitimate marginal continuation:
+
+strong VWAP slope,
+
+multiple green candles above VWAP,
+
+clean +2.0% TP within one minute.
+
+This establishes that:
+
+The concept (VWAP acceptance before marginal entry) is correct.
+
+The shape of the rule (“i-2 AND i-1 must both close above VWAP”) is too brittle and can suppress valid delayed acceptance patterns.
+
+3. Core problem statement for v0.8.1.11.0
+
+v0.8.1.10.0 correctly removes early marginal junk but does so via hard suppression, not selective delay.
+
+The next version must:
+
+Preserve the removal of early 09:30 marginal losses (GRI/IBO/NAOV/BON/CNEY class),
+
+Restore legitimate marginal winners that show real VWAP acceptance slightly later (JNVR class),
+
+Without re-introducing early marginal SLs.
+
+4. Single hypothesis for v0.8.1.11.0 (do not add more)
+
+Hypothesis:
+Marginal entries should require confirmed VWAP acceptance within a short recent window, not strictly consecutive candles immediately before entry.
+
+The failure in v0.8.1.10.0 is not lack of acceptance — it is over-constraining acceptance timing.
+
+5. Design constraints for the next version (hard rules)
+
+The following constraints are non-negotiable:
+
+One rule change only
+
+No stacking of new ideas.
+
+No refactors.
+
+Same scope
+
+Applies only to:
+
+DAY_GATE enabled
+
+marginal days (close_gt_vwap_count == 1)
+
+marginal trade still available
+
+Hostile and healthy days remain untouched.
+
+Same insertion point
+
+Between DAY_GATE_FAILED early reject
+
+And combined entry condition
+
+Same testing discipline
+
+Use run_range_and_summarize.py
+
+Validate on:
+
+April 2025
+
+August 2025
+
+Capture logs with Tee-Object
+
+Perform A/B comparison
+
+TWCS-first validation
+
+At least one TWCS-validated “good marginal” (e.g., JNVR-type) must be reviewed.
+
+6. Explicit non-goals (do NOT do these)
+
+Do NOT touch stops, targets, sizing, or exits.
+
+Do NOT add indicators.
+
+Do NOT introduce counters or state that persist across bars beyond what already exists.
+
+Do NOT generalize this rule beyond marginal days.
+
+Do NOT “optimize” thresholds yet.
+
+Do NOT combine multiple refinements.
+
+7. Success criteria for v0.8.1.11.0
+
+The version is successful only if all are true:
+
+April + August losses
+
+Do not re-introduce the five April losses removed in v0.8.1.10.0.
+
+TWCS winner restoration
+
+JNVR-type delayed marginal acceptance is allowed again.
+
+Net performance
+
+TotalPnL and loss count remain materially better than v0.8.1.9.0.
+
+Behavioral clarity
+
+The rule acts as a delay, not blanket suppression.
+
+If any of these fail, the change is rejected or revised.
+
+8. What the next version thread should produce
+
+The next version (v0.8.1.11.0) should deliver:
+
+One refined marginal VWAP acceptance rule
+
+A clear A/B comparison against v0.8.1.10.0
+
+TWCS confirmation that:
+
+early junk is still blocked
+
+delayed acceptance is restored
+
+Updated documentation explaining why the refined rule exists
+
+9. Hand-off summary (one paragraph, quotable)
+
+v0.8.1.10.0 validated that requiring VWAP acceptance before marginal entries materially reduces losses across regimes, but its strict “two consecutive prior closes above VWAP” requirement acts as a hard suppressor and can block legitimate delayed continuations.
+v0.8.1.11.0 should refine the acceptance condition to preserve early-loss suppression while allowing delayed VWAP acceptance patterns, using a single, minimal rule change validated across April and August with TWCS confirmation.
+
+## Project Context (Authoritative References)
+The following documents are authoritative and up to date, but are NOT attached
+to this version thread to avoid scope creep:
+
+- PROJECT_STATUS.md
+  - Latest completed version: v0.8.1.10.0
+  - Confirms marginal VWAP acceptance guard is active and validated
+- ACTIVE_GUARDS_LEDGER.md
+  - Contains the v0.8.1.10.0 “Marginal VWAP Acceptance (2-bar pre-confirm)” guard entry
+  - Documents known side effect (JNVR-type suppression) motivating this version
+
+These documents should be consulted for context only.
+This version implements exactly ONE refinement as specified below.
+
+END OF HANDOVER SPEC — v0.8.1.11.0

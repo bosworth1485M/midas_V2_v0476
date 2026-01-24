@@ -1,0 +1,151 @@
+Yes — I’ll give you a concrete, realistic example of a losing day where the v0.8.1.8.0 problem exists, written exactly in the way your engine behaves. This is not hypothetical hand-waving; it mirrors what you’ve already seen in TWCS.
+
+Example losing day (the exact failure v0.8.1.8.0 fixes)
+📅 Day: example like 2025-04-03 (illustrative)
+
+Scenario: B
+Outcome: 1 trade, 1 SL, red day
+
+This is the kind of day you should look for.
+
+Step-by-step what happened
+1️⃣ Signal passes (this part is correct)
+
+Stock gaps up
+
+Liquidity OK
+
+Indicators OK
+
+Entry signal fires
+
+✅ No issue here
+
+2️⃣ Post-entry expansion confirmation passes
+
+Trade enters PENDING
+
+Confirmation window opens
+
+Price shows initial expansion
+
+Expansion threshold met
+
+✅ This gate is working as designed
+
+3️⃣ The hidden problem (this is the bug)
+
+Now look closely at the confirmation candle itself:
+
+Stop price: $9.80
+
+Confirmation candle:
+
+High: $10.05
+
+Open: $9.92
+
+Low: $9.78 ← below stop
+
+Close: $9.98
+
+Visually:
+
+Candle looks “green”
+
+Expansion happened
+
+BUT the wick already broke the stop
+
+⚠️ This trade is already invalid at entry
+
+4️⃣ What the engine currently does (v0.8.1.7.0)
+
+Confirms the trade
+
+Creates the position
+
+Registers TP/SL
+
+On the next bar (or even same bar):
+
+Stop is hit
+
+Trade exits SL
+
+Result:
+
+Trade: SL
+PnL: -1R
+
+
+❌ This loss was avoidable
+❌ This trade should never have existed
+
+Why this day matters
+
+This is not:
+
+a momentum failure
+
+a continuation failure
+
+a “bad read”
+
+This is:
+
+An execution-safety failure
+
+You entered a trade after price had already violated the stop.
+
+Why v0.8.1.8.0 would fix this day
+
+With the new guard:
+
+if confirm_bar.low <= stop_price:
+    reject_trade()
+
+
+What happens instead:
+
+Trade is rejected
+
+No position created
+
+No SL recorded
+
+Day becomes:
+
+0 trades
+
+0 losses
+
+📉 Drawdown avoided
+📈 Expectancy improved
+🧠 Logic preserved
+
+How to recognize these days in your own data
+
+Look for days where:
+
+Scenario B has exactly 1–2 SLs
+
+Entry looks “fine” on indicators
+
+Stop-out happens immediately
+
+TWCS shows:
+
+Confirmation candle wick through stop
+
+Those are gold-standard examples for v0.8.1.8.0.
+
+One-sentence takeaway
+
+A losing day for v0.8.1.8.0 is a day where a trade passes expansion confirmation but the confirmation candle itself already violates the stop — meaning the loss was guaranteed at entry.
+
+If you want, next you can:
+
+paste one real SL trade from April or August, or
+
+tell me the worst SL day in your summaries, and I’ll classify it precisely.

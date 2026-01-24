@@ -1,0 +1,59 @@
+v0.8.1.28.0 — Enforce Ascending Green Candles at Entry Execution (Scenario B)
+Use this file at the start of the next session to restore context.
+What happened in v0.8.1.27.0 (facts)
+
+v0.8.1.27.0 successfully changed Scenario B DAY_GATE from hard shutdown → throttle (marginal/hostile reduce risk/trades instead of blocking the day).
+
+Sanity window run: 2025-11-18 → 2025-11-22 produced 1 trade on 2025-11-20:
+
+MAGN, SL, PnL -17.28
+
+TWCS showed this trade is structurally invalid: continuation signals were not ascending green candles in the entry price structure (post-damage / disconnected zone issue).
+
+Root cause (major logic bug)
+
+The system enforces “green candles” at signal time, but does not enforce ascending green continuation at the actual entry execution moment.
+
+A pending entry can be created when greens look valid, then price structure breaks before fill; the trade still executes.
+
+Objective of v0.8.1.28.0 (ONE change only)
+
+Implement Scenario B only: enforce ascending green candle continuation on intact structure at entry execution, including the pending-entry confirmation path:
+
+Apply the same ascending-green rule at the moment a pending_entry becomes a real position.
+
+If the rule fails at execution time → cancel pending_entry and log WHY.
+
+No changes to DAY_GATE throttle, MACD, VWAP, RVOL, TP/SL, sizing, or other guards.
+
+Required behavior / logs
+
+Add WHY log when canceling pending entries:
+
+[WHY] v0.8.1.28.0 ASC_GREEN_CANCEL_PENDING symbol=XYZ ts=HH:MM reason=<...> N=<...>
+
+Keep existing ASC_GREEN_BLOCK / ASC_GREEN_ENFORCE logs.
+
+Validation (two-step)
+
+Failure reproduction: 2025-11-18 → 2025-11-22
+
+Expected: MAGN trade is blocked/canceled (no SL from MAGN).
+
+Then run time-diverse clusters (3–5 days each):
+
+2025-12-02 → 2025-12-06 (hostile/choppy)
+
+2025-08-05 → 2025-08-15 (good momentum)
+
+2025-07-14 → 2025-07-18 (older regime)
+
+Rules
+
+Copilot must NOT run anything. Implementation only.
+
+Single file target: src/midas_v2/engine/backtester.py.
+
+One conceptual change only: “ascending green candles must be true at entry execution.”
+
+If results are ambiguous, stop and reassess with TWCS.

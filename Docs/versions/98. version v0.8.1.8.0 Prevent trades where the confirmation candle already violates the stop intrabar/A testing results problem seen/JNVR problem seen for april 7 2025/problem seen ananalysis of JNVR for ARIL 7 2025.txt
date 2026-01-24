@@ -1,0 +1,84 @@
+es — this TWCS example cleanly shows the exact failure class v0.8.1.8.0 is meant to block. We can conclude this without any parsing or extra tooling.
+
+TWCS verdict for JNVR – 2025-04-07 (Scenario B)
+Key facts from the TWCS metadata and charts
+
+From the entry snapshot and trade_snapshot_entry_meta.json:
+
+Entry (confirm) candle: 2025-04-07 10:14
+
+Entry price: 30.34
+
+Stop price (from your logs): 29.5815
+
+Confirm bar OHLC (10:14):
+
+Low: 27.69
+
+Close: 30.34
+
+From the exit snapshot/meta:
+
+Outcome: SL
+
+PnL: -$38.68 (-2.5%)
+
+Exit time: same minute (10:14)
+
+The decisive check (this is the whole rule)
+
+Does the confirmation candle breach the stop intrabar?
+
+Yes.
+
+confirm_bar.low = 27.69
+stop_price      = 29.5815
+
+27.69 ≤ 29.58  ✅
+
+
+That means:
+
+The trade was already stopped out intrabar on the confirmation candle
+
+The entry was structurally invalid at execution time
+
+This loss was guaranteed the moment the position was created
+
+Why this is perfect “A evidence” for v0.8.1.8.0
+
+This TWCS example proves:
+
+The failure class exists in real data
+
+It occurs after POST_EXP confirmation
+
+It is not a momentum failure
+
+It is not a continuation failure
+
+It is purely an execution-safety failure
+
+And crucially:
+
+v0.8.1.8.0 would have blocked this trade entirely.
+
+No position → no SL → no drawdown.
+
+What this means for A/B testing
+
+You now have clean A-side proof:
+
+A (v0.8.1.7.1):
+JNVR enters → immediate SL → -2.5%
+
+B (v0.8.1.8.0):
+JNVR is rejected at entry → no trade
+
+That’s a direct, explainable improvement.
+
+You do not need more complexity to justify the guard.
+
+One-sentence conclusion (you can reuse this)
+
+TWCS confirms that JNVR on 2025-04-07 was entered even though the confirmation candle already breached the stop intrabar, making it a structurally invalid trade that v0.8.1.8.0 would correctly block.

@@ -1,0 +1,80 @@
+COPILOT PATCH SPEC — APPLY ASCENDING GREEN ENFORCEMENT AT PENDING_ENTRY CONFIRM (Scenario B) — v0.8.1.28.0
+
+CRITICAL RULE: DO NOT RUN ANYTHING
+- Do NOT run python, backtests, or any commands.
+- Implementation only.
+
+TARGET FILE (ONLY):
+- src/midas_v2/engine/backtester.py
+
+PROBLEM
+ASC_GREEN enforcement currently runs only after:
+  should_enter_now = strat.should_enter(bars, i)
+This blocks signal-time entry creation, but it does NOT block entries executed later via the pending_entry confirmation path.
+MAGN still entered via pending_entry confirmed at 11:51.
+
+GOAL
+When a pending_entry is about to become a real position (confirmed=True),
+re-evaluate the SAME asc-green rule at the CURRENT bar index i and cancel the entry if it fails.
+
+SCOPE
+- Scenario B only.
+- No changes to DAY_GATE, sizing, MACD/VWAP/RVOL, TP/SL, or other guards.
+- Minimal change, reuse existing asc-green logic and reason codes.
+- Do not refactor.
+
+ANCHOR
+Locate this block (it exists in the file):
+
+if pending_entry is not None and position is None:
+    ...
+    confirmed = strat._post_entry_expansion_confirmed(...)
+    if confirmed:
+        ...
+        entry = bar.c
+        ...
+        position = {...}
+
+PATCH INSTRUCTION
+
+1) Immediately inside the `if confirmed:` block, BEFORE setting `entry = bar.c`,
+insert a Scenario B-only asc-green veto.
+
+2) Reuse the existing asc-green logic already implemented later in the file
+(the logic that checks last N completed bars i-N .. i-1 for:
+- green candles with body_frac >= green_body_min
+- strictly increasing closes
+- non-decreasing lows
+- post_damage_reset via damage_first_idx within the sequence)
+
+Do NOT create a different rule. Do NOT change reason codes.
+
+3) If the asc-green check fails:
+- Set pending_entry = None  # v0.8.1.28.0 (SAFETY): cancel the pending entry
+- Log a WHY line (dedupe using early_reject_logged similarly to ASC_GREEN_BLOCK):
+  "[WHY] v0.8.1.28.0 ASC_GREEN_CANCEL_PENDING symbol=XYZ ts=HH:MM reason=<...> N=<N> green_body_min=<...>"
+- continue to next bar (do not enter, do not set position)
+
+4) Observability:
+- Use the same reason codes as ASC_GREEN_BLOCK:
+  not_enough_candles
+  non_green_or_small_body
+  non_ascending_close
+  non_ascending_low
+  post_damage_reset
+  zero_range_candle
+  fallback
+
+5) Non-B scenarios:
+- Absolutely unchanged.
+
+VERSION TAGGING
+All new/modified lines must include inline comments:
+- # v0.8.1.28.0 (ALIGNMENT)
+- # v0.8.1.28.0 (SAFETY)
+- # v0.8.1.28.0 (OBSERVABILITY)
+
+STOP CONDITIONS
+- If Copilot wants to refactor large blocks, stop.
+- If Copilot wants to change other files, stop.
+- If Copilot wants to run anything, stop.

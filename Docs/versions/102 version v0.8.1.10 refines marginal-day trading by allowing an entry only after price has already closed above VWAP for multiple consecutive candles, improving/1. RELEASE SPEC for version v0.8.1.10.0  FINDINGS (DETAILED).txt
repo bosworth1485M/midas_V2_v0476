@@ -1,0 +1,327 @@
+RELEASE SPEC / FINDINGS (DETAILED)
+Midas_V2 v0.8.1.10.0 — Marginal VWAP Acceptance (2-bar pre-confirm)
+Purpose (put first; explicit)
+
+v0.8.1.10.0 refines marginal-day trading by allowing a marginal-day entry only after price has already demonstrated VWAP acceptance via two prior completed candles (i-2 and i-1) that are both:
+
+green (close > open), and
+
+closed above VWAP at that bar.
+
+Goal: filter out “first close above VWAP” marginal entries that repeatedly fail (fast SLs), while preserving all previously correct behavior for hostile and healthy regimes.
+
+Summary of what changed (software)
+Files changed (only)
+
+src/midas_v2/engine/backtester.py
+No other files changed.
+No config edits. No helpers. No refactors.
+
+New rule added (high-level)
+
+A new early-reject guard for Scenario B marginal days that runs only when:
+
+DAY_GATE / day-follow-through is enabled (require_day_follow_through == True)
+
+Day is marginal (close_gt_vwap_count == 1)
+
+Marginal trade still available (day_trade_count < 1)
+
+Entry is otherwise eligible (position None, pending_entry None, and effective_day_gate_failed == False)
+
+Inserted between:
+
+the existing DAY_GATE_FAILED early reject block, and
+
+the combined entry condition that calls strat.should_enter(bars, i).
+
+VWAP calculation requirement (implementation detail)
+
+VWAP is computed incrementally using PV/V:
+
+tp = (h + l + c) / 3.0
+
+cum_pv += tp * v
+
+cum_v += v
+
+vwap_k = cum_pv / cum_v (if cum_v > 0)
+
+Off-by-one clarification enforced: VWAP loop processes bars 0..i-1 using for k in range(i) so VWAP for i-1 is computed.
+
+Reject behavior
+
+If the 2-bar VWAP acceptance requirement fails:
+
+reject reason: MARGINAL_VWAP_ACCEPT_FAIL
+
+log once per (date, symbol) via early_reject_logged
+
+continue (skip entry attempt)
+
+does not change counters, day classification, or other guards.
+
+Testing discipline and harness (how we tested)
+Standard runner used (required)
+
+All A/B tests were run using the range runner:
+
+python scripts\run_range_and_summarize.py ... --scenario B
+
+Outputs were captured to log files using Tee-Object so A/B comparisons are reproducible.
+
+A/B TESTS — APRIL 2025 (marginal-day cluster)
+A (Baseline) — v0.8.1.9.0
+
+Folder: C:\Users\boydp\Desktop\version v0.8.1.9.0
+
+Command:
+
+cd "C:\Users\boydp\Desktop\version v0.8.1.9.0"; python scripts\run_range_and_summarize.py --start 2025-04-01 --end 2025-04-30 --scenario B *>&1 | Tee-Object -FilePath ".\out\auto\B_runlog_20250401_20250430_A_v0.8.1.9.0.txt"
+
+
+Totals (A):
+
+[B] trades=24, wins=10, losses=14, winrate=41.67%, totalPnL=-209.89
+
+B (New rule) — v0.8.1.10.0
+
+Folder: C:\Users\boydp\Desktop\midas_V2_v0.4.7.9_working
+
+Command:
+
+cd "C:\Users\boydp\Desktop\midas_V2_v0.4.7.9_working"; python scripts\run_range_and_summarize.py --start 2025-04-01 --end 2025-04-30 --scenario B *>&1 | Tee-Object -FilePath ".\out\auto\B_runlog_20250401_20250430_B_v0.8.1.10.0.txt"
+
+
+Totals (B):
+
+[B] trades=17, wins=8, losses=9, winrate=47.06%, totalPnL=-91.27
+
+April: immediate interpretation
+
+Trades reduced 24 → 17 (−7)
+
+Losses reduced 14 → 9 (−5)
+
+Winrate increased 41.67% → 47.06%
+
+TotalPnL improved −209.89 → −91.27 (improvement +118.62)
+
+This improvement is directionally correct: marginal junk is being filtered.
+
+April deep-dive: exact losses that disappeared (A losses removed by new guard)
+
+We performed an explicit “losses in A but not in B” extraction using one-line PowerShell commands that created:
+
+A losses CSV:
+
+C:\Users\boydp\Desktop\version v0.8.1.9.0\out\auto\A_losses_v0.8.1.9.0.csv
+
+B losses CSV:
+
+C:\Users\boydp\Desktop\midas_V2_v0.4.7.9_working\out\auto\B_losses_v0.8.1.10.0.csv
+
+Removed losses CSV:
+
+...\out\auto\losses_removed_AminusB.csv
+
+Result:
+REMOVED_LOSSES_COUNT=5
+
+Exact removed losses (present in A, absent in B):
+
+20250401|GRI pnl -34.88
+
+20250404|IBO pnl -34.99
+
+20250408|NAOV pnl -34.74
+
+20250411|BON pnl -34.96
+
+20250424|CNEY pnl -34.97
+
+Confirmed causality: blocked by the new rule at 09:30
+
+We confirmed each removed loss had:
+
+EARLY_REJECT reason=MARGINAL_VWAP_ACCEPT_FAIL symbol=<SYMBOL> ts=09:30
+
+This proves the April improvement is caused by the new marginal VWAP acceptance guard removing early 09:30 marginal entries that were full-stop SLs in v0.8.1.9.0.
+
+Confirmed suppression behavior (not just delay)
+
+For each removed loss day/symbol, we checked v0.8.1.10.0 results CSVs and found no trade later that day for those symbols:
+
+20250401 GRI no trade
+
+20250404 IBO no trade
+
+20250408 NAOV no trade
+
+20250411 BON no trade
+
+20250424 CNEY no trade
+
+So in those cases the guard acted as a hard suppressor, which is desirable because these were pure losers.
+
+TWCS CONFIRMATION — JNVR 2025-04-07 (critical nuance)
+Observed issue from logs/results
+
+In v0.8.1.10.0:
+
+JNVR produced MARGINAL_VWAP_ACCEPT_FAIL at 09:30
+
+JNVR did not appear in out\20250407\B\results_2025-04-07.csv
+→ Meaning JNVR was suppressed entirely that day in v0.8.1.10.0.
+
+TWCS evidence (entry + exit snapshots)
+
+We reviewed TWCS snapshots for:
+
+Trade ID: JNVR_2025-04-07_1013
+
+Entry time: 10:13
+
+Exit time: 10:14
+
+Outcome: TP
+
+pnl_pct: +2.0%
+
+green_streak at entry: 5
+
+VWAP at entry ~ 18.99 with strong positive slope
+
+MACD histogram positive and rising
+
+This TWCS evidence confirms JNVR 2025-04-07 was a legitimate marginal winner, not a “first close above VWAP” junk entry.
+
+Finding from TWCS
+
+The strict rule (“both i-1 and i-2 must close above VWAP”) can be too brittle:
+
+It successfully removes early marginal junk,
+
+but it can also suppress legitimate winners that have real acceptance but not perfectly consecutive i-2/i-1 closes above VWAP at the moment of attempted entry.
+
+Therefore:
+
+v0.8.1.10.0 is directionally correct,
+
+but is an intentionally strict diagnostic version that reveals the next refinement needed.
+
+A/B TESTS — AUGUST 2025 (regime-diverse month)
+
+We repeated A/B on a second, time-diverse cluster (August) to validate that the improvement was not overfit to April.
+
+A (Baseline) — v0.8.1.9.0
+
+Command:
+
+cd "C:\Users\boydp\Desktop\version v0.8.1.9.0"; python scripts\run_range_and_summarize.py --start 2025-08-01 --end 2025-08-31 --scenario B *>&1 | Tee-Object -FilePath ".\out\auto\B_runlog_20250801_20250831_A_v0.8.1.9.0.txt"
+
+
+Totals (A):
+
+[B] trades=18, wins=6, losses=12, winrate=33.33%, totalPnL=-251.80
+
+B (New rule) — v0.8.1.10.0
+
+Command:
+
+cd "C:\Users\boydp\Desktop\midas_V2_v0.4.7.9_working"; python scripts\run_range_and_summarize.py --start 2025-08-01 --end 2025-08-31 --scenario B *>&1 | Tee-Object -FilePath ".\out\auto\B_runlog_20250801_20250831_B_v0.8.1.10.0.txt"
+
+
+Totals (B):
+
+[B] trades=11, wins=5, losses=6, winrate=45.45%, totalPnL=-70.08
+
+Range summary CSV produced: out\auto\range_summary_20250801_20250831_B.csv
+
+August: interpretation
+
+Trades reduced 18 → 11 (−7)
+
+Losses reduced 12 → 6 (−6)
+
+Wins reduced 6 → 5 (−1)
+
+Winrate increased 33.33% → 45.45%
+
+TotalPnL improved −251.80 → −70.08 (improvement +181.72)
+
+This confirms the guard removes a regime-independent failure class (early marginal junk), not a one-off April artifact.
+
+Consolidated Findings (April + August)
+What v0.8.1.10.0 clearly improves
+
+Loss reduction is disproportionate vs win reduction
+
+April: losses −5, wins −2
+
+August: losses −6, wins −1
+
+Large drawdown reduction
+
+April: −209.89 → −91.27 (+118.62)
+
+August: −251.80 → −70.08 (+181.72)
+
+Losses removed are strongly associated with:
+
+early day (09:30) marginal entry attempts
+
+lack of prior VWAP acceptance
+
+full-stop SL outcomes in baseline
+
+What v0.8.1.10.0 breaks / over-filters (confirmed by TWCS)
+
+It can suppress legitimate marginal winners (JNVR 2025-04-07) because the strict “i-1 AND i-2 above VWAP” condition is brittle.
+
+Interpretation: what this version represents
+
+v0.8.1.10.0 is a successful diagnostic / structural guard version:
+
+The concept (VWAP acceptance prerequisite on marginal days) is validated across two months.
+
+The strictness level is confirmed to be “too strong” in at least one TWCS-validated winner.
+
+This sets up a single-rule refinement in the next version (v0.8.1.11.0) to preserve the loss removals while allowing delayed acceptance patterns.
+
+Exact artifacts created during this work (for documentation)
+Logs
+
+...\out\auto\B_runlog_20250401_20250430_A_v0.8.1.9.0.txt
+
+...\out\auto\B_runlog_20250401_20250430_B_v0.8.1.10.0.txt
+
+...\out\auto\B_runlog_20250801_20250831_A_v0.8.1.9.0.txt
+
+...\out\auto\B_runlog_20250801_20250831_B_v0.8.1.10.0.txt
+
+CSVs
+
+...\out\auto\A_losses_v0.8.1.9.0.csv
+
+...\out\auto\B_losses_v0.8.1.10.0.csv
+
+...\out\auto\losses_removed_AminusB.csv
+
+...\out\auto\range_summary_20250801_20250831_B.csv
+
+TWCS
+
+JNVR 2025-04-07 trade snapshot entry/exit (TP +2.0%) used as confirmation evidence.
+
+Final status (v0.8.1.10.0)
+
+Implementation is complete and correct per spec.
+
+A/B validation completed for April 2025 and August 2025.
+
+Deep-dive loss attribution completed for April (removed 5 full-stop SLs due to new guard at 09:30).
+
+TWCS validated that at least one legitimate marginal winner was suppressed (JNVR 2025-04-07), motivating refinement in the next version.
+
+END OF RELEASE SPEC / FINDINGS — v0.8.1.10.0

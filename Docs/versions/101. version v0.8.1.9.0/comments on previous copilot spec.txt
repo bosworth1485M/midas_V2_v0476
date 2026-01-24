@@ -1,0 +1,60 @@
+I read the Copilot spec, and it’s almost perfect — but there’s one critical mismatch with the current backtester.py control flow that will cause Copilot’s implementation to do nothing (i.e., still 0 trades on marginal days).
+
+What the Copilot spec gets right
+
+The spec correctly locks scope to backtester.py only, adds no new config, and defines marginal days as require_day_follow_through == True and close_gt_vwap_count == 1, with a day-level cap of 1 completed trade, plus log-once rejects. 
+
+3. COPILOT SPEC (FINAL — LOCKED…
+
+The blocking issue (spec vs code reality)
+
+Right now, entries only happen inside this gate:
+
+if (not day_gate_failed) and position is None and pending_entry is None and strat.should_enter(...) ... 
+
+backtester
+
+So if a “marginal day” is currently suppressed because day_gate_failed == True (e.g., because follow-through symbols < min_symbols), then merely adding a day_trade_count cap won’t ever allow the first trade, because the code will never reach entry in the first place. 
+
+backtester
+
+Why this matters
+
+Your version intent is: marginal-day participation even when marginal days are currently suppressed (that’s the whole point of v0.8.1.9.0).
+But the current spec never instructs Copilot to bypass/override the day_gate_failed check for marginal days.
+
+Minimal fix to the Copilot spec (single insertion)
+
+Add one explicit requirement (this is the missing sentence):
+
+“On marginal days (is_marginal_day==True), allow the entry condition to proceed even if day_gate_failed==True, but only while day_trade_count < 1. Do NOT change DAY_GATE computation; only gate enforcement at entry.”
+
+Concretely, the safest pattern (still minimal, deterministic) is:
+
+Define: effective_day_gate_failed = day_gate_failed
+
+If is_marginal_day and day_trade_count < 1: set effective_day_gate_failed = False
+
+Use effective_day_gate_failed in:
+
+the early reject “DAY_GATE_FAILED” log block, and
+
+the combined entry condition.
+
+That keeps:
+
+hostile days (cnt==0) suppressed,
+
+healthy days (cnt>=2) unchanged,
+
+marginal days allowed exactly once.
+
+Everything else in the spec is solid
+
+Day-level counter increment “at the same place where trades_by_symbol/cum_pnl update” is correct (TP + SL paths).
+
+Placement next to DAY_GATE_SUMMARY is correct.
+
+Reuse early_reject_logged for log-once is correct.
+
+If you want, I can rewrite just the corrected Copilot spec section (same format, same constraints) so you can paste it into the spec file verbatim.

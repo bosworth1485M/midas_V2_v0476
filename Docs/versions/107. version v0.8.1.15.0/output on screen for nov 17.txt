@@ -1,0 +1,244 @@
+PS C:\Users\boydp\Desktop\midas_V2_v0.4.7.9_working> python scripts\run_range_and_summarize.py --start 2025-11-17 --end 2025-11-17 --scenario B | Tee-Object out\auto\B_runlog_20251117_20251117_rerun_v0.8.1.15.0.txt
+Open-gap gappers (open vs prev close)  price=[1..20]  min_gap=10%
+SYMBOL      GAP%    PRICE
+AMIX       63.00   1.1850
+WTO        47.70   3.5300
+FMSTW      41.94   1.0000
+SGML       35.48   8.2100
+KXIN       31.45  12.1260
+[SCAN] gap_map saved -> C:\Users\boydp\Desktop\midas_V2_v0.4.7.9_working\out\20251117\scanner\gap_map_2025-11-17.json
+[UNIVERSE] Trimmed to Top-5 symbols (from 28)
+Wrote 5 symbols -> C:\Users\boydp\Desktop\midas_V2_v0.4.7.9_working\data\samples\universe_sample.txt
+Wrote data\samples\sample_2025-11-17_AMIX.csv
+Wrote data\samples\sample_2025-11-17_WTO.csv
+Wrote data\samples\sample_2025-11-17_FMSTW.csv
+Wrote data\samples\sample_2025-11-17_SGML.csv
+Wrote data\samples\sample_2025-11-17_KXIN.csv
+Done. wrote=5 empty=0 failed=0
+[CFG] scenario= B  gate_minutes= 20  min_rvol_open= 2.0  rvol_open_minutes= 15  green_streak= None  macd_rise_bars= 2  require_macd_rise= True  max_trades_per_symbol= 1  daily_max_loss= 1000.0
+2026-01-12 09:24:16,683 [INFO] STRUCT_DAMAGE v0.8.1.4.0: CONFIG reject_reclaim_after_damage=False
+2026-01-12 09:24:16,684 [INFO] CONFIRM_BAR_GUARD v0.8.1.8.1: enabled=True
+2026-01-12 09:24:16,684 [INFO] MARGINAL_VWAP_GATE v0.8.1.11.0: enabled=True
+2026-01-12 09:24:16,684 [INFO] [WHY] Using StrategyParams: {'dip_reclaim': False, 'gate_minutes': 20, 'green_body_min': 0.22, 'macd_rise_bars': 2, 'min_pm_vol': 30000, 'min_rvol_open': 2.0, 'require_macd_rise': True, 'rise_bars': 3, 'rvol_open_minutes': 15, 'sl_pct': 2.5, 'tp_pct': 2.0, 'micro_expansion_gate': False, 'micro_expansion_window_s': 30, 'micro_expansion_breakout_bps': 10, 'micro_pressure_gate': False, 'micro_pressure_window_s': 20, 'micro_pressure_min_rising': 2, 'vwap_extension_gate': True, 'vwap_extension_max_pct': 1.5}
+2026-01-12 09:24:16,685 [INFO] DAY_GATE: CHECK enabled=True minutes=20 min_symbols=2 universe=5
+2026-01-12 09:24:16,685 [INFO] DAY_GATE v0.8.1.6.0: CONFIG require_day_gate_close_gt_vwap=True
+2026-01-12 09:24:16,688 [INFO] DAY_GATE: SYM symbol=AMIX j_start=15 i_eval=20 pass=True j=18 rule=close_gt_vwap close=1.3700 open=1.4489 high=1.4500 low=1.3500 v=2781929 cum_v=66615587 vwap=1.3608 dist_pct=0.67 dist_abs_pct=0.67 vwap_cap=1.50 body_frac=0.79
+2026-01-12 09:24:16,692 [INFO] DAY_GATE: SYM symbol=WTO j_start=15 i_eval=20 pass=False reason=no_bar_passed close=2.9400 open=2.8900 high=2.9400 low=2.8900 v=24763 cum_v=599277 vwap=3.0664 dist_pct=-4.12 dist_abs_pct=4.12 vwap_cap=1.50 body_frac=1.00
+2026-01-12 09:24:16,693 [INFO] DAY_GATE: SYM symbol=FMSTW j_start=15 i_eval=20 pass=False reason=insufficient_bars close=0.6751 open=0.6751 high=0.6751 low=0.6751 v=200 cum_v=0 vwap=N/A dist_pct=N/A dist_abs_pct=N/A vwap_cap=1.50 body_frac=0.00
+2026-01-12 09:24:16,697 [INFO] DAY_GATE: SYM symbol=SGML j_start=15 i_eval=20 pass=True j=20 rule=green_body close=7.3200 open=7.1350 high=7.3300 low=7.1300 v=197757 cum_v=9718819 vwap=7.3675 dist_pct=-0.64 dist_abs_pct=0.64 vwap_cap=1.50 body_frac=0.93
+2026-01-12 09:24:16,699 [INFO] DAY_GATE: SYM symbol=KXIN j_start=15 i_eval=20 pass=True j=16 rule=close_gt_vwap close=13.1700 open=13.4040 high=13.5000 low=13.0590 v=16382 cum_v=325699 vwap=13.1230 dist_pct=0.36 dist_abs_pct=0.36 vwap_cap=1.50 body_frac=0.53
+2026-01-12 09:24:16,699 [INFO] DAY_GATE: RULE_COUNTS total=3 close_gt_vwap=2 green_body=1
+2026-01-12 09:24:16,700 [INFO] DAY_GATE: PASSED symbols=3
+2026-01-12 09:24:16,700 [INFO] STRUCT_DAMAGE v0.8.1.5.0: CONFIG base=False auto_mode=True day_gate_pass=True close_gt_vwap_cnt=2 auto_enabled=True effective=True reason=auto_enabled_day_gate_close_gt_vwap
+2026-01-12 09:24:16,700 [INFO] [WHY] v0.8.1.8.2 DAY_GATE_SUMMARY details=enabled=True gate_minutes=20 min_symbols=2 close_gt_vwap_cnt=2 require_close_gt_vwap=True day_gate_failed=False
+2026-01-12 09:24:16,700 [INFO] DAY_GATE v0.8.1.9.0 summary: on=1 close_gt_vwap_count=2 class=healthy marginal_cap=n/a day_trade_count=0
+2026-01-12 09:24:16,702 [WARNING] [WARN] [DUP_TS] v0.8.1.7.0 symbol=AMIX date=2025-11-17 duplicates=358
+2026-01-12 09:24:16,703 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=AMIX time=10:43 entry_price=1.3000 vwap=1.3380 dist_pct=-2.84 max_pct=1.5
+2026-01-12 09:24:16,703 [INFO] STRUCT_DAMAGE v0.8.1.4.0: detected symbol=AMIX
+2026-01-12 09:24:16,703 [INFO] STRUCT_DAMAGE v0.8.1.4.0: BLOCKED symbol=AMIX reason=weak_vwap_reclaim
+2026-01-12 09:24:16,703 [WARNING] [WHY] v0.8.1.8.1 EARLY_REJECT reason=STRUCT_DAMAGE_FAIL symbol=AMIX ts=10:43 details=weak_vwap_reclaim recovery_failed lookback_bars=8 body_thresh=0.60
+2026-01-12 09:24:16,705 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=AMIX time=13:41 entry_price=1.0600 vwap=1.2865 dist_pct=-17.61 max_pct=1.5
+2026-01-12 09:24:16,705 [INFO] STRUCT_DAMAGE v0.8.1.4.0: detected symbol=AMIX
+2026-01-12 09:24:16,705 [INFO] STRUCT_DAMAGE v0.8.1.4.0: BLOCKED symbol=AMIX reason=weak_vwap_reclaim
+2026-01-12 09:24:16,705 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=AMIX time=13:55 entry_price=1.0500 vwap=1.2815 dist_pct=-18.06 max_pct=1.5
+2026-01-12 09:24:16,706 [INFO] STRUCT_DAMAGE v0.8.1.4.0: detected symbol=AMIX
+2026-01-12 09:24:16,706 [INFO] STRUCT_DAMAGE v0.8.1.4.0: BLOCKED symbol=AMIX reason=weak_vwap_reclaim
+2026-01-12 09:24:16,706 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=AMIX time=13:56 entry_price=1.0800 vwap=1.2810 dist_pct=-15.69 max_pct=1.5
+2026-01-12 09:24:16,706 [INFO] STRUCT_DAMAGE v0.8.1.4.0: detected symbol=AMIX
+2026-01-12 09:24:16,706 [INFO] STRUCT_DAMAGE v0.8.1.4.0: BLOCKED symbol=AMIX reason=weak_vwap_reclaim
+2026-01-12 09:24:16,707 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=AMIX time=14:42 entry_price=1.1200 vwap=1.2761 dist_pct=-12.24 max_pct=1.5
+2026-01-12 09:24:16,707 [INFO] STRUCT_DAMAGE v0.8.1.4.0: detected symbol=AMIX
+2026-01-12 09:24:16,707 [INFO] STRUCT_DAMAGE v0.8.1.4.0: BLOCKED symbol=AMIX reason=weak_vwap_reclaim
+2026-01-12 09:24:16,707 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=AMIX time=14:43 entry_price=1.1500 vwap=1.2757 dist_pct=-9.86 max_pct=1.5
+2026-01-12 09:24:16,707 [INFO] [SIZE] AMIX tier=B risk_usd=35.00 entry=1.1500 sl=1.1212 qty=1217
+[WARN] v0.8.1.0.3: 1s CSV not found for AMIX 2025-11-17 at data\samples\sample_1s_2025-11-17_AMIX.csv
+2026-01-12 09:24:16,899 [WARNING] [WARN] [POS_MGMT_MISMATCH] v0.8.1.7.0 symbol=AMIX ts=14:43 eval_ohlc=(1.1176,1.1600,1.1150,1.1500) pos_ohlc=(1.1176,1.1600,0.9196,0.9200)
+2026-01-12 09:24:16,899 [INFO] [WHY] v0.8.1.7.0 POS_MGMT: CHECK symbol=AMIX i=309 bar_ts=14:43 entry=1.15 tp=1.1729999999999998 sl=1.1212499999999999 qty=1217
+[WARN] v0.8.1.0.3: 1s CSV not found for AMIX 2025-11-17 at data\samples\sample_1s_2025-11-17_AMIX.csv
+2026-01-12 09:24:17,074 [WARNING] [WHY] v0.8.1.8.1 EARLY_REJECT reason=MAX_TRADES_PER_SYMBOL symbol=AMIX ts=14:44 details=count=1 limit=1
+2026-01-12 09:24:17,076 [WARNING] [WARN] [DUP_TS] v0.8.1.7.0 symbol=WTO date=2025-11-17 duplicates=391
+2026-01-12 09:24:17,077 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=WTO time=09:51 entry_price=2.9500 vwap=3.0632 dist_pct=-3.70 max_pct=1.5
+2026-01-12 09:24:17,077 [INFO] STRUCT_DAMAGE v0.8.1.4.0: detected symbol=WTO
+2026-01-12 09:24:17,077 [INFO] STRUCT_DAMAGE v0.8.1.4.0: BLOCKED symbol=WTO reason=weak_vwap_reclaim
+2026-01-12 09:24:17,077 [WARNING] [WHY] v0.8.1.8.1 EARLY_REJECT reason=STRUCT_DAMAGE_FAIL symbol=WTO ts=09:51 details=weak_vwap_reclaim recovery_failed lookback_bars=8 body_thresh=0.60
+2026-01-12 09:24:17,078 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=WTO time=10:13 entry_price=2.7499 vwap=2.9484 dist_pct=-6.73 max_pct=1.5
+2026-01-12 09:24:17,078 [INFO] STRUCT_DAMAGE v0.8.1.4.0: detected symbol=WTO
+2026-01-12 09:24:17,078 [INFO] STRUCT_DAMAGE v0.8.1.4.0: BLOCKED symbol=WTO reason=weak_vwap_reclaim
+2026-01-12 09:24:17,078 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=WTO time=10:17 entry_price=2.8150 vwap=2.9409 dist_pct=-4.28 max_pct=1.5
+2026-01-12 09:24:17,078 [INFO] STRUCT_DAMAGE v0.8.1.4.0: detected symbol=WTO
+2026-01-12 09:24:17,079 [INFO] STRUCT_DAMAGE v0.8.1.4.0: BLOCKED symbol=WTO reason=weak_vwap_reclaim
+2026-01-12 09:24:17,079 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=WTO time=10:39 entry_price=3.2700 vwap=2.9551 dist_pct=10.66 max_pct=1.5
+2026-01-12 09:24:17,079 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: BLOCKED symbol=WTO time=10:39 entry_price=3.2700 vwap=2.9551 dist_pct=10.66 max_pct=1.5 reason=overextended
+2026-01-12 09:24:17,080 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=WTO time=11:34 entry_price=3.0800 vwap=2.9894 dist_pct=3.03 max_pct=1.5
+2026-01-12 09:24:17,080 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: BLOCKED symbol=WTO time=11:34 entry_price=3.0800 vwap=2.9894 dist_pct=3.03 max_pct=1.5 reason=overextended
+2026-01-12 09:24:17,080 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=WTO time=11:48 entry_price=3.2450 vwap=2.9941 dist_pct=8.38 max_pct=1.5
+2026-01-12 09:24:17,080 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: BLOCKED symbol=WTO time=11:48 entry_price=3.2450 vwap=2.9941 dist_pct=8.38 max_pct=1.5 reason=overextended
+2026-01-12 09:24:17,081 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=WTO time=13:30 entry_price=3.2500 vwap=3.0032 dist_pct=8.22 max_pct=1.5
+2026-01-12 09:24:17,081 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: BLOCKED symbol=WTO time=13:30 entry_price=3.2500 vwap=3.0032 dist_pct=8.22 max_pct=1.5 reason=overextended
+2026-01-12 09:24:17,081 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=WTO time=15:27 entry_price=3.0400 vwap=3.0093 dist_pct=1.02 max_pct=1.5
+2026-01-12 09:24:17,081 [INFO] [SIZE] WTO tier=B risk_usd=35.00 entry=3.0400 sl=2.9640 qty=460
+[WARN] v0.8.1.0.3: 1s CSV not found for WTO 2025-11-17 at data\samples\sample_1s_2025-11-17_WTO.csv
+2026-01-12 09:24:17,253 [WARNING] [WARN] [POS_MGMT_MISMATCH] v0.8.1.7.0 symbol=WTO ts=15:27 eval_ohlc=(3.0300,3.0500,3.0300,3.0400) pos_ohlc=(3.0300,3.0500,2.7600,2.7700)
+2026-01-12 09:24:17,253 [INFO] [WHY] v0.8.1.7.0 POS_MGMT: CHECK symbol=WTO i=357 bar_ts=15:27 entry=3.04 tp=3.1008 sl=2.964 qty=460
+[WARN] v0.8.1.0.3: 1s CSV not found for WTO 2025-11-17 at data\samples\sample_1s_2025-11-17_WTO.csv
+2026-01-12 09:24:17,425 [WARNING] [WHY] v0.8.1.8.1 EARLY_REJECT reason=MAX_TRADES_PER_SYMBOL symbol=WTO ts=15:28 details=count=1 limit=1
+2026-01-12 09:24:17,428 [WARNING] [WARN] [DUP_TS] v0.8.1.7.0 symbol=SGML date=2025-11-17 duplicates=386
+2026-01-12 09:24:17,428 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=SGML time=10:01 entry_price=7.6814 vwap=7.3700 dist_pct=4.23 max_pct=1.5
+2026-01-12 09:24:17,428 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: BLOCKED symbol=SGML time=10:01 entry_price=7.6814 vwap=7.3700 dist_pct=4.23 max_pct=1.5 reason=overextended
+2026-01-12 09:24:17,429 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=SGML time=10:28 entry_price=8.3400 vwap=7.5822 dist_pct=9.99 max_pct=1.5
+2026-01-12 09:24:17,430 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: BLOCKED symbol=SGML time=10:28 entry_price=8.3400 vwap=7.5822 dist_pct=9.99 max_pct=1.5 reason=overextended
+2026-01-12 09:24:17,430 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=SGML time=11:05 entry_price=8.2100 vwap=7.7073 dist_pct=6.52 max_pct=1.5
+2026-01-12 09:24:17,430 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: BLOCKED symbol=SGML time=11:05 entry_price=8.2100 vwap=7.7073 dist_pct=6.52 max_pct=1.5 reason=overextended
+2026-01-12 09:24:17,431 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=SGML time=11:40 entry_price=7.9999 vwap=7.7265 dist_pct=3.54 max_pct=1.5
+2026-01-12 09:24:17,431 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: BLOCKED symbol=SGML time=11:40 entry_price=7.9999 vwap=7.7265 dist_pct=3.54 max_pct=1.5 reason=overextended
+2026-01-12 09:24:17,432 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=SGML time=12:13 entry_price=7.9950 vwap=7.7344 dist_pct=3.37 max_pct=1.5
+2026-01-12 09:24:17,432 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: BLOCKED symbol=SGML time=12:13 entry_price=7.9950 vwap=7.7344 dist_pct=3.37 max_pct=1.5 reason=overextended
+2026-01-12 09:24:17,432 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=SGML time=12:23 entry_price=7.9550 vwap=7.7360 dist_pct=2.83 max_pct=1.5
+2026-01-12 09:24:17,432 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: BLOCKED symbol=SGML time=12:23 entry_price=7.9550 vwap=7.7360 dist_pct=2.83 max_pct=1.5 reason=overextended
+2026-01-12 09:24:17,433 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=SGML time=12:24 entry_price=7.9714 vwap=7.7363 dist_pct=3.04 max_pct=1.5
+2026-01-12 09:24:17,433 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: BLOCKED symbol=SGML time=12:24 entry_price=7.9714 vwap=7.7363 dist_pct=3.04 max_pct=1.5 reason=overextended
+2026-01-12 09:24:17,433 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=SGML time=12:45 entry_price=7.9700 vwap=7.7390 dist_pct=2.98 max_pct=1.5
+2026-01-12 09:24:17,433 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: BLOCKED symbol=SGML time=12:45 entry_price=7.9700 vwap=7.7390 dist_pct=2.98 max_pct=1.5 reason=overextended
+2026-01-12 09:24:17,433 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=SGML time=12:46 entry_price=7.9950 vwap=7.7395 dist_pct=3.30 max_pct=1.5
+2026-01-12 09:24:17,434 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: BLOCKED symbol=SGML time=12:46 entry_price=7.9950 vwap=7.7395 dist_pct=3.30 max_pct=1.5 reason=overextended
+2026-01-12 09:24:17,434 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=SGML time=13:36 entry_price=8.0400 vwap=7.7629 dist_pct=3.57 max_pct=1.5
+2026-01-12 09:24:17,434 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: BLOCKED symbol=SGML time=13:36 entry_price=8.0400 vwap=7.7629 dist_pct=3.57 max_pct=1.5 reason=overextended
+2026-01-12 09:24:17,434 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=SGML time=13:43 entry_price=8.0250 vwap=7.7639 dist_pct=3.36 max_pct=1.5
+2026-01-12 09:24:17,435 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: BLOCKED symbol=SGML time=13:43 entry_price=8.0250 vwap=7.7639 dist_pct=3.36 max_pct=1.5 reason=overextended
+2026-01-12 09:24:17,435 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=SGML time=13:44 entry_price=8.0700 vwap=7.7647 dist_pct=3.93 max_pct=1.5
+2026-01-12 09:24:17,436 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: BLOCKED symbol=SGML time=13:44 entry_price=8.0700 vwap=7.7647 dist_pct=3.93 max_pct=1.5 reason=overextended
+2026-01-12 09:24:17,436 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=SGML time=15:12 entry_price=7.9400 vwap=7.7706 dist_pct=2.18 max_pct=1.5
+2026-01-12 09:24:17,436 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: BLOCKED symbol=SGML time=15:12 entry_price=7.9400 vwap=7.7706 dist_pct=2.18 max_pct=1.5 reason=overextended
+2026-01-12 09:24:17,437 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=SGML time=10:06 entry_price=7.9500 vwap=7.8055 dist_pct=1.85 max_pct=1.5
+2026-01-12 09:24:17,437 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: BLOCKED symbol=SGML time=10:06 entry_price=7.9500 vwap=7.8055 dist_pct=1.85 max_pct=1.5 reason=overextended
+2026-01-12 09:24:17,438 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=SGML time=10:07 entry_price=7.9600 vwap=7.8058 dist_pct=1.98 max_pct=1.5
+2026-01-12 09:24:17,438 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: BLOCKED symbol=SGML time=10:07 entry_price=7.9600 vwap=7.8058 dist_pct=1.98 max_pct=1.5 reason=overextended
+2026-01-12 09:24:17,438 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=SGML time=10:08 entry_price=7.9900 vwap=7.8059 dist_pct=2.36 max_pct=1.5
+2026-01-12 09:24:17,438 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: BLOCKED symbol=SGML time=10:08 entry_price=7.9900 vwap=7.8059 dist_pct=2.36 max_pct=1.5 reason=overextended
+2026-01-12 09:24:17,439 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=SGML time=10:22 entry_price=7.9899 vwap=7.8067 dist_pct=2.35 max_pct=1.5
+2026-01-12 09:24:17,439 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: BLOCKED symbol=SGML time=10:22 entry_price=7.9899 vwap=7.8067 dist_pct=2.35 max_pct=1.5 reason=overextended
+2026-01-12 09:24:17,439 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=SGML time=10:32 entry_price=7.9350 vwap=7.8070 dist_pct=1.64 max_pct=1.5
+2026-01-12 09:24:17,439 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: BLOCKED symbol=SGML time=10:32 entry_price=7.9350 vwap=7.8070 dist_pct=1.64 max_pct=1.5 reason=overextended
+2026-01-12 09:24:17,440 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=SGML time=11:54 entry_price=7.9100 vwap=7.8083 dist_pct=1.30 max_pct=1.5
+2026-01-12 09:24:17,440 [INFO] STRUCT_DAMAGE v0.8.1.4.0: detected symbol=SGML
+2026-01-12 09:24:17,440 [INFO] STRUCT_DAMAGE v0.8.1.4.0: PASSED symbol=SGML reason=accepted_above_vwap
+2026-01-12 09:24:17,440 [INFO] [SIZE] SGML tier=B risk_usd=35.00 entry=7.9100 sl=7.7123 qty=176
+[WARN] v0.8.1.0.3: 1s CSV not found for SGML 2025-11-17 at data\samples\sample_1s_2025-11-17_SGML.csv
+2026-01-12 09:24:17,616 [WARNING] [WARN] [POS_MGMT_MISMATCH] v0.8.1.7.0 symbol=SGML ts=11:54 eval_ohlc=(7.9000,7.9200,7.9000,7.9100) pos_ohlc=(7.9250,7.9800,7.9000,7.9100)
+2026-01-12 09:24:17,617 [INFO] [WHY] v0.8.1.7.0 POS_MGMT: CHECK symbol=SGML i=531 bar_ts=11:54 entry=7.91 tp=8.068200000000001 sl=7.71225 qty=176
+2026-01-12 09:24:17,617 [WARNING] [WARN] [POS_MGMT_MISMATCH] v0.8.1.7.0 symbol=SGML ts=11:55 eval_ohlc=(7.9000,7.9250,7.9000,7.9050) pos_ohlc=(7.9650,7.9700,7.9000,7.9050)
+2026-01-12 09:24:17,617 [INFO] [WHY] v0.8.1.7.0 POS_MGMT: CHECK symbol=SGML i=532 bar_ts=11:55 entry=7.91 tp=8.068200000000001 sl=7.71225 qty=176
+2026-01-12 09:24:17,617 [WARNING] [WARN] [POS_MGMT_MISMATCH] v0.8.1.7.0 symbol=SGML ts=11:56 eval_ohlc=(7.9000,7.9150,7.8800,7.9150) pos_ohlc=(7.9750,8.0050,7.8800,7.9150)
+2026-01-12 09:24:17,617 [INFO] [WHY] v0.8.1.7.0 POS_MGMT: CHECK symbol=SGML i=533 bar_ts=11:56 entry=7.91 tp=8.068200000000001 sl=7.71225 qty=176
+2026-01-12 09:24:17,618 [WARNING] [WARN] [POS_MGMT_MISMATCH] v0.8.1.7.0 symbol=SGML ts=11:57 eval_ohlc=(7.9100,7.9100,7.8950,7.9100) pos_ohlc=(7.9700,7.9900,7.8950,7.9100)
+2026-01-12 09:24:17,618 [INFO] [WHY] v0.8.1.7.0 POS_MGMT: CHECK symbol=SGML i=534 bar_ts=11:57 entry=7.91 tp=8.068200000000001 sl=7.71225 qty=176
+2026-01-12 09:24:17,618 [WARNING] [WARN] [POS_MGMT_MISMATCH] v0.8.1.7.0 symbol=SGML ts=11:58 eval_ohlc=(7.9100,7.9150,7.8800,7.8800) pos_ohlc=(7.9824,7.9900,7.8800,7.8800)
+2026-01-12 09:24:17,618 [INFO] [WHY] v0.8.1.7.0 POS_MGMT: CHECK symbol=SGML i=535 bar_ts=11:58 entry=7.91 tp=8.068200000000001 sl=7.71225 qty=176
+2026-01-12 09:24:17,618 [WARNING] [WARN] [POS_MGMT_MISMATCH] v0.8.1.7.0 symbol=SGML ts=11:59 eval_ohlc=(7.8700,7.8900,7.8600,7.8650) pos_ohlc=(7.9701,7.9977,7.8600,7.8650)
+2026-01-12 09:24:17,618 [INFO] [WHY] v0.8.1.7.0 POS_MGMT: CHECK symbol=SGML i=536 bar_ts=11:59 entry=7.91 tp=8.068200000000001 sl=7.71225 qty=176
+2026-01-12 09:24:17,618 [WARNING] [WARN] [POS_MGMT_MISMATCH] v0.8.1.7.0 symbol=SGML ts=12:00 eval_ohlc=(7.8750,7.8950,7.8750,7.8950) pos_ohlc=(7.9850,7.9900,7.8750,7.8950)
+2026-01-12 09:24:17,618 [INFO] [WHY] v0.8.1.7.0 POS_MGMT: CHECK symbol=SGML i=537 bar_ts=12:00 entry=7.91 tp=8.068200000000001 sl=7.71225 qty=176
+2026-01-12 09:24:17,618 [WARNING] [WARN] [POS_MGMT_MISMATCH] v0.8.1.7.0 symbol=SGML ts=12:01 eval_ohlc=(7.8900,7.8950,7.8850,7.8850) pos_ohlc=(7.9486,7.9850,7.8850,7.8850)
+2026-01-12 09:24:17,619 [INFO] [WHY] v0.8.1.7.0 POS_MGMT: CHECK symbol=SGML i=538 bar_ts=12:01 entry=7.91 tp=8.068200000000001 sl=7.71225 qty=176
+2026-01-12 09:24:17,619 [WARNING] [WARN] [POS_MGMT_MISMATCH] v0.8.1.7.0 symbol=SGML ts=12:02 eval_ohlc=(7.8900,7.9200,7.8900,7.9150) pos_ohlc=(7.9801,7.9899,7.8900,7.9150)
+2026-01-12 09:24:17,619 [INFO] [WHY] v0.8.1.7.0 POS_MGMT: CHECK symbol=SGML i=539 bar_ts=12:02 entry=7.91 tp=8.068200000000001 sl=7.71225 qty=176
+2026-01-12 09:24:17,619 [WARNING] [WARN] [POS_MGMT_MISMATCH] v0.8.1.7.0 symbol=SGML ts=12:03 eval_ohlc=(7.9150,7.9187,7.8950,7.8956) pos_ohlc=(7.9600,7.9689,7.8950,7.8956)
+2026-01-12 09:24:17,619 [INFO] [WHY] v0.8.1.7.0 POS_MGMT: CHECK symbol=SGML i=540 bar_ts=12:03 entry=7.91 tp=8.068200000000001 sl=7.71225 qty=176
+2026-01-12 09:24:17,619 [WARNING] [WARN] [POS_MGMT_MISMATCH] v0.8.1.7.0 symbol=SGML ts=12:04 eval_ohlc=(7.9000,7.9082,7.9000,7.9050) pos_ohlc=(7.9550,7.9585,7.9000,7.9050)
+2026-01-12 09:24:17,619 [INFO] [WHY] v0.8.1.7.0 POS_MGMT: CHECK symbol=SGML i=541 bar_ts=12:04 entry=7.91 tp=8.068200000000001 sl=7.71225 qty=176
+2026-01-12 09:24:17,619 [WARNING] [WARN] [POS_MGMT_MISMATCH] v0.8.1.7.0 symbol=SGML ts=12:05 eval_ohlc=(7.9000,7.9050,7.8950,7.9000) pos_ohlc=(7.9124,7.9124,7.8600,7.9000)
+2026-01-12 09:24:17,619 [INFO] [WHY] v0.8.1.7.0 POS_MGMT: CHECK symbol=SGML i=542 bar_ts=12:05 entry=7.91 tp=8.068200000000001 sl=7.71225 qty=176
+2026-01-12 09:24:17,619 [WARNING] [WARN] [POS_MGMT_MISMATCH] v0.8.1.7.0 symbol=SGML ts=12:06 eval_ohlc=(7.8950,7.8950,7.8800,7.8800) pos_ohlc=(7.8900,7.9050,7.8750,7.8800)
+2026-01-12 09:24:17,620 [INFO] [WHY] v0.8.1.7.0 POS_MGMT: CHECK symbol=SGML i=543 bar_ts=12:06 entry=7.91 tp=8.068200000000001 sl=7.71225 qty=176
+2026-01-12 09:24:17,620 [WARNING] [WARN] [POS_MGMT_MISMATCH] v0.8.1.7.0 symbol=SGML ts=12:07 eval_ohlc=(7.8700,7.8800,7.8450,7.8700) pos_ohlc=(7.9100,7.9200,7.8450,7.8700)
+2026-01-12 09:24:17,620 [INFO] [WHY] v0.8.1.7.0 POS_MGMT: CHECK symbol=SGML i=544 bar_ts=12:07 entry=7.91 tp=8.068200000000001 sl=7.71225 qty=176
+2026-01-12 09:24:17,620 [WARNING] [WARN] [POS_MGMT_MISMATCH] v0.8.1.7.0 symbol=SGML ts=12:08 eval_ohlc=(7.8650,7.8680,7.8550,7.8650) pos_ohlc=(7.8950,7.9050,7.8550,7.8650)
+2026-01-12 09:24:17,620 [INFO] [WHY] v0.8.1.7.0 POS_MGMT: CHECK symbol=SGML i=545 bar_ts=12:08 entry=7.91 tp=8.068200000000001 sl=7.71225 qty=176
+2026-01-12 09:24:17,620 [WARNING] [WARN] [POS_MGMT_MISMATCH] v0.8.1.7.0 symbol=SGML ts=12:09 eval_ohlc=(7.8601,7.8750,7.8600,7.8600) pos_ohlc=(7.8785,7.8950,7.8600,7.8600)
+2026-01-12 09:24:17,620 [INFO] [WHY] v0.8.1.7.0 POS_MGMT: CHECK symbol=SGML i=546 bar_ts=12:09 entry=7.91 tp=8.068200000000001 sl=7.71225 qty=176
+2026-01-12 09:24:17,620 [WARNING] [WARN] [POS_MGMT_MISMATCH] v0.8.1.7.0 symbol=SGML ts=12:10 eval_ohlc=(7.8600,7.8600,7.8450,7.8600) pos_ohlc=(7.8900,7.9050,7.8450,7.8600)
+2026-01-12 09:24:17,621 [INFO] [WHY] v0.8.1.7.0 POS_MGMT: CHECK symbol=SGML i=547 bar_ts=12:10 entry=7.91 tp=8.068200000000001 sl=7.71225 qty=176
+2026-01-12 09:24:17,621 [WARNING] [WARN] [POS_MGMT_MISMATCH] v0.8.1.7.0 symbol=SGML ts=12:11 eval_ohlc=(7.8600,7.8600,7.8550,7.8600) pos_ohlc=(7.8650,7.9000,7.8550,7.8600)
+2026-01-12 09:24:17,621 [INFO] [WHY] v0.8.1.7.0 POS_MGMT: CHECK symbol=SGML i=548 bar_ts=12:11 entry=7.91 tp=8.068200000000001 sl=7.71225 qty=176
+2026-01-12 09:24:17,621 [WARNING] [WARN] [POS_MGMT_MISMATCH] v0.8.1.7.0 symbol=SGML ts=12:12 eval_ohlc=(7.8500,7.8650,7.8250,7.8300) pos_ohlc=(7.8950,7.9700,7.8250,7.8300)
+2026-01-12 09:24:17,621 [INFO] [WHY] v0.8.1.7.0 POS_MGMT: CHECK symbol=SGML i=549 bar_ts=12:12 entry=7.91 tp=8.068200000000001 sl=7.71225 qty=176
+2026-01-12 09:24:17,621 [WARNING] [WARN] [POS_MGMT_MISMATCH] v0.8.1.7.0 symbol=SGML ts=12:13 eval_ohlc=(7.8350,7.8800,7.8250,7.8650) pos_ohlc=(7.9700,8.0000,7.8250,7.8650)
+2026-01-12 09:24:17,621 [INFO] [WHY] v0.8.1.7.0 POS_MGMT: CHECK symbol=SGML i=550 bar_ts=12:13 entry=7.91 tp=8.068200000000001 sl=7.71225 qty=176
+2026-01-12 09:24:17,621 [WARNING] [WARN] [POS_MGMT_MISMATCH] v0.8.1.7.0 symbol=SGML ts=12:14 eval_ohlc=(7.8600,7.9100,7.8500,7.9050) pos_ohlc=(7.9950,8.0000,7.8500,7.9050)
+2026-01-12 09:24:17,621 [INFO] [WHY] v0.8.1.7.0 POS_MGMT: CHECK symbol=SGML i=551 bar_ts=12:14 entry=7.91 tp=8.068200000000001 sl=7.71225 qty=176
+2026-01-12 09:24:17,622 [WARNING] [WARN] [POS_MGMT_MISMATCH] v0.8.1.7.0 symbol=SGML ts=12:15 eval_ohlc=(7.9050,7.9600,7.8950,7.9300) pos_ohlc=(7.9831,7.9850,7.8950,7.9300)
+2026-01-12 09:24:17,622 [INFO] [WHY] v0.8.1.7.0 POS_MGMT: CHECK symbol=SGML i=552 bar_ts=12:15 entry=7.91 tp=8.068200000000001 sl=7.71225 qty=176
+2026-01-12 09:24:17,622 [WARNING] [WARN] [POS_MGMT_MISMATCH] v0.8.1.7.0 symbol=SGML ts=12:16 eval_ohlc=(7.9399,7.9700,7.9250,7.9250) pos_ohlc=(7.9700,7.9850,7.9250,7.9250)
+2026-01-12 09:24:17,622 [INFO] [WHY] v0.8.1.7.0 POS_MGMT: CHECK symbol=SGML i=553 bar_ts=12:16 entry=7.91 tp=8.068200000000001 sl=7.71225 qty=176
+2026-01-12 09:24:17,622 [WARNING] [WARN] [POS_MGMT_MISMATCH] v0.8.1.7.0 symbol=SGML ts=12:17 eval_ohlc=(7.9200,7.9200,7.8300,7.8499) pos_ohlc=(7.9700,7.9716,7.8300,7.8499)
+2026-01-12 09:24:17,622 [INFO] [WHY] v0.8.1.7.0 POS_MGMT: CHECK symbol=SGML i=554 bar_ts=12:17 entry=7.91 tp=8.068200000000001 sl=7.71225 qty=176
+2026-01-12 09:24:17,622 [WARNING] [WARN] [POS_MGMT_MISMATCH] v0.8.1.7.0 symbol=SGML ts=12:18 eval_ohlc=(7.8500,7.8600,7.8300,7.8300) pos_ohlc=(7.9500,7.9650,7.8300,7.8300)
+2026-01-12 09:24:17,622 [INFO] [WHY] v0.8.1.7.0 POS_MGMT: CHECK symbol=SGML i=555 bar_ts=12:18 entry=7.91 tp=8.068200000000001 sl=7.71225 qty=176
+2026-01-12 09:24:17,622 [WARNING] [WARN] [POS_MGMT_MISMATCH] v0.8.1.7.0 symbol=SGML ts=12:19 eval_ohlc=(7.8225,7.8225,7.7700,7.7750) pos_ohlc=(7.9400,7.9400,7.7700,7.7750)
+2026-01-12 09:24:17,622 [INFO] [WHY] v0.8.1.7.0 POS_MGMT: CHECK symbol=SGML i=556 bar_ts=12:19 entry=7.91 tp=8.068200000000001 sl=7.71225 qty=176
+2026-01-12 09:24:17,623 [WARNING] [WARN] [POS_MGMT_MISMATCH] v0.8.1.7.0 symbol=SGML ts=12:20 eval_ohlc=(7.7900,7.7900,7.7600,7.7650) pos_ohlc=(7.9299,7.9500,7.7600,7.7650)
+2026-01-12 09:24:17,623 [INFO] [WHY] v0.8.1.7.0 POS_MGMT: CHECK symbol=SGML i=557 bar_ts=12:20 entry=7.91 tp=8.068200000000001 sl=7.71225 qty=176
+2026-01-12 09:24:17,623 [WARNING] [WARN] [POS_MGMT_MISMATCH] v0.8.1.7.0 symbol=SGML ts=12:21 eval_ohlc=(7.7700,7.7800,7.7400,7.7400) pos_ohlc=(7.9350,7.9390,7.7400,7.7400)
+2026-01-12 09:24:17,623 [INFO] [WHY] v0.8.1.7.0 POS_MGMT: CHECK symbol=SGML i=558 bar_ts=12:21 entry=7.91 tp=8.068200000000001 sl=7.71225 qty=176
+2026-01-12 09:24:17,623 [WARNING] [WARN] [POS_MGMT_MISMATCH] v0.8.1.7.0 symbol=SGML ts=12:22 eval_ohlc=(7.7500,7.7600,7.7200,7.7250) pos_ohlc=(7.9350,7.9550,7.7200,7.7250)
+2026-01-12 09:24:17,623 [INFO] [WHY] v0.8.1.7.0 POS_MGMT: CHECK symbol=SGML i=559 bar_ts=12:22 entry=7.91 tp=8.068200000000001 sl=7.71225 qty=176
+2026-01-12 09:24:17,623 [WARNING] [WARN] [POS_MGMT_MISMATCH] v0.8.1.7.0 symbol=SGML ts=12:23 eval_ohlc=(7.7200,7.7300,7.7200,7.7300) pos_ohlc=(7.9500,7.9599,7.7200,7.7300)
+2026-01-12 09:24:17,623 [INFO] [WHY] v0.8.1.7.0 POS_MGMT: CHECK symbol=SGML i=560 bar_ts=12:23 entry=7.91 tp=8.068200000000001 sl=7.71225 qty=176
+2026-01-12 09:24:17,623 [WARNING] [WARN] [POS_MGMT_MISMATCH] v0.8.1.7.0 symbol=SGML ts=12:24 eval_ohlc=(7.7300,7.7350,7.7000,7.7100) pos_ohlc=(7.9550,7.9900,7.7000,7.7100)
+2026-01-12 09:24:17,623 [INFO] [WHY] v0.8.1.7.0 POS_MGMT: CHECK symbol=SGML i=561 bar_ts=12:24 entry=7.91 tp=8.068200000000001 sl=7.71225 qty=176
+[WARN] v0.8.1.0.3: 1s CSV not found for SGML 2025-11-17 at data\samples\sample_1s_2025-11-17_SGML.csv
+2026-01-12 09:24:17,797 [WARNING] [WHY] v0.8.1.8.1 EARLY_REJECT reason=MAX_TRADES_PER_SYMBOL symbol=SGML ts=12:25 details=count=1 limit=1
+2026-01-12 09:24:17,799 [WARNING] [WARN] [DUP_TS] v0.8.1.7.0 symbol=KXIN date=2025-11-17 duplicates=382
+2026-01-12 09:24:17,800 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=KXIN time=09:58 entry_price=13.7940 vwap=13.2426 dist_pct=4.16 max_pct=1.5
+2026-01-12 09:24:17,800 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: BLOCKED symbol=KXIN time=09:58 entry_price=13.7940 vwap=13.2426 dist_pct=4.16 max_pct=1.5 reason=overextended
+2026-01-12 09:24:17,801 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=KXIN time=09:59 entry_price=14.0910 vwap=13.2800 dist_pct=6.11 max_pct=1.5
+2026-01-12 09:24:17,801 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: BLOCKED symbol=KXIN time=09:59 entry_price=14.0910 vwap=13.2800 dist_pct=6.11 max_pct=1.5 reason=overextended
+2026-01-12 09:24:17,801 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=KXIN time=10:09 entry_price=16.3710 vwap=14.1416 dist_pct=15.76 max_pct=1.5
+2026-01-12 09:24:17,801 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: BLOCKED symbol=KXIN time=10:09 entry_price=16.3710 vwap=14.1416 dist_pct=15.76 max_pct=1.5 reason=overextended
+2026-01-12 09:24:17,802 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=KXIN time=11:03 entry_price=19.5900 vwap=15.9112 dist_pct=23.12 max_pct=1.5
+2026-01-12 09:24:17,802 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: BLOCKED symbol=KXIN time=11:03 entry_price=19.5900 vwap=15.9112 dist_pct=23.12 max_pct=1.5 reason=overextended
+2026-01-12 09:24:17,802 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=KXIN time=11:04 entry_price=20.0430 vwap=15.9974 dist_pct=25.29 max_pct=1.5
+2026-01-12 09:24:17,802 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: BLOCKED symbol=KXIN time=11:04 entry_price=20.0430 vwap=15.9974 dist_pct=25.29 max_pct=1.5 reason=overextended
+2026-01-12 09:24:17,803 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=KXIN time=14:41 entry_price=8.1810 vwap=15.8965 dist_pct=-48.54 max_pct=1.5
+2026-01-12 09:24:17,804 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=KXIN time=14:42 entry_price=8.3430 vwap=15.8893 dist_pct=-47.49 max_pct=1.5
+2026-01-12 09:24:17,804 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=KXIN time=15:07 entry_price=8.3700 vwap=15.8373 dist_pct=-47.15 max_pct=1.5
+2026-01-12 09:24:17,806 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=KXIN time=15:36 entry_price=8.6100 vwap=15.7799 dist_pct=-45.44 max_pct=1.5
+2026-01-12 09:24:17,806 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=KXIN time=09:42 entry_price=9.8100 vwap=15.6695 dist_pct=-37.39 max_pct=1.5
+2026-01-12 09:24:17,807 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=KXIN time=09:43 entry_price=9.8610 vwap=15.6640 dist_pct=-37.05 max_pct=1.5
+2026-01-12 09:24:17,807 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=KXIN time=09:49 entry_price=10.2810 vwap=15.6343 dist_pct=-34.24 max_pct=1.5
+2026-01-12 09:24:17,808 [INFO] [WHY] v0.8.1.1.0 VWAP_EXT: CHECK symbol=KXIN time=11:43 entry_price=9.0270 vwap=15.4307 dist_pct=-41.50 max_pct=1.5
+[DATA_PROVIDER] v0.8.1.7.0 type=<class 'midas_v2.dataprov.csv_local.CsvLocalProvider'>
+[CSV_LOCAL] v0.8.1.7.0 load_minute_bars path=data/samples\sample_2025-11-17_AMIX.csv cols=['time', 'open', 'high', 'low', 'close', 'volume']
+[CSV_LOCAL] v0.8.1.7.0 load_minute_bars path=data/samples\sample_2025-11-17_WTO.csv cols=['time', 'open', 'high', 'low', 'close', 'volume']
+[CSV_LOCAL] v0.8.1.7.0 load_minute_bars path=data/samples\sample_2025-11-17_FMSTW.csv cols=['time', 'open', 'high', 'low', 'close', 'volume']
+[CSV_LOCAL] v0.8.1.7.0 load_minute_bars path=data/samples\sample_2025-11-17_SGML.csv cols=['time', 'open', 'high', 'low', 'close', 'volume']
+[CSV_LOCAL] v0.8.1.7.0 load_minute_bars path=data/samples\sample_2025-11-17_KXIN.csv cols=['time', 'open', 'high', 'low', 'close', 'volume']
+[CSV_LOCAL] v0.8.1.7.0 load_minute_bars path=data/samples\sample_2025-11-17_AMIX.csv cols=['time', 'open', 'high', 'low', 'close', 'volume']
+[CSV_LOCAL] v0.8.1.7.0 load_minute_bars path=data/samples\sample_2025-11-17_WTO.csv cols=['time', 'open', 'high', 'low', 'close', 'volume']
+[CSV_LOCAL] v0.8.1.7.0 load_minute_bars path=data/samples\sample_2025-11-17_FMSTW.csv cols=['time', 'open', 'high', 'low', 'close', 'volume']
+[CSV_LOCAL] v0.8.1.7.0 load_minute_bars path=data/samples\sample_2025-11-17_SGML.csv cols=['time', 'open', 'high', 'low', 'close', 'volume']
+[CSV_LOCAL] v0.8.1.7.0 load_minute_bars path=data/samples\sample_2025-11-17_KXIN.csv cols=['time', 'open', 'high', 'low', 'close', 'volume']
+[OK] Backtest complete -> C:\Users\boydp\Desktop\midas_V2_v0.4.7.9_working\out\20251117\B\results_2025-11-17.csv
+[CMD] C:\Users\boydp\AppData\Local\Programs\Python\Python313\python.exe C:\Users\boydp\Desktop\midas_V2_v0.4.7.9_working\scripts\topgappers.py --date 2025-11-17 --scenario B
+[UNIVERSE] C:\Users\boydp\Desktop\midas_V2_v0.4.7.9_working\data\samples\universe_sample.txt has 5 symbols
+[CMD] C:\Users\boydp\AppData\Local\Programs\Python\Python313\python.exe C:\Users\boydp\Desktop\midas_V2_v0.4.7.9_working\scripts\fetch_minutes_polygon.py --date 2025-11-17 --session rth
+[CMD] C:\Users\boydp\AppData\Local\Programs\Python\Python313\python.exe -m midas_v2.cli backtest --date 2025-11-17 --scenario B --universe C:\Users\boydp\Desktop\midas_V2_v0.4.7.9_working\data\samples\universe_sample.txt --out C:\Users\boydp\Desktop\midas_V2_v0.4.7.9_working\out\20251117\B
+[INFO] Running summarize_results.py and streaming output...
+B: TP=0 SL=3 Win%=0.00
+D: TP=0 SL=0 Win%=0.00
+E: TP=0 SL=0 Win%=0.00
+[OK] Summary saved -> C:\Users\boydp\Desktop\midas_V2_v0.4.7.9_working\out\20251117\B\summary_2025-11-17.txt
+
+[OK] Backtest done.
+
+=== Running range: 2025-11-17 -> 2025-11-17 | Scenarios: ['B'] | Mode: OVERWRITE ===
+
+[RUN] C:\Users\boydp\AppData\Local\Programs\Python\Python313\python.exe scripts/run_day_simple.py --date 2025-11-17 --scenario B --session rth
+2025-11-17 [B] -> trades=3, wins=0, losses=3, winrate=0.00%, pnl=-104.75
+
+=== TOTALS ===
+[B] trades=3, wins=0, losses=3, winrate=0.00%, totalPnL=-104.75
+
+[OK] Range summary CSV -> out\auto\range_summary_20251117_20251117_B.csv
+PS C:\Users\boydp\Desktop\midas_V2_v0.4.7.9_working>
+PS C:\Users\boydp\Desktop\midas_V2_v0.4.7.9_working>

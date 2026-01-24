@@ -1,0 +1,2 @@
+Next version purpose:
+The next version will realign Scenario B to behave like successful Cameron-style projects by changing the DAY_GATE consequence from a hard shutdown to a throttle. Day classification (healthy/marginal/hostile) will remain intact, but weak-tape days will reduce risk and trade count instead of blocking all trades. No other strategy logic will change. The goal is to restore disciplined participation in high-quality single-name momentum while preserving loss-subtraction safeguards, validated via strict A/B testing.

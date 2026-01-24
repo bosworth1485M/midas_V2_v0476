@@ -1,0 +1,208 @@
+Midas_V2 — VERSION SPEC
+v0.8.1.9.0 — Marginal-Day Participation (1 Trade Max)
+1. Purpose of v0.8.1.9.0
+
+v0.8.1.9.0 introduces a single, deliberate behavior change to Scenario B:
+
+On marginal days (close_gt_vwap_count == 1), allow at most one completed trade for the entire day.
+
+All other day regimes remain unchanged.
+
+This version exists to test whether marginal days sometimes contain one legitimate opportunity, without reopening the tail risk associated with hostile days.
+
+2. Day-Type Behavior (Explicit)
+
+v0.8.1.9.0 defines and enforces the following behavior:
+
+Hostile days
+
+Condition: close_gt_vwap_count == 0
+
+Behavior: 0 trades
+
+Status: unchanged
+
+Marginal days
+
+Condition: close_gt_vwap_count == 1
+
+Behavior: allow at most 1 completed trade for the day
+
+Status: new in this version
+
+Healthy days
+
+Condition: close_gt_vwap_count >= 2
+
+Behavior: unchanged trading behavior
+
+Status: unchanged
+
+3. What Changed in the Code
+3.1 Day-level trade cap
+
+Added a day-scoped counter day_trade_count
+
+Incremented only when a trade finalizes (TP or SL)
+
+On marginal days:
+
+entries are allowed only while day_trade_count < 1
+
+once day_trade_count == 1, all further entries are suppressed for the day
+
+3.2 Entry gating correction (effective_day_gate_failed)
+
+Previously, entry was hard-blocked by not day_gate_failed.
+
+v0.8.1.9.0 introduces:
+
+effective_day_gate_failed = day_gate_failed
+
+On marginal days with day_trade_count < 1, override:
+
+effective_day_gate_failed = False
+
+This ensures the one allowed marginal-day trade can actually occur, while preserving hostile/healthy behavior.
+
+3.3 Observability improvements
+
+The version adds / preserves clear log signals:
+
+day summary with class=hostile|marginal|healthy
+
+log-once events:
+
+MARGINAL_DAY_ELIGIBLE
+
+MARGINAL_DAY_TRADE_CAP_REACHED
+
+A minor fix ensured these two messages do not suppress each other.
+
+4. What Did NOT Change
+
+v0.8.1.9.0 does not change:
+
+Strategy logic or indicators
+
+DAY_GATE computation rules
+
+Risk sizing
+
+TP / SL levels
+
+Exit logic
+
+Existing guards (structural damage, VWAP extension, confirm-bar guard, etc.)
+
+Any behavior on hostile or healthy days
+
+Only backtester.py was modified.
+
+5. How v0.8.1.9.0 Was Tested
+5.1 Standard runner
+
+All testing used:
+
+python scripts\run_range_and_summarize.py
+
+
+with logs captured via Tee-Object for reliable A/B comparison.
+
+5.2 Single-day safety checks
+
+These confirmed that v0.8.1.9.0 did not break behavior that was already correct.
+
+2025-07-18 (healthy day):
+Baseline and v0.8.1.9.0 produced identical trades and PnL.
+
+2025-07-21 and 2025-07-22 (hostile days):
+Both versions produced 0 trades.
+
+5.3 Full-month A/B test (April 2025)
+
+Baseline (v0.8.1.8.2):
+
+python scripts\run_range_and_summarize.py --start 2025-04-01 --end 2025-04-30 --scenario B *>&1 | Tee-Object -FilePath ".\out\auto\B_runlog_20250401_20250430_v0.8.1.8.2.txt"
+
+
+v0.8.1.9.0:
+
+python scripts\run_range_and_summarize.py --start 2025-04-01 --end 2025-04-30 --scenario B *>&1 | Tee-Object -FilePath ".\out\auto\B_runlog_20250401_20250430_v0.8.1.9.0.txt"
+
+
+This verified:
+
+marginal-day logic activates only on close_gt_vwap_count == 1
+
+the 1-trade cap is enforced
+
+behavior remains bounded
+
+6. What Was Observed (TWCS Diagnosis)
+
+TWCS was used as the primary diagnostic tool when behavior differed.
+
+Marginal-day loss example
+
+GRI — 2025-04-01 — SL −2.5%
+
+Trade exists only because marginal participation was enabled
+
+Entry occurred before price had shown persistence above VWAP
+
+Trade failed quickly
+
+Marginal-day win example
+
+JNVR — 2025-04-07 — TP +2.0%
+
+Entry occurred after multiple candles had already closed above VWAP
+
+Trade showed clean continuation
+
+7. Conclusions from v0.8.1.9.0
+What worked
+
+Marginal-day participation is correctly bounded
+
+Hostile and healthy day behavior is preserved
+
+Logging is sufficient to audit behavior
+
+The version answers its core question:
+Yes, marginal days sometimes contain one valid opportunity
+
+What the version revealed
+
+Marginal-day participation can introduce both good and bad trades
+
+The losses introduced are not random
+
+An additional structural discriminator is needed if marginal participation is to be kept long-term
+
+8. Explicit Scope of v0.8.1.9.0
+
+v0.8.1.9.0 is:
+
+a controlled experiment
+
+a learning version
+
+intentionally incomplete with respect to marginal-day filtering
+
+Any additional structural rules belong to a subsequent version, not this one.
+
+9. End-of-Version Status
+
+v0.8.1.9.0 is:
+
+implemented
+
+tested
+
+diagnosed
+
+documented
+
+It provides a solid, bounded foundation for a refinement in v0.8.1.10.0, but stands on its own as a valid, complete version.

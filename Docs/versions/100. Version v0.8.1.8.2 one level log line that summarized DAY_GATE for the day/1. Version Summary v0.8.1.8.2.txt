@@ -1,0 +1,284 @@
+Version Summary — Midas_V2 v0.8.1.8.2
+Purpose of This Version
+
+v0.8.1.8.2 is a diagnostic and stabilization release.
+Its purpose is to make day-level trading outcomes fully explainable while preserving identical trading behavior to the prior version.
+
+Before this version:
+
+Zero-trade days were common
+
+The reason for those zero-trade days was implicit
+
+Profit analysis was blocked by ambiguity at the day regime level
+
+After this version:
+
+Every successfully executed trading day emits a single, authoritative day-level summary
+
+Day quality can be classified deterministically
+
+Profit-affecting changes can now be introduced safely
+
+Behavioral Clarification (Corrected)
+
+Trading behavior remains identical to v0.8.1.8.1 — meaning:
+
+entry logic is unchanged
+
+exit logic is unchanged
+
+trade count is unchanged
+
+execution order is unchanged
+
+PnL is unchanged
+
+What did change in v0.8.1.8.2:
+
+We now log the already-computed DAY_GATE counters (e.g. close_gt_vwap_cnt)
+
+This enables day-level classification for observability only
+
+The classification is diagnostic, not prescriptive
+
+There is no new scoring system used by the strategy in this version.
+
+What Was Implemented
+1. DAY_GATE Day-Level Summary Logging
+
+A new log entry is emitted once per trading day per scenario, after DAY_GATE evaluation and before per-symbol trading begins.
+
+Format (single logical record):
+
+[WHY] v0.8.1.8.2 DAY_GATE_SUMMARY
+details=enabled=<bool>
+gate_minutes=<int>
+min_symbols=<int>
+close_gt_vwap_cnt=<int>
+require_close_gt_vwap=<bool>
+day_gate_failed=<bool>
+
+
+Properties:
+
+Uses existing variables only
+
+No new counters
+
+Exactly one emission per day
+
+Reflects the final gate state actually used
+
+2. Logging Correctness Fix (Single-Record Guarantee)
+
+During testing, the summary initially appeared as multiple physical lines due to a hidden newline inside the format string.
+
+Fix:
+
+Ensured the format string is a single continuous string
+
+Verified via raw source inspection and fresh execution logs
+
+Impact:
+
+Observability only
+
+No behavior change
+
+3. Runtime Stability Fix (Discovered During Validation)
+Bug — Missing post_entry_expansion_gate
+
+Symptom (during 2025-07-18 run):
+
+AttributeError: 'StrategyParams' object has no attribute 'post_entry_expansion_gate'
+
+
+Cause:
+
+Backtester referenced an optional parameter
+
+Some restored configs lacked that field
+
+Bug surfaced only on days with deep execution paths
+
+Fix:
+
+if getattr(strat.p, "post_entry_expansion_gate", False):
+
+
+Impact:
+
+Prevents crash
+
+Preserves behavior
+
+Defaults safely to False
+
+Files Modified
+
+src/midas_v2/engine/backtester.py
+
+Explicitly unchanged:
+
+strategy logic
+
+indicators
+
+entries/exits
+
+sizing
+
+config schemas
+
+Validation & Testing
+Primary Runner Command Used
+
+Single-day validation was performed using:
+
+python scripts\run_day_simple.py --date 2025-07-18 --scenario B --session rth
+
+
+Captured with:
+
+python scripts\run_day_simple.py --date 2025-07-18 --scenario B --session rth *>&1 |
+Tee-Object -FilePath .\out\auto\B_runlog_20250718_v0.8.1.8.2_finalcheck.txt
+
+Observed Trading Results (Concrete Evidence)
+Trading Day: 2025-07-18 — Scenario B
+
+DAY_GATE summary:
+
+close_gt_vwap_cnt = 3
+day_gate_failed   = False
+
+
+Interpretation:
+Healthy momentum day — trading permitted.
+
+Trades That Passed
+
+From the runner’s summary:
+
+B: TP=2 SL=1 Win%=66.67
+
+
+This means:
+
+Outcome	Count
+Take Profit (TP)	2
+Stop Loss (SL)	1
+Win Rate	66.67%
+
+Symbols that progressed to execution:
+
+TELO
+
+MEIP
+
+UAVS
+
+These trades:
+
+Passed DAY_GATE
+
+Passed structural damage checks
+
+Passed VWAP extension checks
+
+Entered and were managed normally
+
+Trades That Failed (Filtered Correctly)
+
+Several symbols were evaluated but rejected, including:
+
+BZAI
+
+XPON
+
+Failure reasons observed in logs:
+
+Weak VWAP reclaim
+
+VWAP over-extension
+
+Structural damage
+
+Max-trades-per-symbol cap
+
+These failures were expected and correct, and identical to v0.8.1.8.1 behavior.
+
+Hostile & Marginal Day Patterns (July)
+
+Across July runs:
+
+Hostile Days
+close_gt_vwap_cnt = 0
+
+
+No trades
+
+Day fully suppressed
+
+Now clearly explained
+
+Marginal Days
+close_gt_vwap_cnt = 1
+
+
+Entire day suppressed under current policy
+
+Structurally different from hostile days
+
+Often contain one valid continuation opportunity
+
+This distinction was not visible before v0.8.1.8.2.
+
+Conclusions from v0.8.1.8.2
+
+DAY_GATE is functioning correctly
+
+Zero-trade days are policy decisions, not bugs
+
+Marginal days are over-suppressed
+
+Profit improvements should begin at the day-policy level, not indicators
+
+Direction for the Next Version — v0.8.1.9.0
+
+v0.8.1.9.0 will be the first profit-affecting version.
+
+Agreed Policy Change
+Day Classification	Behavior
+close_gt_vwap_cnt == 0	Trade 0 (unchanged)
+close_gt_vwap_cnt == 1	Allow exactly 1 trade (first valid signal)
+close_gt_vwap_cnt ≥ 2	Unchanged
+Why This Can Increase Profit
+
+Marginal days already produce winning trades when allowed
+
+Current policy discards them entirely
+
+Limiting to one trade caps risk
+
+Trade stats from healthy days show positive expectancy
+
+This creates a measurable hypothesis:
+
+Allowing one trade on marginal days should increase total profit without materially increasing drawdown.
+
+Final Status
+
+v0.8.1.8.2 is complete, validated, and serves as the profitability baseline.
+
+We now have:
+
+day-level explainability
+
+stable execution
+
+concrete trade statistics
+
+a clean comparison point for v0.8.1.9.0
+
+When you’re ready, the next step is to write the Copilot specification for v0.8.1.9.0, grounded directly in this data.

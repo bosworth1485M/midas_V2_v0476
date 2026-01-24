@@ -1,0 +1,32 @@
+VERSION: v0.8.1.20.0 (Planning / Observability)
+
+Context from previous version (v0.8.1.19.0):
+
+• Implemented a narrow guard to block post-damage weak / late VWAP reclaims on healthy days.
+• A/B testing:
+  – 2025-12-04: clear improvement (A −41.66 → B +21.29).
+  – 2025-12-05: no improvement; different loss class remained.
+• TWCS analysis (Dec-05):
+  – WHLR, PAVS, JFBR all failed due to late momentum exhaustion at extended highs (not VWAP reclaims).
+• Regression testing:
+  – November and October both worse for B than A (measured, no new failure modes).
+• Conclusion:
+  – v0.8.1.19.0 works as a loss-subtraction fix in trap-heavy regimes (December),
+    but has opportunity cost in trend-friendly regimes (Oct/Nov).
+  – Keep v0.8.1.19.0.
+  – Do not stack another fix yet.
+
+Objective for this version:
+• Decide how to handle regime sensitivity of the v0.8.1.19.0 guard.
+• Improve observability (trade recap / TRADE CARD output) to support future decisions.
+• No new trading logic changes unless clearly justified.
+
+Constraints:
+• One fix per version.
+• Tiny steps.
+• TWCS-driven.
+• A/B testing mandatory.
+• Regression protection required.
+
+Next question to answer:
+• Should the v0.8.1.19.0 guard be regime-gated, and if so, on what simple, explainable signal?
