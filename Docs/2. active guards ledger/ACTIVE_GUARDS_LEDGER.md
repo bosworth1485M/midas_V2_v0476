@@ -8,7 +8,25 @@ It captures why each guard exists, what failure class it blocks, when it was int
 This is not a per-version summary. Each version adds to this ledger.
 
 Style rule: Latest summary and newest guards appear at the top.
+POST_DAMAGE_CONTINUATION_BLOCK (v0.8.1.32.0)
 
+Purpose:
+Block premature post-damage VWAP reclaim entries until real continuation is shown.
+
+Rule:
+After structural damage, require ≥2 of the last 3 completed candles to be green and above VWAP before entry.
+
+Failure class blocked:
+Weak post-damage VWAP reclaims that bounce briefly and then fail.
+
+Status:
+ON by default.
+
+Side effects:
+Minimal; fired only once in Aug 05–07 test and did not suppress participation.
+
+Notes:
+Not responsible for zero-trade days; primary participation suppressor is marginal VWAP gate.
 
 POST_DAMAGE_ENTRY_LOCKOUT (v0.8.1.23.0)
 - Status: ENABLED (scoped as of v0.8.1.31.0)

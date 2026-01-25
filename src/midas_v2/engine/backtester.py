@@ -274,6 +274,7 @@ def _print_trade_card_entry(sym, date_str, scenario, entry_time, entry_price, tp
         print(f"  - Blocks today (post_damage_weak_reclaim): {telemetry.get('count_post_damage_weak_reclaim_blocks', 0)}")
         print(f"  - Blocks today (vwap_ext): {telemetry.get('count_vwap_ext_blocks', 0)}")
         print(f"  - Blocks today (marginal_vwap_gate): {telemetry.get('count_marginal_vwap_gate_blocks', 0)}")
+        print(f"  - Blocks today (post_damage_continuation): {telemetry.get('count_post_damage_continuation_blocks', 0)}")  # v0.8.1.32.0
         
         print(f"\nDATA QUALITY FLAGS (SYMBOL/DAY):")
         print(f"  - Duplicate timestamps: {telemetry.get('dup_ts_count', 0)}")
@@ -352,6 +353,8 @@ def run_backtest(
     log.info("POST_DAMAGE_VWAP_HEAL_ESCAPE v0.8.1.24.0: enabled=True")  # v0.8.1.24.0
     # v0.8.1.31.0: Narrow scope of POST_DAMAGE_ENTRY_LOCKOUT to hostile days only
     log.info("POST_DAMAGE_ENTRY_LOCKOUT v0.8.1.31.0: scope=hostile_only enabled=True")  # v0.8.1.31.0 (OBSERVABILITY)
+    # v0.8.1.32.0: Post-damage continuation block (requires 2-of-3 green > VWAP)
+    log.info("POST_DAMAGE_CONTINUATION_BLOCK v0.8.1.32.0: enabled=True")  # v0.8.1.32.0 (OBSERVABILITY)
 
     # v0.4.8: load feature registry once (safe no-op if registry missing)
     if FeatureRegistry is not None:  # v0.4.8
@@ -741,6 +744,7 @@ def run_backtest(
     day_marginal_vwap_gate_blocks_total = 0  # v0.8.1.21.0
     day_post_damage_entry_lockout_blocks_total = 0  # v0.8.1.23.0
     day_post_damage_heal_entries_allowed_total = 0  # v0.8.1.24.0
+    day_post_damage_continuation_blocks_total = 0  # v0.8.1.32.0
     day_dup_ts_total = 0  # v0.8.1.21.0
     day_pos_mgmt_mismatch_symbols = 0  # v0.8.1.21.0
     day_missing_1s_symbols = 0  # v0.8.1.21.0
@@ -832,6 +836,7 @@ def run_backtest(
             "count_vwap_ext_blocks": 0,
             "count_marginal_vwap_gate_blocks": 0,
             "count_post_damage_entry_lockout_blocks": 0,  # v0.8.1.23.0
+            "count_post_damage_continuation_blocks": 0,  # v0.8.1.32.0
             "last_damage_ts": None,
             "last_damage_idx": None,
             "dup_ts_count": 0,
@@ -1103,6 +1108,94 @@ def run_backtest(
                         log.warning(f"[WHY] v0.8.1.8.1 CONFIRM_BAR_STOP_VIOLATION symbol={sym} direction={direction} ts={confirm_bar.ts} low={confirm_bar.l} stop={sl}")  # v0.8.1.8.0
                         pending_entry = None  # v0.8.1.8.0: clear pending, no position created
                         continue  # v0.8.1.8.0: skip entry, proceed to next bar
+
+                    # v0.8.1.32.0: POST_DAMAGE_CONTINUATION_BLOCK (pending_confirm path)
+                    # Block post-damage VWAP-reclaim entries unless recent continuation is proven
+                    if damage_first_idx is not None and damage_first_idx < i:  # v0.8.1.32.0
+                        # Need at least 3 prior completed bars (i-1,i-2,i-3)
+                        reject_key = f"{date_str}:{sym}:POST_DAMAGE_CONTINUATION_BLOCK:pending_confirm"  # v0.8.1.32.0
+                        if i < 3:  # v0.8.1.32.0: insufficient history -> fail-closed
+                            if reject_key not in early_reject_logged:  # v0.8.1.32.0
+                                candidate_ts = bar.ts if hasattr(bar, 'ts') else f"bar_{i}"  # v0.8.1.32.0
+                                log.warning(f"[WHY] v0.8.1.32.0 POST_DAMAGE_CONTINUATION_BLOCK symbol={sym} ts={candidate_ts} count=0 window=i-1,i-2,i-3 damage_i={damage_first_idx} entry_i={i} source=pending_confirm")  # v0.8.1.32.0
+                                early_reject_logged.add(reject_key)  # v0.8.1.32.0
+                                try:  # v0.8.1.32.0: write diagnostics snapshot (best-effort)
+                                    import json  # v0.8.1.32.0
+                                    blocked_dir = os.path.join(out_dir, "blocked_candidates")  # v0.8.1.32.0
+                                    os.makedirs(blocked_dir, exist_ok=True)  # v0.8.1.32.0
+                                    ts_clean = candidate_ts.replace(":", "").replace("/", "_").replace("\\", "_").replace(" ", "_")  # v0.8.1.32.0
+                                    json_filename = f"POST_DAMAGE_CONTINUATION_BLOCK_{sym}_{ts_clean}.json"  # v0.8.1.32.0
+                                    json_path = os.path.join(blocked_dir, json_filename)  # v0.8.1.32.0
+                                    payload = {  # v0.8.1.32.0
+                                        "version": "v0.8.1.32.0",
+                                        "reason": "POST_DAMAGE_CONTINUATION_BLOCK",
+                                        "symbol": sym,
+                                        "date": date_str,
+                                        "ts": candidate_ts,
+                                        "i": i,
+                                        "count": 0,
+                                        "window": "i-1,i-2,i-3",
+                                        "damage_first_idx": damage_first_idx,
+                                        "scenario": (scenario_name or scn),
+                                        "day_class": day_class,
+                                        "source": "pending_confirm",
+                                    }  # v0.8.1.32.0
+                                    with open(json_path, "w", encoding="utf-8") as f:  # v0.8.1.32.0
+                                        json.dump(payload, f, indent=2, sort_keys=True)  # v0.8.1.32.0
+                                except Exception:
+                                    pass  # v0.8.1.32.0
+                            telemetry["count_post_damage_continuation_blocks"] += 1  # v0.8.1.32.0
+                            day_post_damage_continuation_blocks_total += 1  # v0.8.1.32.0
+                            pending_entry = None  # v0.8.1.32.0: cancel pending
+                            continue  # v0.8.1.32.0: skip entry
+
+                        # Evaluate last 3 completed bars [i-1, i-2, i-3]
+                        green_above_vwap_count = 0  # v0.8.1.32.0
+                        for j in [i - 1, i - 2, i - 3]:  # v0.8.1.32.0
+                            if j < 0:
+                                continue  # v0.8.1.32.0
+                            b_cont = bars[j]  # v0.8.1.32.0
+                            vwap_cont = getattr(b_cont, "vwap", None)  # v0.8.1.32.0: use bar.vwap
+                            if vwap_cont is None or vwap_cont <= 0:  # v0.8.1.32.0: missing/non-positive -> does not qualify
+                                continue  # v0.8.1.32.0
+                            if b_cont.c > b_cont.o and b_cont.c > vwap_cont:  # v0.8.1.32.0
+                                green_above_vwap_count += 1  # v0.8.1.32.0
+
+                        if green_above_vwap_count < 2:  # v0.8.1.32.0: fail-closed if not enough continuation
+                            reject_key = f"{date_str}:{sym}:POST_DAMAGE_CONTINUATION_BLOCK:pending_confirm"  # v0.8.1.32.0
+                            if reject_key not in early_reject_logged:  # v0.8.1.32.0
+                                candidate_ts = bar.ts if hasattr(bar, 'ts') else f"bar_{i}"  # v0.8.1.32.0
+                                log.warning(f"[WHY] v0.8.1.32.0 POST_DAMAGE_CONTINUATION_BLOCK symbol={sym} ts={candidate_ts} count={green_above_vwap_count} window=i-1,i-2,i-3 damage_i={damage_first_idx} entry_i={i} source=pending_confirm")  # v0.8.1.32.0
+                                early_reject_logged.add(reject_key)  # v0.8.1.32.0
+                                try:  # v0.8.1.32.0: write diagnostics snapshot (best-effort)
+                                    import json  # v0.8.1.32.0
+                                    blocked_dir = os.path.join(out_dir, "blocked_candidates")  # v0.8.1.32.0
+                                    os.makedirs(blocked_dir, exist_ok=True)  # v0.8.1.32.0
+                                    ts_clean = candidate_ts.replace(":", "").replace("/", "_").replace("\\", "_").replace(" ", "_")  # v0.8.1.32.0
+                                    json_filename = f"POST_DAMAGE_CONTINUATION_BLOCK_{sym}_{ts_clean}.json"  # v0.8.1.32.0
+                                    json_path = os.path.join(blocked_dir, json_filename)  # v0.8.1.32.0
+                                    payload = {  # v0.8.1.32.0
+                                        "version": "v0.8.1.32.0",
+                                        "reason": "POST_DAMAGE_CONTINUATION_BLOCK",
+                                        "symbol": sym,
+                                        "date": date_str,
+                                        "ts": candidate_ts,
+                                        "i": i,
+                                        "count": green_above_vwap_count,
+                                        "window": "i-1,i-2,i-3",
+                                        "damage_first_idx": damage_first_idx,
+                                        "scenario": (scenario_name or scn),
+                                        "day_class": day_class,
+                                        "source": "pending_confirm",
+                                    }  # v0.8.1.32.0
+                                    with open(json_path, "w", encoding="utf-8") as f:  # v0.8.1.32.0
+                                        json.dump(payload, f, indent=2, sort_keys=True)  # v0.8.1.32.0
+                                except Exception:
+                                    pass  # v0.8.1.32.0
+                            telemetry["count_post_damage_continuation_blocks"] += 1  # v0.8.1.32.0
+                            day_post_damage_continuation_blocks_total += 1  # v0.8.1.32.0
+                            pending_entry = None  # v0.8.1.32.0: cancel pending
+                            continue  # v0.8.1.32.0
                     
                     # v0.8.1.23.0 / v0.8.1.24.0: POST_DAMAGE_ENTRY_LOCKOUT with VWAP_HEAL_ESCAPE (pending_entry confirmation path)
                     # v0.8.1.31.0: apply lockout only on hostile days
@@ -1742,6 +1835,89 @@ def run_backtest(
                             day_throttle_blocks_logged.add(throttle_block_key)  # v0.8.1.27.0 (OBSERVABILITY)
                         continue  # v0.8.1.27.0 (SAFETY): skip this bar's entry attempt
                 
+                # v0.8.1.32.0: POST_DAMAGE_CONTINUATION_BLOCK (normal path)
+                # Block post-damage VWAP-reclaim entries unless recent continuation is proven
+                if damage_first_idx is not None and damage_first_idx < i:  # v0.8.1.32.0
+                    reject_key = f"{date_str}:{sym}:POST_DAMAGE_CONTINUATION_BLOCK:normal"  # v0.8.1.32.0
+                    if i < 3:  # v0.8.1.32.0: insufficient history -> fail-closed
+                        if reject_key not in early_reject_logged:  # v0.8.1.32.0
+                            candidate_ts = bar.ts if hasattr(bar, 'ts') else f"bar_{i}"  # v0.8.1.32.0
+                            log.warning(f"[WHY] v0.8.1.32.0 POST_DAMAGE_CONTINUATION_BLOCK symbol={sym} ts={candidate_ts} count=0 window=i-1,i-2,i-3 damage_i={damage_first_idx} entry_i={i} source=normal")  # v0.8.1.32.0
+                            early_reject_logged.add(reject_key)  # v0.8.1.32.0
+                            try:  # v0.8.1.32.0
+                                import json  # v0.8.1.32.0
+                                blocked_dir = os.path.join(out_dir, "blocked_candidates")  # v0.8.1.32.0
+                                os.makedirs(blocked_dir, exist_ok=True)  # v0.8.1.32.0
+                                ts_clean = candidate_ts.replace(":", "").replace("/", "_").replace("\\", "_").replace(" ", "_")  # v0.8.1.32.0
+                                json_filename = f"POST_DAMAGE_CONTINUATION_BLOCK_{sym}_{ts_clean}.json"  # v0.8.1.32.0
+                                json_path = os.path.join(blocked_dir, json_filename)  # v0.8.1.32.0
+                                payload = {  # v0.8.1.32.0
+                                    "version": "v0.8.1.32.0",
+                                    "reason": "POST_DAMAGE_CONTINUATION_BLOCK",
+                                    "symbol": sym,
+                                    "date": date_str,
+                                    "ts": candidate_ts,
+                                    "i": i,
+                                    "count": 0,
+                                    "window": "i-1,i-2,i-3",
+                                    "damage_first_idx": damage_first_idx,
+                                    "scenario": (scenario_name or scn),
+                                    "day_class": day_class,
+                                    "source": "normal",
+                                }  # v0.8.1.32.0
+                                with open(json_path, "w", encoding="utf-8") as f:  # v0.8.1.32.0
+                                    json.dump(payload, f, indent=2, sort_keys=True)  # v0.8.1.32.0
+                            except Exception:
+                                pass  # v0.8.1.32.0
+                        telemetry["count_post_damage_continuation_blocks"] += 1  # v0.8.1.32.0
+                        day_post_damage_continuation_blocks_total += 1  # v0.8.1.32.0
+                        continue  # v0.8.1.32.0
+
+                    green_above_vwap_count = 0  # v0.8.1.32.0
+                    for j in [i - 1, i - 2, i - 3]:  # v0.8.1.32.0
+                        if j < 0:
+                            continue  # v0.8.1.32.0
+                        b_cont = bars[j]  # v0.8.1.32.0
+                        vwap_cont = getattr(b_cont, "vwap", None)  # v0.8.1.32.0
+                        if vwap_cont is None or vwap_cont <= 0:
+                            continue  # v0.8.1.32.0
+                        if b_cont.c > b_cont.o and b_cont.c > vwap_cont:  # v0.8.1.32.0
+                            green_above_vwap_count += 1  # v0.8.1.32.0
+
+                    if green_above_vwap_count < 2:  # v0.8.1.32.0
+                        if reject_key not in early_reject_logged:  # v0.8.1.32.0
+                            candidate_ts = bar.ts if hasattr(bar, 'ts') else f"bar_{i}"  # v0.8.1.32.0
+                            log.warning(f"[WHY] v0.8.1.32.0 POST_DAMAGE_CONTINUATION_BLOCK symbol={sym} ts={candidate_ts} count={green_above_vwap_count} window=i-1,i-2,i-3 damage_i={damage_first_idx} entry_i={i} source=normal")  # v0.8.1.32.0
+                            early_reject_logged.add(reject_key)  # v0.8.1.32.0
+                            try:  # v0.8.1.32.0
+                                import json  # v0.8.1.32.0
+                                blocked_dir = os.path.join(out_dir, "blocked_candidates")  # v0.8.1.32.0
+                                os.makedirs(blocked_dir, exist_ok=True)  # v0.8.1.32.0
+                                ts_clean = candidate_ts.replace(":", "").replace("/", "_").replace("\\", "_").replace(" ", "_")  # v0.8.1.32.0
+                                json_filename = f"POST_DAMAGE_CONTINUATION_BLOCK_{sym}_{ts_clean}.json"  # v0.8.1.32.0
+                                json_path = os.path.join(blocked_dir, json_filename)  # v0.8.1.32.0
+                                payload = {  # v0.8.1.32.0
+                                    "version": "v0.8.1.32.0",
+                                    "reason": "POST_DAMAGE_CONTINUATION_BLOCK",
+                                    "symbol": sym,
+                                    "date": date_str,
+                                    "ts": candidate_ts,
+                                    "i": i,
+                                    "count": green_above_vwap_count,
+                                    "window": "i-1,i-2,i-3",
+                                    "damage_first_idx": damage_first_idx,
+                                    "scenario": (scenario_name or scn),
+                                    "day_class": day_class,
+                                    "source": "normal",
+                                }  # v0.8.1.32.0
+                                with open(json_path, "w", encoding="utf-8") as f:  # v0.8.1.32.0
+                                    json.dump(payload, f, indent=2, sort_keys=True)  # v0.8.1.32.0
+                            except Exception:
+                                pass  # v0.8.1.32.0
+                        telemetry["count_post_damage_continuation_blocks"] += 1  # v0.8.1.32.0
+                        day_post_damage_continuation_blocks_total += 1  # v0.8.1.32.0
+                        continue  # v0.8.1.32.0
+
                 # v0.8.1.7.0: Post-entry expansion gate — create pending entry or enter immediately
                 entry = bar.c  # v0.8.1.7.0: tentative entry price
                 tp, sl = strat.targets(entry)  # v0.8.1.7.0
@@ -2341,7 +2517,7 @@ def run_backtest(
         log.info(f"- universe_symbols={universe_symbols}")  # v0.8.1.21.0
         log.info(f"- trades_closed={trades_closed} tp={tp_count} sl={sl_count} winrate={winrate:.2f}")  # v0.8.1.21.0
         log.info(f"- day_pnl_realized={cum_pnl:.2f}")  # v0.8.1.21.0
-        log.info(f"- blocks_total: struct_damage={day_struct_damage_blocks_total} post_damage_weak_reclaim={day_post_damage_weak_reclaim_blocks_total} vwap_ext={day_vwap_ext_blocks_total} marginal_vwap_gate={day_marginal_vwap_gate_blocks_total} post_damage_entry_lockout={day_post_damage_entry_lockout_blocks_total} post_damage_heal_entries_allowed={day_post_damage_heal_entries_allowed_total}")  # v0.8.1.21.0 / v0.8.1.23.0 / v0.8.1.24.0
+        log.info(f"- blocks_total: struct_damage={day_struct_damage_blocks_total} post_damage_weak_reclaim={day_post_damage_weak_reclaim_blocks_total} vwap_ext={day_vwap_ext_blocks_total} marginal_vwap_gate={day_marginal_vwap_gate_blocks_total} post_damage_entry_lockout={day_post_damage_entry_lockout_blocks_total} post_damage_heal_entries_allowed={day_post_damage_heal_entries_allowed_total} post_damage_continuation={day_post_damage_continuation_blocks_total}")  # v0.8.1.21.0 / v0.8.1.23.0 / v0.8.1.24.0 / v0.8.1.32.0
         log.info(f"- minutes_since_damage_at_entry (damage_scan_lookback_bars={REGIME_DAMAGE_LOOKBACK_BARS}): {minutes_stats}")  # v0.8.1.21.0
         log.info(f"- data_quality: dup_ts_total={day_dup_ts_total} pos_mgmt_mismatch_symbols={day_pos_mgmt_mismatch_symbols} missing_1s_symbols={day_missing_1s_symbols}")  # v0.8.1.21.0
         log.info("="*80)  # v0.8.1.21.0

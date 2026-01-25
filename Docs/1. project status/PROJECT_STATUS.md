@@ -25,7 +25,29 @@ Timeline expectation: ~1–2 focused versions after observability.
 
 ## Latest Completed Version
 
+v0.8.1.32.0 — Completed (post-damage continuation block)
 
+Purpose: Remove a dominant post-damage loss class by blocking premature VWAP reclaim entries until continuation is proven (≥2 of last 3 completed candles green and above VWAP).
+Result (Aug 05–07, Scenario B): 2/3 days had 0 trades; only Aug 06 traded (2 trades, 1W/1L, net -5.32).
+Key finding: v0.8.1.32.0 did not cause zero-trade days (post_damage_continuation fired only 1 time).
+Participation suppressors (telemetry):
+
+2025-08-05: marginal_vwap_gate=1703 (dominant suppressor; caused trade starvation)
+
+2025-08-07: post_damage_entry_lockout=48 (hostile-day suppression)
+Example loss (normal): MYGN SL -2.5% at 10:51; entry was below VWAP with negative VWAP slope / no momentum (normal loss, not a bug).
+
+Next planned version — v0.8.1.33.0 (Participation alignment)
+
+Hypothesis: Zero-trade days are primarily caused by an overly strict marginal VWAP gate; relaxing it will restore participation and better match successful Cameron-style systems.
+Single change (only): Relax marginal VWAP gate from 2-of-3 to 1-of-3 candles (i-1,i-2,i-3) green and above VWAP.
+No other changes: No new filters, no new guards, no refactors, no sizing changes.
+Validation (time-diverse):
+
+Good regime: 2025-08-05 → 2025-08-07 (Scenario B)
+
+Hostile regime: 2025-12-02 → 2025-12-06 (Scenario B)
+Success criteria: Fewer zero-trade days (participation up) while keeping loss control acceptable; quantify via range summary + blocks_total deltas (especially marginal_vwap_gate).
 # PROJECT_STATUS.md — Insert for v0.8.1.31.0
 
 v0.8.1.31.0 (ALIGNMENT) — Narrowed over-broad structural damage lockouts that were causing excessive zero-trade days in Scenario B.
