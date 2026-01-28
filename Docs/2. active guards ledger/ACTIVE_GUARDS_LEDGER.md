@@ -8,6 +8,63 @@ It captures why each guard exists, what failure class it blocks, when it was int
 This is not a per-version summary. Each version adds to this ledger.
 
 Style rule: Latest summary and newest guards appear at the top.
+
+
+Marginal VWAP Gate — Windowed Acceptance (1-of-3)
+
+Guard name: MARGINAL_VWAP_GATE
+Introduced: v0.8.1.11.0
+Adjusted: v0.8.1.33.0
+
+Purpose:
+Prevent low-quality entries on marginal days unless recent price action shows acceptance above VWAP.
+
+Current rule (v0.8.1.33.0):
+
+On marginal days with DAY_GATE enabled, entry requires ≥ 1 of the last 3 completed candles to be green and closed above VWAP.
+
+Candles are evaluated using completed bars only (current forming bar excluded).
+
+Previous rule:
+
+Required ≥ 2 of the last 3 completed candles above VWAP.
+
+Reason for change:
+Telemetry showed the 2-of-3 requirement was the dominant cause of zero-trade days in otherwise healthy regimes.
+
+Validation results:
+
+Good regime (Aug 2025): Participation restored; losses remained small and explainable.
+
+Hostile regime (Dec 2025): No trades; no increase in losses or unsafe behavior.
+
+Known side effects:
+
+Slightly earlier marginal-day entries are now possible.
+
+Does not affect post-damage logic or hostile-day suppression.
+
+Related guards (unchanged):
+
+POST_DAMAGE_CONTINUATION_BLOCK (still requires 2-of-3)
+
+DAY_GATE
+
+CONFIRM_BAR_GUARD
+
+VWAP_EXTENSION_GATE
+
+Default state:
+
+ON
+
+A/B testing procedure:
+
+Compare v0.8.1.32.0 vs v0.8.1.33.0 using identical symbol/date sets.
+
+Primary metrics: zero-trade days, trade count, loss magnitude, regime separation.
+
+
 POST_DAMAGE_CONTINUATION_BLOCK (v0.8.1.32.0)
 
 Purpose:

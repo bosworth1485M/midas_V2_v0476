@@ -1478,7 +1478,7 @@ def run_backtest(
                     else:  # v0.8.1.11.0
                         vwap_map[k] = None  # v0.8.1.11.0
                 
-                # v0.8.1.11.0: Windowed acceptance — require hits>=2 in window {i-1, i-2, i-3}
+                # v0.8.1.33.0: Windowed acceptance — require hits>=1 in window {i-1, i-2, i-3}
                 # v0.8.1.29.0 (ALIGNMENT): skip this gate when insufficient window (i<3)
                 if i >= 3:  # v0.8.1.29.0 (SAFETY)
                     window = [i - 1, i - 2, i - 3]  # v0.8.1.11.0
@@ -1505,11 +1505,11 @@ def run_backtest(
                             if b_check.c > b_check.o and b_check.c > vwap_check:  # v0.8.1.11.0
                                 hits += 1  # v0.8.1.11.0
 
-                    if hits < 2:  # v0.8.1.11.0: reject this entry attempt (delay behavior)
+                    if hits < 1:  # v0.8.1.33.0: require at least 1-of-3 (relaxed)
                         reject_key = f"{date_str}:{sym}:MARGINAL_VWAP_WINDOW_REJECT"  # v0.8.1.11.0
                         if reject_key not in early_reject_logged:  # v0.8.1.11.0
                             candidate_ts = bar.ts if hasattr(bar, 'ts') else f"bar_{i}"  # v0.8.1.11.0
-                            log.warning(f"[WHY] v0.8.1.11.0 MARGINAL_VWAP_WINDOW_REJECT symbol={sym} ts={candidate_ts} hits={hits} fail_idx={fail_idx} window=i-1,i-2,i-3 close={fail_close:.2f} vwap={fail_vwap:.2f}")  # v0.8.1.11.0
+                            log.warning(f"[WHY] v0.8.1.33.0 MARGINAL_VWAP_WINDOW_REJECT symbol={sym} ts={candidate_ts} hits={hits} fail_idx={fail_idx} window=i-1,i-2,i-3 close={fail_close:.2f} vwap={fail_vwap:.2f}")  # v0.8.1.33.0
                             early_reject_logged.add(reject_key)  # v0.8.1.11.0
                         telemetry["count_marginal_vwap_gate_blocks"] += 1  # v0.8.1.20.0
                         continue  # v0.8.1.11.0: skip this bar's entry attempt

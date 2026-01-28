@@ -24,7 +24,42 @@ Success is defined as:
 Timeline expectation: ~1–2 focused versions after observability.
 
 ## Latest Completed Version
+v0.8.1.33.0 — Marginal VWAP Gate Relaxation (Accepted)
 
+Purpose:
+Restore participation by relaxing the marginal VWAP gate, identified via telemetry as the primary cause of zero-trade days.
+
+Change (single, isolated):
+
+Marginal VWAP window relaxed from 2-of-3 → 1-of-3 completed candles above VWAP.
+
+No new filters, no new guards, no refactors, no sizing changes.
+
+Validation:
+
+Good regime (2025-08-05 → 2025-08-07, Scenario B):
+Participation restored (trades occurred on Aug-06); losses small and explainable.
+
+Hostile regime (2025-12-02 → 2025-12-06, Scenario B):
+Zero trades; no degradation or blow-ups.
+
+Outcome:
+
+Confirms marginal VWAP gate was a real participation bottleneck on good days.
+
+Confirms relaxation does not weaken hostile-day safety.
+
+Change is kept.
+
+Project state after this version:
+
+System now correctly trades selectively in good regimes while remaining flat in hostile regimes.
+
+Remaining December zero-trade days are not caused by marginal VWAP.
+
+Next hypothesis (not yet implemented):
+
+Participation suppression in hostile regimes is likely due to DAY_GATE and/or CONFIRM_BAR strictness, not VWAP logic.
 v0.8.1.32.0 — Completed (post-damage continuation block)
 
 Purpose: Remove a dominant post-damage loss class by blocking premature VWAP reclaim entries until continuation is proven (≥2 of last 3 completed candles green and above VWAP).
