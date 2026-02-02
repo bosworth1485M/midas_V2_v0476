@@ -712,14 +712,14 @@ def run_backtest(
     # v0.8.1.9.0: Day-level trade counter (increments only when trade finalizes at TP or SL)
     day_trade_count = 0  # v0.8.1.9.0
     
-    # v0.8.1.27.0 (ALIGNMENT): Day-level throttle state (Scenario B only)
-    throttle_enabled = False  # v0.8.1.27.0 (ALIGNMENT): whether throttle is active (Scenario B only)
-    throttle_class = "off"  # v0.8.1.27.0 (ALIGNMENT): "healthy"|"marginal"|"hostile"|"off"
-    throttle_risk_factor = 1.0  # v0.8.1.27.0 (ALIGNMENT): sizing multiplier (1.0=full, 0.75=marginal, 0.50=hostile)
-    throttle_max_trades = 999999  # v0.8.1.27.0 (ALIGNMENT): max trades allowed today (999999=unlimited for healthy/off)
-    throttle_reason = ""  # v0.8.1.27.0 (ALIGNMENT): reason text from DAY_GATE classification
-    throttle_logged = False  # v0.8.1.27.0 (OBSERVABILITY): ensure throttle summary is logged once per day
-    day_throttle_blocks_logged = set()  # v0.8.1.27.0 (OBSERVABILITY): dedupe max_trades block logs per (symbol, day)
+    # v0.8.1.34.0: Day-level throttle state (Scenario B only, soft throttle replaces hard DAY_GATE block)
+    throttle_enabled = False  # v0.8.1.34.0: whether throttle is active (Scenario B only)
+    throttle_class = "off"  # v0.8.1.34.0: "healthy"|"marginal"|"hostile"|"off"
+    throttle_risk_factor = 1.0  # v0.8.1.34.0: sizing multiplier (1.0=full, 0.75=marginal, 0.50=hostile)
+    throttle_max_trades = 999999  # v0.8.1.34.0: max trades allowed today (999999=unlimited for healthy/off)
+    throttle_reason = ""  # v0.8.1.34.0: reason text from DAY_GATE classification
+    throttle_logged = False  # v0.8.1.34.0: ensure throttle summary is logged once per day
+    day_throttle_blocks_logged = set()  # v0.8.1.34.0: dedupe max_trades block logs per (symbol, day)
     # v0.8.1.28.0 (OBSERVABILITY): ASCENDING-GREEN enforcement announced once per day for Scenario B
     asc_green_enforce_logged = False  # v0.8.1.28.0 (OBSERVABILITY): ensure enable message is logged once per run/day
     
@@ -761,6 +761,7 @@ def run_backtest(
     marginal_eligible_logged = False  # v0.8.1.9.0
     marginal_cap_reached_logged = False  # v0.8.1.9.0
     marginal_stop1loss_eligible_logged = False  # v0.8.1.17.0: separate latch for policy A eligibility log
+    b_soft_throttle_overrides_logged = False  # v0.8.1.34.1: latch for Scenario B soft throttle overriding legacy marginal logic
 
     trades = []
     # v0.8.1.30.0 (OBSERVABILITY): Announce ASC_GREEN state for Scenario B once per run/day
@@ -1374,75 +1375,95 @@ def run_backtest(
                 # else: still within window, keep checking  # v0.8.1.7.0
 
             # entry logic
-            # v0.8.1.27.0 (ALIGNMENT): Compute throttle state for Scenario B, or use legacy effective_day_gate_failed for all other scenarios
+            # v0.8.1.34.0: Compute throttle state for Scenario B (soft throttle), or use legacy effective_day_gate_failed for all other scenarios
             effective_day_gate_failed = day_gate_failed  # v0.8.1.9.0: start with computed value
             
-            # v0.8.1.27.0 (ALIGNMENT): Scenario B throttle conversion (once per day)
-            if (scenario_name or scn) == "B" and require_day_follow_through and not throttle_logged:  # v0.8.1.27.0 (ALIGNMENT): Scenario B + DAY_GATE enabled
-                try:  # v0.8.1.27.0 (SAFETY): fail-closed if throttle params cannot be determined
-                    if is_hostile_day:  # v0.8.1.27.0 (ALIGNMENT): hostile day throttle
-                        throttle_enabled = True  # v0.8.1.27.0 (ALIGNMENT)
-                        throttle_class = "hostile"  # v0.8.1.27.0 (ALIGNMENT)
-                        throttle_risk_factor = 0.50  # v0.8.1.27.0 (ALIGNMENT): 50% size on hostile days
-                        throttle_max_trades = 1  # v0.8.1.27.0 (ALIGNMENT): max 1 trade on hostile days
-                        throttle_reason = f"close_gt_vwap_count={close_gt_vwap_count}"  # v0.8.1.27.0 (OBSERVABILITY)
-                        effective_day_gate_failed = False  # v0.8.1.27.0 (ALIGNMENT): override hard block, enable throttle
-                    elif is_marginal_day:  # v0.8.1.27.0 (ALIGNMENT): marginal day throttle
-                        throttle_enabled = True  # v0.8.1.27.0 (ALIGNMENT)
-                        throttle_class = "marginal"  # v0.8.1.27.0 (ALIGNMENT)
-                        throttle_risk_factor = 0.75  # v0.8.1.27.0 (ALIGNMENT): 75% size on marginal days
-                        throttle_max_trades = 2  # v0.8.1.27.0 (ALIGNMENT): max 2 trades on marginal days
-                        throttle_reason = f"close_gt_vwap_count={close_gt_vwap_count}"  # v0.8.1.27.0 (OBSERVABILITY)
-                        effective_day_gate_failed = False  # v0.8.1.27.0 (ALIGNMENT): override hard block, enable throttle
-                    elif is_healthy_day:  # v0.8.1.27.0 (ALIGNMENT): healthy day (no throttle)
-                        throttle_enabled = False  # v0.8.1.27.0 (ALIGNMENT)
-                        throttle_class = "healthy"  # v0.8.1.27.0 (ALIGNMENT)
-                        throttle_risk_factor = 1.0  # v0.8.1.27.0 (ALIGNMENT): full size on healthy days
-                        throttle_max_trades = 999999  # v0.8.1.27.0 (ALIGNMENT): no cap on healthy days
-                        throttle_reason = f"close_gt_vwap_count={close_gt_vwap_count}"  # v0.8.1.27.0 (OBSERVABILITY)
-                        effective_day_gate_failed = False  # v0.8.1.27.0 (ALIGNMENT): healthy day passes gate
-                    else:  # v0.8.1.27.0 (SAFETY): unexpected state, fail-closed
-                        log.warning("[WHY] v0.8.1.27.0 DAY_GATE_THROTTLE_FALLBACK reason=unexpected_day_class class=%s", day_class)  # v0.8.1.27.0 (SAFETY)
-                        throttle_enabled = False  # v0.8.1.27.0 (SAFETY)
-                        throttle_class = "off"  # v0.8.1.27.0 (SAFETY)
-                        effective_day_gate_failed = day_gate_failed  # v0.8.1.27.0 (SAFETY): keep original behavior
-                    # v0.8.1.27.0 (OBSERVABILITY): Log throttle state once per day
-                    log.info("DAY_GATE_THROTTLE v0.8.1.27.0: scenario=B enabled=%s class=%s risk_factor=%.2f max_trades=%d reason=%s",
-                             throttle_enabled, throttle_class, throttle_risk_factor, throttle_max_trades, throttle_reason)  # v0.8.1.27.0 (OBSERVABILITY)
-                    throttle_logged = True  # v0.8.1.27.0 (OBSERVABILITY): ensure log appears once per day
-                except Exception as exc:  # v0.8.1.27.0 (SAFETY): fail-closed on any error
-                    log.warning("[WHY] v0.8.1.27.0 DAY_GATE_THROTTLE_FALLBACK reason=exception details=%s", str(exc)[:200])  # v0.8.1.27.0 (SAFETY)
-                    throttle_enabled = False  # v0.8.1.27.0 (SAFETY)
-                    effective_day_gate_failed = day_gate_failed  # v0.8.1.27.0 (SAFETY): keep original behavior
+            # v0.8.1.34.0: Scenario B throttle conversion (once per day) - replaces hard DAY_GATE block with soft throttle
+            if (scenario_name or scn) == "B" and require_day_follow_through and not throttle_logged:  # v0.8.1.34.0: Scenario B + DAY_GATE enabled
+                try:  # v0.8.1.34.0: fail-closed if throttle params cannot be determined
+                    if is_hostile_day:  # v0.8.1.34.0: hostile day throttle
+                        throttle_enabled = True  # v0.8.1.34.0
+                        throttle_class = "hostile"  # v0.8.1.34.0
+                        throttle_risk_factor = 0.50  # v0.8.1.34.0: 50% size on hostile days
+                        throttle_max_trades = 1  # v0.8.1.34.0: max 1 trade on hostile days
+                        throttle_reason = f"close_gt_vwap_count={close_gt_vwap_count}"  # v0.8.1.34.0
+                        effective_day_gate_failed = False  # v0.8.1.34.0: override hard block, enable soft throttle
+                    elif is_marginal_day:  # v0.8.1.34.0: marginal day throttle
+                        throttle_enabled = True  # v0.8.1.34.0
+                        throttle_class = "marginal"  # v0.8.1.34.0
+                        throttle_risk_factor = 0.75  # v0.8.1.34.0: 75% size on marginal days
+                        throttle_max_trades = 2  # v0.8.1.34.0: max 2 trades on marginal days
+                        throttle_reason = f"close_gt_vwap_count={close_gt_vwap_count}"  # v0.8.1.34.0
+                        effective_day_gate_failed = False  # v0.8.1.34.0: override hard block, enable soft throttle
+                    elif is_healthy_day:  # v0.8.1.34.0: healthy day (no throttle limits)
+                        throttle_enabled = False  # v0.8.1.34.0
+                        throttle_class = "healthy"  # v0.8.1.34.0
+                        throttle_risk_factor = 1.0  # v0.8.1.34.0: full size on healthy days
+                        throttle_max_trades = 999999  # v0.8.1.34.0: no cap on healthy days
+                        throttle_reason = f"close_gt_vwap_count={close_gt_vwap_count}"  # v0.8.1.34.0
+                        effective_day_gate_failed = False  # v0.8.1.34.0: no hard block, healthy day passes gate
+                    else:  # v0.8.1.34.0: unexpected state, fail-closed
+                        log.warning("[WHY] v0.8.1.34.0 DAY_GATE_THROTTLE_FALLBACK reason=unexpected_day_class class=%s", day_class)  # v0.8.1.34.0
+                        throttle_enabled = False  # v0.8.1.34.0
+                        throttle_class = "off"  # v0.8.1.34.0
+                        effective_day_gate_failed = day_gate_failed  # v0.8.1.34.0: keep original behavior (fail-closed)
+                    # v0.8.1.34.0: Log throttle state once per day
+                    log.info("DAY_GATE_THROTTLE v0.8.1.34.0: scenario=B enabled=%s class=%s risk_factor=%.2f max_trades=%d reason=%s",
+                             throttle_enabled, throttle_class, throttle_risk_factor, throttle_max_trades, throttle_reason)  # v0.8.1.34.0
+                    throttle_logged = True  # v0.8.1.34.0: ensure log appears once per day
+                except Exception as exc:  # v0.8.1.34.0: fail-closed on any error
+                    log.warning("[WHY] v0.8.1.34.0 DAY_GATE_THROTTLE_FALLBACK reason=exception details=%s", str(exc)[:200])  # v0.8.1.34.0
+                    throttle_enabled = False  # v0.8.1.34.0
+                    effective_day_gate_failed = day_gate_failed  # v0.8.1.34.0: keep original behavior (fail-closed)
             
-            # v0.8.1.27.0 (ALIGNMENT): Apply Scenario B throttle effect every bar (do not revert to hard block after throttle_logged)
-            if (scenario_name or scn) == "B" and require_day_follow_through and throttle_enabled and throttle_class in {"marginal", "hostile"}:  # v0.8.1.27.0 (ALIGNMENT)
-                effective_day_gate_failed = False  # v0.8.1.27.0 (ALIGNMENT): throttle is allowed to evaluate candidates (cap/risk applied elsewhere)
+            # v0.8.1.34.0: Apply Scenario B throttle effect every bar (do not revert to hard block after throttle_logged)
+            if (scenario_name or scn) == "B" and require_day_follow_through and throttle_enabled and throttle_class in {"marginal", "hostile"}:  # v0.8.1.34.0
+                effective_day_gate_failed = False  # v0.8.1.34.0: soft throttle allows entry evaluation (cap/risk applied at entry time)
             
-            # v0.8.1.9.0 / v0.8.1.17.0: Legacy marginal-day override logic (now applies to all scenarios including B)
-            if is_marginal_day and marginal_stop1loss_enabled:  # v0.8.1.17.0: new policy branch
-                if marginal_sl_seen:  # v0.8.1.17.0: SL occurred, block all further entries
-                    effective_day_gate_failed = True  # v0.8.1.17.0
+            # v0.8.1.34.1: Determine if Scenario B soft throttle is active (for legacy marginal guard)
+            is_B_soft_throttle_active = ((scenario_name or scn) == "B" and require_day_follow_through and throttle_enabled and throttle_class in {"marginal", "hostile"})  # v0.8.1.34.1
+            
+            # v0.8.1.34.1: Guard legacy marginal-day override logic to preserve Scenario B soft throttle
+            # Scenario B soft throttle must maintain effective_day_gate_failed=False except for marginal_stop_after_1_loss SL
+            if is_B_soft_throttle_active:  # v0.8.1.34.1: Scenario B soft throttle is active
+                # v0.8.1.34.1: ONLY allow marginal_stop_after_1_loss to control entries (when enabled and SL occurred)
+                if is_marginal_day and marginal_stop1loss_enabled and marginal_sl_seen:  # v0.8.1.34.1 / v0.8.1.17.0
+                    effective_day_gate_failed = True  # v0.8.1.17.0: SL occurred, block all further entries
                     reject_key = f"{date_str}:{sym}:MARGINAL_STOP_AFTER_1_LOSS_BLOCK"  # v0.8.1.17.0
                     if reject_key not in early_reject_logged:  # v0.8.1.17.0
                         candidate_ts = bar.ts if hasattr(bar, 'ts') else f"bar_{i}"  # v0.8.1.17.0
                         log.warning(f"[WHY] v0.8.1.17.0 EARLY_REJECT reason=MARGINAL_STOP_AFTER_1_LOSS_BLOCK symbol={sym} ts={candidate_ts} details=sl_seen=True day_trade_count={day_trade_count}")  # v0.8.1.17.0
                         early_reject_logged.add(reject_key)  # v0.8.1.17.0
-                else:  # v0.8.1.17.0: no SL yet, allow entries
-                    effective_day_gate_failed = False  # v0.8.1.17.0
-                    if not marginal_stop1loss_eligible_logged:  # v0.8.1.17.0: use separate latch
-                        log.info("[INFO] v0.8.1.17.0 MARGINAL_STOP_AFTER_1_LOSS_ELIGIBLE sl_seen=False day_trade_count=%d", day_trade_count)  # v0.8.1.17.0
-                        marginal_stop1loss_eligible_logged = True  # v0.8.1.17.0
-            elif is_marginal_day and day_trade_count < 1:  # v0.8.1.9.0: baseline behavior (feature disabled)
-                effective_day_gate_failed = False  # v0.8.1.9.0: allow first trade on marginal day
-                if not marginal_eligible_logged:  # v0.8.1.9.0: log once per day
-                    log.info("[INFO] v0.8.1.9.0 MARGINAL_DAY_ELIGIBLE override_day_gate_failed=True day_trade_count=%d", day_trade_count)  # v0.8.1.9.0
-                    marginal_eligible_logged = True  # v0.8.1.9.0
-            elif is_marginal_day and day_trade_count >= 1 and not ((scenario_name or scn) == "B" and throttle_enabled):  # v0.8.1.9.0 / v0.8.1.27.0 (ALIGNMENT): baseline 1-trade cap, but not for Scenario B throttle
-                effective_day_gate_failed = True  # v0.8.1.9.0: block further entries
-                if not marginal_cap_reached_logged:  # v0.8.1.9.0: log once per day
-                    log.info("[WHY] v0.8.1.9.0 MARGINAL_DAY_TRADE_CAP_REACHED day_trade_count=%d", day_trade_count)  # v0.8.1.9.0
-                    marginal_cap_reached_logged = True  # v0.8.1.9.0
+                # v0.8.1.34.1: Otherwise keep effective_day_gate_failed=False (soft throttle handles caps/risk)
+                # Log once per day that Scenario B soft throttle overrides legacy marginal logic
+                if not b_soft_throttle_overrides_logged:  # v0.8.1.34.1
+                    log.info("[WHY] v0.8.1.34.1 B_SOFT_THROTTLE_OVERRIDES_LEGACY_MARGINAL enabled=True class=%s marginal_stop1loss=%s", throttle_class, marginal_stop1loss_enabled)  # v0.8.1.34.1
+                    b_soft_throttle_overrides_logged = True  # v0.8.1.34.1
+            else:  # v0.8.1.34.1: NOT Scenario B soft throttle, apply legacy marginal-day override logic
+                # v0.8.1.9.0 / v0.8.1.17.0: Legacy marginal-day override logic (all non-B-throttle scenarios)
+                if is_marginal_day and marginal_stop1loss_enabled:  # v0.8.1.17.0: new policy branch
+                    if marginal_sl_seen:  # v0.8.1.17.0: SL occurred, block all further entries
+                        effective_day_gate_failed = True  # v0.8.1.17.0
+                        reject_key = f"{date_str}:{sym}:MARGINAL_STOP_AFTER_1_LOSS_BLOCK"  # v0.8.1.17.0
+                        if reject_key not in early_reject_logged:  # v0.8.1.17.0
+                            candidate_ts = bar.ts if hasattr(bar, 'ts') else f"bar_{i}"  # v0.8.1.17.0
+                            log.warning(f"[WHY] v0.8.1.17.0 EARLY_REJECT reason=MARGINAL_STOP_AFTER_1_LOSS_BLOCK symbol={sym} ts={candidate_ts} details=sl_seen=True day_trade_count={day_trade_count}")  # v0.8.1.17.0
+                            early_reject_logged.add(reject_key)  # v0.8.1.17.0
+                    else:  # v0.8.1.17.0: no SL yet, allow entries
+                        effective_day_gate_failed = False  # v0.8.1.17.0
+                        if not marginal_stop1loss_eligible_logged:  # v0.8.1.17.0: use separate latch
+                            log.info("[INFO] v0.8.1.17.0 MARGINAL_STOP_AFTER_1_LOSS_ELIGIBLE sl_seen=False day_trade_count=%d", day_trade_count)  # v0.8.1.17.0
+                            marginal_stop1loss_eligible_logged = True  # v0.8.1.17.0
+                elif is_marginal_day and day_trade_count < 1:  # v0.8.1.9.0: baseline behavior (feature disabled)
+                    effective_day_gate_failed = False  # v0.8.1.9.0: allow first trade on marginal day
+                    if not marginal_eligible_logged:  # v0.8.1.9.0: log once per day
+                        log.info("[INFO] v0.8.1.9.0 MARGINAL_DAY_ELIGIBLE override_day_gate_failed=True day_trade_count=%d", day_trade_count)  # v0.8.1.9.0
+                        marginal_eligible_logged = True  # v0.8.1.9.0
+                elif is_marginal_day and day_trade_count >= 1:  # v0.8.1.9.0: baseline 1-trade cap (non-B or non-throttle scenarios)
+                    effective_day_gate_failed = True  # v0.8.1.9.0: block further entries
+                    if not marginal_cap_reached_logged:  # v0.8.1.9.0: log once per day
+                        log.info("[WHY] v0.8.1.9.0 MARGINAL_DAY_TRADE_CAP_REACHED day_trade_count=%d", day_trade_count)  # v0.8.1.9.0
+                        marginal_cap_reached_logged = True  # v0.8.1.9.0
 
             # v0.8.1.8.1: Log early reject for day gate before combined check
             if effective_day_gate_failed and position is None and pending_entry is None:  # v0.8.1.9.0: use effective_day_gate_failed
@@ -1825,15 +1846,15 @@ def run_backtest(
                         continue  # v0.8.1.23.0: skip this bar's entry attempt
                     # v0.8.1.24.0: else escape_hatch_allowed_at_i is True, allow entry attempt to proceed
                 
-                # v0.8.1.27.0 (SAFETY): Throttle max_trades enforcement (Scenario B only)
-                if (scenario_name or scn) == "B" and throttle_enabled and throttle_class in {"marginal", "hostile"}:  # v0.8.1.27.0 (SAFETY)
-                    if day_trade_count >= throttle_max_trades:  # v0.8.1.27.0 (SAFETY): max trades reached for the day
-                        throttle_block_key = f"{date_str}:{sym}:DAY_THROTTLE_MAX_TRADES_BLOCK"  # v0.8.1.27.0 (OBSERVABILITY): dedupe key
-                        if throttle_block_key not in day_throttle_blocks_logged:  # v0.8.1.27.0 (OBSERVABILITY): log once per symbol/day
-                            candidate_ts = bar.ts if hasattr(bar, 'ts') else f"bar_{i}"  # v0.8.1.27.0 (OBSERVABILITY)
-                            log.warning(f"[WHY] v0.8.1.27.0 DAY_THROTTLE_MAX_TRADES_BLOCK symbol={sym} ts={candidate_ts} limit={throttle_max_trades} class={throttle_class}")  # v0.8.1.27.0 (OBSERVABILITY)
-                            day_throttle_blocks_logged.add(throttle_block_key)  # v0.8.1.27.0 (OBSERVABILITY)
-                        continue  # v0.8.1.27.0 (SAFETY): skip this bar's entry attempt
+                # v0.8.1.34.0: Throttle max_trades enforcement (Scenario B only)
+                if (scenario_name or scn) == "B" and throttle_enabled and throttle_class in {"marginal", "hostile"}:  # v0.8.1.34.0
+                    if day_trade_count >= throttle_max_trades:  # v0.8.1.34.0: max trades reached for the day
+                        throttle_block_key = f"{date_str}:{sym}:DAY_THROTTLE_MAX_TRADES_BLOCK"  # v0.8.1.34.0: dedupe key
+                        if throttle_block_key not in day_throttle_blocks_logged:  # v0.8.1.34.0: log once per symbol/day
+                            candidate_ts = bar.ts if hasattr(bar, 'ts') else f"bar_{i}"  # v0.8.1.34.0
+                            log.warning(f"[WHY] v0.8.1.34.0 DAY_THROTTLE_MAX_TRADES_BLOCK symbol={sym} ts={candidate_ts} limit={throttle_max_trades} class={throttle_class}")  # v0.8.1.34.0
+                            day_throttle_blocks_logged.add(throttle_block_key)  # v0.8.1.34.0
+                        continue  # v0.8.1.34.0: skip this bar's entry attempt
                 
                 # v0.8.1.32.0: POST_DAMAGE_CONTINUATION_BLOCK (normal path)
                 # Block post-damage VWAP-reclaim entries unless recent continuation is proven
@@ -1929,15 +1950,15 @@ def run_backtest(
                 try:
                     tier = sizer.pick_tier(tier_ctx)
                     risk_usd = sizer.per_trade_risk_usd(tier)
-                    # v0.8.1.27.0 (ALIGNMENT): Apply throttle risk_factor for Scenario B
-                    risk_usd_effective = risk_usd  # v0.8.1.27.0 (ALIGNMENT): default to unscaled
-                    if (scenario_name or scn) == "B" and throttle_enabled and throttle_class in {"marginal", "hostile"}:  # v0.8.1.27.0 (ALIGNMENT)
-                        risk_usd_effective = risk_usd * throttle_risk_factor  # v0.8.1.27.0 (ALIGNMENT): scale by throttle factor
+                    # v0.8.1.34.0: Apply throttle risk_factor for Scenario B soft throttle
+                    risk_usd_effective = risk_usd  # v0.8.1.34.0: default to unscaled
+                    if (scenario_name or scn) == "B" and throttle_enabled and throttle_class in {"marginal", "hostile"}:  # v0.8.1.34.0
+                        risk_usd_effective = risk_usd * throttle_risk_factor  # v0.8.1.34.0: scale by throttle factor
                     if sizer.s.enabled and risk_usd_effective > 0:
-                        sized_qty = sizer.shares_for(entry, sl, risk_usd_effective)  # v0.8.1.27.0 (ALIGNMENT): use effective risk
+                        sized_qty = sizer.shares_for(entry, sl, risk_usd_effective)  # v0.8.1.34.0: use effective risk
                         if sized_qty > 0:
                             qty = sized_qty
-                            log.info(  # v0.8.1.27.0 (OBSERVABILITY): show base + effective risk + throttle factor
+                            log.info(  # v0.8.1.34.0: show base + effective risk + throttle factor
                                 f"[SIZE] {sym} tier={tier} risk_usd_base={risk_usd:.2f} "
                                 f"risk_usd_eff={risk_usd_effective:.2f} throttle_factor={throttle_risk_factor:.2f} "
                                 f"entry={entry:.4f} sl={sl:.4f} qty={qty}"
@@ -2509,10 +2530,10 @@ def run_backtest(
             minutes_stats = "count=0 min=N/A p50=N/A max=N/A"  # v0.8.1.21.0
         
         log.info("="*80)  # v0.8.1.21.0
-        # v0.8.1.27.0 (OBSERVABILITY): Add throttle fields for Scenario B
-        if (scenario_name or scn) == "B":  # v0.8.1.27.0 (OBSERVABILITY)
-            log.info(f"REGIME_SUMMARY v0.8.1.21.0 | date={date_str} | scenario={scenario_name or scn or 'UNKNOWN'} | class={day_class} | throttle_enabled={throttle_enabled} throttle_class={throttle_class} throttle_factor={throttle_risk_factor:.2f} throttle_max_trades={throttle_max_trades}")  # v0.8.1.21.0 / v0.8.1.27.0 (OBSERVABILITY)
-        else:  # v0.8.1.27.0 (OBSERVABILITY): non-B scenarios unchanged
+        # v0.8.1.34.0: Add throttle fields for Scenario B (soft throttle)
+        if (scenario_name or scn) == "B":  # v0.8.1.34.0
+            log.info(f"REGIME_SUMMARY v0.8.1.21.0 | date={date_str} | scenario={scenario_name or scn or 'UNKNOWN'} | class={day_class} | throttle_enabled={throttle_enabled} throttle_class={throttle_class} throttle_factor={throttle_risk_factor:.2f} throttle_max_trades={throttle_max_trades}")  # v0.8.1.21.0 / v0.8.1.34.0
+        else:  # v0.8.1.34.0: non-B scenarios unchanged
             log.info(f"REGIME_SUMMARY v0.8.1.21.0 | date={date_str} | scenario={scenario_name or scn or 'UNKNOWN'} | class={day_class}")  # v0.8.1.21.0
         log.info(f"- universe_symbols={universe_symbols}")  # v0.8.1.21.0
         log.info(f"- trades_closed={trades_closed} tp={tp_count} sl={sl_count} winrate={winrate:.2f}")  # v0.8.1.21.0

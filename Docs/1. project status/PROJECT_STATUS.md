@@ -24,6 +24,97 @@ Success is defined as:
 Timeline expectation: ~1–2 focused versions after observability.
 
 ## Latest Completed Version
+
+
+Project Status Update — v0.8.1.34.1
+Latest Completed Version
+
+v0.8.1.34.1 — Scenario B DAY_GATE Soft Throttle Invariance Fix
+
+What Was Accomplished
+
+Standardized DAY_GATE consequence for Scenario B as a soft throttle (risk scaling + trade caps), replacing latent hard-block behavior.
+
+Removed a correctness flaw where legacy marginal-day logic could re-enable effective_day_gate_failed=True after throttle activation.
+
+Preserved all intended safety policies, including marginal_stop_after_1_loss (v0.8.1.17.0).
+
+Added explicit observability confirming when Scenario B soft throttle overrides legacy marginal logic.
+
+Resulting invariant:
+
+Once Scenario B soft throttle is active, DAY_GATE will not hard-block entries again during the trading day (except via stop-after-loss policy).
+
+Validation Summary
+
+Sanity cluster (Scenario B):
+
+2025-08-05 → 2025-08-07
+
+Aug-05: 0 trades (blocked by entry guards, not regime gating)
+
+Aug-06: 2 trades (1 TP, 1 SL) — soft throttle correctly allowed participation
+
+Aug-07: 0 trades — hostile day protections held
+
+Conclusion:
+DAY_GATE is no longer a participation bottleneck.
+Soft throttle behavior is correct, stable, and observable.
+
+Current System State (Important)
+
+Scenario B regime control is now correct and locked.
+
+Remaining lack of participation is not caused by DAY_GATE.
+
+Dominant entry suppressors observed:
+
+MARGINAL_VWAP_WINDOW_REJECT
+
+VWAP_EXTENSION_BLOCK
+
+Post-damage continuation logic (hostile days)
+
+This confirms the project has moved from regime correctness to entry-quality tuning.
+
+Active Guards (No Change in This Version)
+
+Post-damage entry lockout (hostile-only)
+
+Post-damage continuation block
+
+VWAP extension gate
+
+Marginal VWAP window
+
+Confirm-bar execution guard
+
+Marginal stop-after-1-loss (policy preserved)
+
+(See ACTIVE_GUARDS_LEDGER.md for full guard definitions.)
+
+Dominant Remaining Failure Class
+
+Marginal-day setups with acceptable structure are being blocked by VWAP-related entry rules rather than regime or safety logic.
+
+This is now the primary opportunity for participation improvement.
+
+Next Planned Version
+
+v0.8.1.35.0 — Marginal-Day VWAP Entry Rule Tuning (One Lever Only)
+
+Hypothesis (proposed):
+Marginal-day participation is overly suppressed by the Marginal VWAP Window gate.
+
+Validation plan:
+
+Sanity: 2025-08-05 → 2025-08-07
+
+Protection: 2025-12-02 → 2025-12-05
+
+No scope expansion without a new hypothesis.
+
+
 v0.8.1.33.0 — Marginal VWAP Gate Relaxation (Accepted)
 
 Purpose:

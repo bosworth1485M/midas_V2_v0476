@@ -8,7 +8,114 @@ It captures why each guard exists, what failure class it blocks, when it was int
 This is not a per-version summary. Each version adds to this ledger.
 
 Style rule: Latest summary and newest guards appear at the top.
+Active Guard Entry — v0.8.1.34.1
+Guard Name
 
+Scenario B DAY_GATE Soft Throttle (Invariance-Enforced)
+
+Purpose
+
+Prevent regime-level overtrading on weak or hostile days while avoiding zero-trade suppression caused by binary DAY_GATE blocking.
+
+This guard ensures Scenario B follows Cameron-style regime throttling, not hard gating.
+
+Failure Class Blocked
+
+Full-day hard lockout caused by DAY_GATE on marginal or hostile days despite viable intraday setups.
+
+Latent re-introduction of hard blocking via legacy marginal-day logic after throttle activation.
+
+Behavior (Current / Correct)
+
+Scenario B only
+
+Day Class	Behavior
+Healthy	No throttle (full participation)
+Marginal	Soft throttle: reduced risk + capped trades
+Hostile	Soft throttle: heavily reduced risk + very limited trades
+
+Key invariant (v0.8.1.34.1):
+
+Once Scenario B soft throttle is active, DAY_GATE will not hard-block entries again during the trading day.
+
+Exceptions (Preserved by Design)
+
+marginal_stop_after_1_loss (v0.8.1.17.0)
+
+If enabled and an SL occurs on a marginal day, further entries are blocked.
+
+This is a policy guard, not a regime gate, and remains authoritative.
+
+ON / OFF Conditions
+
+ON when:
+
+Scenario = B
+
+DAY_GATE enabled
+
+Day classified as marginal or hostile
+
+OFF when:
+
+Scenario ≠ B
+
+DAY_GATE disabled
+
+Day classified as healthy
+
+Non-B scenarios continue to use legacy DAY_GATE behavior unchanged.
+
+Observability
+
+Emitted once per day when active:
+
+[WHY] v0.8.1.34.1 B_SOFT_THROTTLE_OVERRIDES_LEGACY_MARGINAL
+
+
+Confirms that:
+
+Soft throttle is active
+
+Legacy marginal-day logic is suppressed
+
+Hard DAY_GATE block will not reappear intraday
+
+Known Side Effects
+
+Marginal days may still show 0 trades if:
+
+VWAP extension gate blocks entries
+
+Marginal VWAP window rejects setups
+
+Post-damage continuation rules apply
+
+These are entry-quality guards, not regime guards.
+
+A/B Testing Procedure
+
+A (pre-fix): v0.8.1.34.0
+B (current): v0.8.1.34.1
+
+Validation clusters:
+
+Sanity: 2025-08-05 → 2025-08-07 (Scenario B)
+
+Protection: 2025-12-02 → 2025-12-05 (Scenario B)
+
+Expected difference:
+
+B eliminates latent DAY_GATE hard-block reappearance.
+
+Trade outcomes differ only where legacy marginal logic previously suppressed entries.
+
+Status
+
+ACTIVE — REQUIRED
+
+This guard is structural correctness, not experimental.
+Do not disable unless explicitly A/B testing DAY_GATE behavior.
 
 Marginal VWAP Gate — Windowed Acceptance (1-of-3)
 

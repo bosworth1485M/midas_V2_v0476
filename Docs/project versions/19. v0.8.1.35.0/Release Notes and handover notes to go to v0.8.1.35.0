@@ -1,0 +1,146 @@
+Release Notes — v0.8.1.34.1
+Purpose
+
+Preserve Scenario B soft-throttle behavior by preventing legacy marginal-day logic from re-introducing a hard DAY_GATE block.
+
+This version is a correctness + invariance fix, not a signal change.
+
+What Changed (Single Behavior Fix)
+Scenario B only
+
+DAY_GATE consequence is now fully standardized as a soft throttle
+
+Legacy marginal-day override logic can no longer re-enable effective_day_gate_failed=True
+
+Only exception preserved: marginal_stop_after_1_loss (v0.8.1.17.0) may halt trading after an SL on marginal days (by design)
+
+A new invariant now holds:
+
+Once Scenario B soft throttle is active, DAY_GATE will not hard-block entries again during the day.
+
+What Did NOT Change
+
+DAY_GATE prepass logic
+
+Day classification (healthy / marginal / hostile)
+
+VWAP logic
+
+Marginal VWAP window logic
+
+VWAP extension gate
+
+Post-damage guards
+
+Confirm-bar logic
+
+Risk model (only throttle scaling already in place)
+
+Non-B scenarios
+
+Observability Added
+
+New log (once per day when applicable):
+
+[WHY] v0.8.1.34.1 B_SOFT_THROTTLE_OVERRIDES_LEGACY_MARGINAL
+
+
+Confirms that soft throttle is actively overriding legacy marginal behavior.
+
+Validation Performed
+Sanity cluster (Scenario B)
+
+2025-08-05 → 2025-08-07
+
+Results:
+
+Aug 05: 0 trades (blocked by entry guards, not DAY_GATE)
+
+Aug 06: 2 trades (1 TP, 1 SL), soft throttle correctly allowed participation
+
+Aug 07: 0 trades (hostile day; post-damage + VWAP guards correctly blocked)
+
+Key confirmation:
+
+DAY_GATE is no longer a participation bottleneck
+
+Soft throttle invariant holds across marginal and hostile days
+
+Conclusion
+
+v0.8.1.34.1 successfully removes DAY_GATE as a latent choke point and restores correct Cameron-style regime handling for Scenario B.
+
+This version is complete and safe to tag.
+
+Handover Notes — Start of v0.8.1.35.0
+Context
+
+As of v0.8.1.34.1:
+
+Scenario B regime control is now correct
+
+Soft throttle works as intended
+
+Legacy marginal logic no longer interferes
+
+Remaining lack of participation is not caused by DAY_GATE
+
+Current System State (Important)
+
+Scenario B
+
+DAY_GATE → soft throttle (working)
+
+Marginal days → capped participation (working)
+
+Hostile days → protected by post-damage + VWAP logic (working)
+
+Dominant remaining blockers (observed in logs):
+
+MARGINAL_VWAP_WINDOW_REJECT (very frequent)
+
+VWAP_EXTENSION_BLOCK
+
+Post-damage continuation rules (hostile days)
+
+Open Problem (Carried Forward)
+
+Participation on marginal days is now limited primarily by VWAP-related entry guards, not by regime gating.
+
+This is a signal-quality tuning problem, not a safety or regime problem.
+
+Next Version Hypothesis (v0.8.1.35.0)
+
+Marginal-day participation is overly suppressed by the Marginal VWAP Window gate, even when structure and regime are acceptable.
+
+Scope Rules for v0.8.1.35.0
+
+One lever only
+
+Must affect marginal days only
+
+Must not weaken hostile-day protection
+
+Candidate levers (choose one explicitly):
+
+Marginal VWAP window behavior
+or
+
+VWAP extension cap on marginal days
+
+Validation Pattern (Must Follow)
+Sanity cluster
+
+2025-08-05 → 2025-08-07 (Scenario B)
+
+Protection cluster
+
+2025-12-02 → 2025-12-05 (Scenario B)
+
+No additional days unless behavior is ambiguous.
+
+Start Condition for v0.8.1.35.0
+
+Before writing any code, state explicitly:
+
+“This version tests whether marginal-day VWAP entry rules are overly restrictive, using Aug 05–07 as sanity and Dec 02–05 as protection.”
