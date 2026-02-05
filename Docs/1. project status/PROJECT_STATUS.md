@@ -22,10 +22,93 @@ Success is defined as:
 - clear A/B separation.
 
 Timeline expectation: ~1–2 focused versions after observability.
+Forward Roadmap (Tentative, Directional Only)
 
+These are intent markers, not commitments.
+Details will be defined only after prior validation passes.
+
+v0.8.1.37.0 – v0.8.1.38.0
+Improve consistency of healthy-day participation once entry timing is validated.
+
+v0.8.1.39.0+
+Begin controlled profitability phase: confirm positive expectancy, then explore cautious sizing and trade management.
+
+Explicit non-goals (for future reference)
+
+No indicator proliferation
+
+No curve-fitting to August
+
+No hostile-day loosening
+
+No sizing changes before positive expectancy is proven
+
+One-sentence summary
+
+v0.8.1.35.0 safely removes marginal-day friction; the path to profitability now runs through healthy-day entry timing, not additional filters.
 ## Latest Completed Version
 
+Project Status — v0.8.1.35.0 (LOCKED)
 
+Version: v0.8.1.35.0
+Date: 2026-02-02
+Scenario focus: B (Cameron-style primary)
+
+What changed in this version
+
+Made Marginal VWAP Window lookback configurable (Scenario B set to 5 bars; others default to 3).
+
+No change to hit rules, entry logic, hostile-day protection, or post-damage guards.
+
+Observability cleanup: ensured marginal VWAP config logs dedupe correctly (once per symbol/day).
+
+Why this version exists
+
+This version addresses over-aggressive early rejection on marginal days, which was suppressing valid price discovery before structure could resolve.
+The goal was to reduce unnecessary friction without increasing risk.
+
+Validation performed
+
+Sanity check: 2025-08-05 → 2025-08-07 (A/B vs v0.8.1.34.0)
+
+Behavior improved (later marginal rejections), no regression.
+
+Protection check: 2025-12-02 → 2025-12-05 (A/B)
+
+Hostile-day protection unchanged, no leakage.
+
+Wide confirmation: 2025-08-01 → 2025-08-31
+
+No PnL regression; marginal VWAP gate fires later and less prematurely.
+
+Current system state (important)
+
+Hostile days: blocked correctly
+
+Marginal days: no longer over-choked
+
+Healthy days: still under-traded
+
+System behavior: stable, explainable, and safe
+
+This version is LOCKED and becomes part of the baseline.
+
+Next Planned Version (v0.8.1.36.0)
+
+Hypothesis:
+Improve healthy-day entry timing (post-VWAP heal / continuation timing) to increase participation without loosening hostile-day protection.
+
+Constraints:
+
+One behavioral lever only
+
+No changes to hostile-day logic
+
+No guard removals
+
+Must show benefit first on healthy days before affecting sizing or frequency
+
+Success criterion: healthy days begin to show more timely entries with no increase in drawdown.
 Project Status Update — v0.8.1.34.1
 Latest Completed Version
 

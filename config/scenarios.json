@@ -109,7 +109,8 @@
       "post_entry_expansion_gate": true,
       "post_entry_expansion_minutes": 2,
       "post_entry_expansion_min_bps": 10,
-      "marginal_stop_after_1_loss": false
+      "marginal_stop_after_1_loss": false,
+      "marginal_vwap_window_bars": 5
     }
   },
   "B_backup": {

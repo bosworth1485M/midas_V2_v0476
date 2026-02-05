@@ -451,6 +451,13 @@ def run_backtest(
         vwap_extension_max_pct = 1.5  # v0.8.1.3.0
     reject_reclaim_after_damage = scenario_params.get("reject_reclaim_after_damage", False) if isinstance(scenario_params, dict) else False  # v0.8.1.4.0
     auto_struct_damage_from_day_gate = scenario_params.get("auto_struct_damage_from_day_gate", False) if isinstance(scenario_params, dict) else False  # v0.8.1.5.0
+    # v0.8.1.35.0: Configurable marginal VWAP window length (Scenario B sets to 5; others default 3)
+    marginal_vwap_window_bars = scenario_params.get("marginal_vwap_window_bars", 3) if isinstance(scenario_params, dict) else 3  # v0.8.1.35.0
+    try:
+        marginal_vwap_window_bars = int(marginal_vwap_window_bars)
+    except (ValueError, TypeError):
+        marginal_vwap_window_bars = 3  # v0.8.1.35.0: fall back to default
+    marginal_vwap_window_bars = max(3, min(10, marginal_vwap_window_bars))  # v0.8.1.35.0: clamp to [3, 10]
 
     # v0.8.1.5.0: Initialize close_gt_vwap_count before DAY_GATE block
     close_gt_vwap_count = 0  # v0.8.1.5.0
@@ -1499,10 +1506,20 @@ def run_backtest(
                     else:  # v0.8.1.11.0
                         vwap_map[k] = None  # v0.8.1.11.0
                 
-                # v0.8.1.33.0: Windowed acceptance — require hits>=1 in window {i-1, i-2, i-3}
-                # v0.8.1.29.0 (ALIGNMENT): skip this gate when insufficient window (i<3)
-                if i >= 3:  # v0.8.1.29.0 (SAFETY)
-                    window = [i - 1, i - 2, i - 3]  # v0.8.1.11.0
+                # v0.8.1.33.0 / v0.8.1.35.0: Windowed acceptance — require hits>=1 in dynamic window
+                # v0.8.1.29.0 (ALIGNMENT): skip this gate when insufficient window (i < marginal_vwap_window_bars)
+                # v0.8.1.35.0: Log config once per symbol/day when window != 3 (dedupe via collision-proof key)
+                if i >= marginal_vwap_window_bars:  # v0.8.1.35.0: use dynamic window length
+                    # v0.8.1.35.0: Log window config once per symbol/day when non-default
+                    if marginal_vwap_window_bars != 3:  # v0.8.1.35.0
+                        try:  # v0.8.1.35.0
+                            config_key = f"INFO:{date_str}:{sym}:MARGINAL_VWAP_WINDOW_CONFIG"  # v0.8.1.35.0: collision-proof prefix
+                            if config_key not in early_reject_logged:  # v0.8.1.35.0
+                                log.info(f"[WHY] v0.8.1.35.0 MARGINAL_VWAP_WINDOW_CONFIG symbol={sym} window_bars={marginal_vwap_window_bars}")  # v0.8.1.35.0
+                                early_reject_logged.add(config_key)  # v0.8.1.35.0
+                        except Exception:  # v0.8.1.35.0
+                            pass  # v0.8.1.35.0
+                    window = [i - k for k in range(1, marginal_vwap_window_bars + 1)]  # v0.8.1.35.0: dynamic window
                     hits = 0  # v0.8.1.11.0
                     fail_close = 0.0  # v0.8.1.11.0: for logging only
                     fail_vwap = 0.0  # v0.8.1.11.0: for logging only
@@ -1526,20 +1543,21 @@ def run_backtest(
                             if b_check.c > b_check.o and b_check.c > vwap_check:  # v0.8.1.11.0
                                 hits += 1  # v0.8.1.11.0
 
-                    if hits < 1:  # v0.8.1.33.0: require at least 1-of-3 (relaxed)
+                    if hits < 1:  # v0.8.1.33.0: require at least 1-of-window (relaxed)
                         reject_key = f"{date_str}:{sym}:MARGINAL_VWAP_WINDOW_REJECT"  # v0.8.1.11.0
                         if reject_key not in early_reject_logged:  # v0.8.1.11.0
                             candidate_ts = bar.ts if hasattr(bar, 'ts') else f"bar_{i}"  # v0.8.1.11.0
-                            log.warning(f"[WHY] v0.8.1.33.0 MARGINAL_VWAP_WINDOW_REJECT symbol={sym} ts={candidate_ts} hits={hits} fail_idx={fail_idx} window=i-1,i-2,i-3 close={fail_close:.2f} vwap={fail_vwap:.2f}")  # v0.8.1.33.0
+                            window_range = f"i-1..i-{marginal_vwap_window_bars}"  # v0.8.1.35.0: dynamic window range
+                            log.warning(f"[WHY] v0.8.1.35.0 MARGINAL_VWAP_WINDOW_REJECT symbol={sym} ts={candidate_ts} hits={hits} fail_idx={fail_idx} window={window_range} close={fail_close:.2f} vwap={fail_vwap:.2f}")  # v0.8.1.35.0
                             early_reject_logged.add(reject_key)  # v0.8.1.11.0
                         telemetry["count_marginal_vwap_gate_blocks"] += 1  # v0.8.1.20.0
                         continue  # v0.8.1.11.0: skip this bar's entry attempt
-                else:  # v0.8.1.29.0 (ALIGNMENT): insufficient lookback window, skip this gate (do not reject)
+                else:  # v0.8.1.29.0 (ALIGNMENT) / v0.8.1.35.0: insufficient lookback window, skip this gate (do not reject)
                     try:  # v0.8.1.29.0 (OBSERVABILITY): optional low-noise breadcrumb (deduped)
                         info_key = f"{date_str}:{sym}:MARGINAL_VWAP_WINDOW_INSUFFICIENT"  # v0.8.1.29.0 (OBSERVABILITY)
                         if info_key not in early_reject_logged:
                             candidate_ts = bar.ts if hasattr(bar, 'ts') else f"bar_{i}"
-                            log.info(f"[WHY] v0.8.1.29.0 MARGINAL_VWAP_WINDOW_INSUFFICIENT symbol={sym} ts={candidate_ts} i={i}")  # v0.8.1.29.0 (OBSERVABILITY)
+                            log.info(f"[WHY] v0.8.1.35.0 MARGINAL_VWAP_WINDOW_INSUFFICIENT symbol={sym} ts={candidate_ts} i={i} need={marginal_vwap_window_bars}")  # v0.8.1.35.0
                             early_reject_logged.add(info_key)
                     except Exception:
                         pass  # v0.8.1.29.0 (SAFETY)

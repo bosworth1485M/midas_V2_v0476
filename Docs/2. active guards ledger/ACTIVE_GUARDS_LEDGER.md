@@ -8,6 +8,83 @@ It captures why each guard exists, what failure class it blocks, when it was int
 This is not a per-version summary. Each version adds to this ledger.
 
 Style rule: Latest summary and newest guards appear at the top.
+
+
+## v0.8.1.35.0
+
+**Status:** ACTIVE / BASELINE  
+**Scope:** Scenario B (primary Cameron-style)
+
+---
+
+### MARGINAL_VWAP_WINDOW_GATE (v0.8.1.11.0 → v0.8.1.35.0)
+- **Purpose:** Prevent premature entries on marginal days before VWAP structure stabilizes.
+- **Change in v0.8.1.35.0:**  
+  - Lookback window made configurable.  
+  - Scenario B uses **5 bars**; other scenarios default to **3 bars**.
+- **Hit rule:** Unchanged (green candle + close above VWAP).
+- **Behavioral impact:**  
+  - Marginal-day rejections occur later, allowing more price discovery.
+  - No increase in entries on hostile days.
+- **Validation:**  
+  - Aug 05–07 sanity: later marginal rejections, no regression.  
+  - Dec 02–05 protection: no leakage.  
+  - Aug 01–31 wide: no PnL regression.
+- **Status:** **ON (parameterized, safe)**
+
+---
+
+### DAY_GATE (v0.8.1.6.0)
+- **Purpose:** Classify day as hostile / marginal / healthy.
+- **Status:** **ON**
+
+---
+
+### DAY_GATE_THROTTLE (v0.8.1.34.0)
+- **Purpose:** Reduce exposure on marginal and hostile days.
+- **Status:** **ON**
+
+---
+
+### POST_DAMAGE_ENTRY_LOCKOUT (v0.8.1.23.0 / v0.8.1.31.0)
+- **Purpose:** Block new entries after structural damage.
+- **Scope:** Hostile days only
+- **Status:** **ON**
+
+---
+
+### POST_DAMAGE_CONTINUATION_BLOCK (v0.8.1.32.0)
+- **Purpose:** Prevent continuation entries immediately after structural damage.
+- **Status:** **ON**
+
+---
+
+### VWAP_EXTENSION_GATE (v0.8.1.1.0)
+- **Purpose:** Block overextended entries.
+- **Status:** **ON**
+
+---
+
+### CONFIRM_BAR_GUARD (v0.8.1.8.1)
+- **Purpose:** Require confirmation before entry.
+- **Status:** **ON**
+
+---
+
+### ASC_GREEN (v0.8.1.30.0)
+- **Purpose:** Ascending green requirement.
+- **Scenario B:** **OFF**
+
+---
+
+### Guard Invariants (Do Not Break)
+- Hostile days must not produce trades.
+- Post-damage entries must remain blocked.
+- Marginal-day throttling must remain active.
+- No guard removal without explicit A/B validation.
+
+
+
 Active Guard Entry — v0.8.1.34.1
 Guard Name
 
